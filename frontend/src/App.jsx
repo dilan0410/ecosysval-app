@@ -4,6 +4,9 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 // Navbar en components
 import Navbar from "./components/Navbar";
 
+// NUEVO IMPORT: Componente para proteger rutas
+import ProtectedRoute from "./components/ProtectedRoute";
+
 // Pages
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
@@ -38,6 +41,10 @@ import Recomendaciones from "./pages/Recomendaciones";
 import Favoritos from "./pages/Favoritos";
 import Contactos from "./pages/Contactos";
 import Eventos from "./pages/Eventos";
+
+// NUEVA PÁGINA: Panel de Administrador
+import Admin from "./pages/Admin";
+
 function AppContent() {
   const location = useLocation();
 
@@ -90,6 +97,16 @@ function AppContent() {
           <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/contactos" element={<Contactos />} />
           <Route path="/eventos" element={<Eventos />} />
+          
+          {/* NUEVA RUTA PROTEGIDA: Panel de Admin */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <Admin />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </div>
     </>

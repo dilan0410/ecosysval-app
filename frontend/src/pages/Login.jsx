@@ -24,10 +24,16 @@ function Login() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/profile");
-      } else {
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    
+    // Redirigir según el rol del usuario
+    if (data.user.role === 'admin') {
+      navigate("/admin");  // Si es admin, va al panel admin
+    } else {
+      navigate("/profile"); // Si es usuario normal, va a su perfil
+    }
+  } else {
         setMessage(data.message || "Credenciales incorrectas");
       }
     } catch (error) {

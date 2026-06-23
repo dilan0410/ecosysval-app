@@ -9,6 +9,7 @@ import {
   Patch,
   UploadedFile,
   UseInterceptors,
+  UseGuards, //nuevo
   BadRequestException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -16,6 +17,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 import { extname, join } from 'path';
+
+// NUEVOS IMPORTS PARA PROTECCIÓN
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/guards/roles.decorator';
 
 @Controller('users')
 export class UserController {
@@ -39,7 +45,7 @@ export class UserController {
   };
 
   // =========================
-  // Crear usuario (registro)
+  // Crear usuario (registro) - PÚBLICO (cualquiera puede registrarse)
   // =========================
   @Post()
   async create(@Body() user: any) {
@@ -51,32 +57,37 @@ export class UserController {
   }
 
   // =========================
-  // Obtener todos los usuarios
+  // Obtener todos los usuarios - SOLO ADMIN
   // =========================
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Get()
   async findAll() {
     return this.userService.findAll();
   }
 
   // =========================
-  // Obtener un usuario por ID
+  // Obtener un usuario por ID - SOLO AUTENTICADOS
   // =========================
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.userService.findOne(Number(id));
   }
 
   // =========================
-  // Actualizar usuario (datos)
+  // Actualizar usuario - SOLO AUTENTICADOS
   // =========================
+  @UseGuards(JwtAuthGuard)
   @Put(':id')
   async update(@Param('id') id: string, @Body() user: any) {
     return this.userService.update(Number(id), user);
   }
 
   // =========================
-  // Subir imagen de perfil
+  // Subir imagen de perfil - SOLO AUTENTICADOS
   // =========================
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/profile-image')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -118,8 +129,9 @@ export class UserController {
   }
 
   // =========================
-  // Subir imagen de banner
+  // Subir imagen de banner - SOLO AUTENTICADOS
   // =========================
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/banner-image')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -161,8 +173,10 @@ export class UserController {
   }
 
   // =========================
-  // Eliminar usuario
+  // Eliminar usuario - SOLO ADMIN
   // =========================
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.userService.remove(Number(id));

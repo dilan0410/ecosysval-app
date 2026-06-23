@@ -21,6 +21,10 @@ export class User {
   @Column({ type: 'text', nullable: true })
   banner_image: string;
 
+  // NUEVO CAMPO: ROL DEL USUARIO
+  @Column({ default: 'user' })
+  role: string;
+
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];
 }
