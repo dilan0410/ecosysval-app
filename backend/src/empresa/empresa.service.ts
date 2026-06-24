@@ -15,8 +15,12 @@ export class EmpresaService {
     return this.empresaRepository.save(empresa);
   }
 
-  async obtenerTodas() {
-    return this.empresaRepository.find();
+    async obtenerTodas() {
+    return this.empresaRepository.find({
+      order: {
+        createdAt: 'DESC', // Más recientes primero
+      },
+    });
   }
 
   async obtenerPorId(id: number) {

@@ -11,7 +11,7 @@ export class UserService {
     private userRepository: Repository<User>,
   ) {}
 
-  // 🔹 Crear un nuevo usuario
+  // Crear un nuevo usuario
   async create(user: Partial<User>) {
     // Hashear la contraseña antes de guardar
     if (user.password) {
@@ -21,22 +21,26 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  // 🔹 Obtener todos los usuarios
+  // Obtener todos los usuarios
   findAll() {
-    return this.userRepository.find();
-  }
+    return this.userRepository.find({
+      order: {
+      id: 'DESC', // 'ASC' = ascendente, 'DESC' = descendente
+    },
+  });
+}
 
-  // 🔹 Obtener un usuario por su ID
+  // Obtener un usuario por su ID
   findOne(id: number) {
     return this.userRepository.findOneBy({ id });
   }
 
-  // 🔹 Buscar usuario por email (para login)
+  // Buscar usuario por email (para login)
   findByEmail(email: string) {
     return this.userRepository.findOneBy({ email });
   }
 
-  // 🔹 Actualizar datos generales del usuario
+  // Actualizar datos generales del usuario
   async update(id: number, user: Partial<User>) {
     if (user.password) {
       const salt = await bcrypt.genSalt();
@@ -45,7 +49,7 @@ export class UserService {
     return this.userRepository.update(id, user);
   }
 
-  // 🔹 Actualizar imágenes de perfil y banner
+  // Actualizar imágenes de perfil y banner
   async updateImages(id: number, data: { profile_image?: string; banner_image?: string }) {
     const user = await this.userRepository.findOneBy({ id });
 
@@ -66,7 +70,7 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  // 🔹 Eliminar un usuario
+  // Eliminar un usuario
   remove(id: number) {
     return this.userRepository.delete(id);
   }

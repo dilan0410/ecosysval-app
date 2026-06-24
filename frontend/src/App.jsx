@@ -14,6 +14,9 @@ import Register from "./pages/Register";
 import Subscribe from "./pages/Subscribe";
 import Profile from "./pages/Profile";
 import Perfil from "./pages/Perfil";
+import AdminLayout from "./components/AdminLayout";
+import AdminUsuarios from "./pages/AdminUsuarios";
+import AdminEmpresas from "./pages/AdminEmpresas";
 import MapaPage from "./pages/MapaPage";
 import Cursos from "./pages/Cursos";
 import FormularioComercio from "./pages/FormularioComercio";
@@ -98,15 +101,20 @@ function AppContent() {
           <Route path="/contactos" element={<Contactos />} />
           <Route path="/eventos" element={<Eventos />} />
           
-          {/* NUEVA RUTA PROTEGIDA: Panel de Admin */}
+          {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
           <Route 
             path="/admin" 
             element={
               <ProtectedRoute requiredRole="admin">
-                <Admin />
+                <AdminLayout />
               </ProtectedRoute>
-            } 
-          />
+            }
+          >
+          <Route index element={<Admin />} />
+          <Route path="usuarios" element={<AdminUsuarios />} />
+          <Route path="empresas" element={<AdminEmpresas />} />
+          
+        </Route>
         </Routes>
       </div>
     </>
