@@ -17,6 +17,7 @@ import Perfil from "./pages/Perfil";
 import AdminLayout from "./components/AdminLayout";
 import AdminUsuarios from "./pages/AdminUsuarios";
 import AdminEmpresas from "./pages/AdminEmpresas";
+import AdminEmpleos from "./pages/AdminEmpleos";
 import MapaPage from "./pages/MapaPage";
 import Cursos from "./pages/Cursos";
 import FormularioComercio from "./pages/FormularioComercio";
@@ -113,6 +114,7 @@ function AppContent() {
           <Route index element={<Admin />} />
           <Route path="usuarios" element={<AdminUsuarios />} />
           <Route path="empresas" element={<AdminEmpresas />} />
+          <Route path="empleos" element={<AdminEmpleos />} />
           
         </Route>
         </Routes>

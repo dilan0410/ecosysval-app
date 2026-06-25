@@ -50,4 +50,11 @@ export class EmpleoService {
     empleo.estado = "CERRADA";
     return this.empleoRepo.save(empleo);
   }
+    // opcional: reabrir oferta
+  async reabrir(id: number) {
+    const empleo = await this.findOne(id);
+    empleo.estado = "ACTIVA";
+    return this.empleoRepo.save(empleo);
+  }
+
 }

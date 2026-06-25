@@ -52,60 +52,63 @@ function Admin() {
   }, []);
 
   const cargarDatos = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      
-      // Cargar usuarios
-      const usersRes = await fetch(`${API_URL}/users`, {
+  try {
+    const token = localStorage.getItem("token");
+    
+    // OPTIMIZACIÓN: Hacer las 3 peticiones EN PARALELO
+    const [usersRes, empresasRes, empleosRes] = await Promise.all([
+      fetch(`${API_URL}/users`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const users = await usersRes.json();
-      const usuariosArray = Array.isArray(users) ? users : [];
-      
-      // Cargar empresas
-      const empresasRes = await fetch(`${API_URL}/empresas`);
-      const empresas = await empresasRes.json();
-      const empresasArray = Array.isArray(empresas) ? empresas : [];
-      
-      // Cargar empleos
-      const empleosRes = await fetch(`${API_URL}/empleos`);
-      const empleos = await empleosRes.json();
-      const empleosArray = Array.isArray(empleos) ? empleos : [];
+      }),
+      fetch(`${API_URL}/empresas`),
+      fetch(`${API_URL}/empleos`),
+    ]);
+    
+    // Convertir respuestas a JSON (también en paralelo)
+    const [users, empresas, empleos] = await Promise.all([
+      usersRes.json(),
+      empresasRes.json(),
+      empleosRes.json(),
+    ]);
+    
+    const usuariosArray = Array.isArray(users) ? users : [];
+    const empresasArray = Array.isArray(empresas) ? empresas : [];
+    const empleosArray = Array.isArray(empleos) ? empleos : [];
 
-      // Calcular estadísticas
-      const totalAdmins = usuariosArray.filter(u => u.role === 'admin').length;
-      const totalUsuariosNormales = usuariosArray.filter(u => u.role === 'user').length;
+    // Calcular estadísticas
+    const totalAdmins = usuariosArray.filter(u => u.role === 'admin').length;
+    const totalUsuariosNormales = usuariosArray.filter(u => u.role === 'user').length;
 
-      setStats({
-        totalUsers: usuariosArray.length,
-        totalEmpresas: empresasArray.length,
-        totalEmpleos: empleosArray.length,
-        totalAdmins,
-        totalUsuariosNormales,
-      });
+    setStats({
+      totalUsers: usuariosArray.length,
+      totalEmpresas: empresasArray.length,
+      totalEmpleos: empleosArray.length,
+      totalAdmins,
+      totalUsuariosNormales,
+    });
 
-      // Últimos 5 usuarios (ordenados por ID descendente)
-      const ultimos5Users = [...usuariosArray]
-        .sort((a, b) => b.id - a.id)
-        .slice(0, 5);
-      setUltimosUsuarios(ultimos5Users);
+    // Últimos 5 usuarios
+    const ultimos5Users = [...usuariosArray]
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 5);
+    setUltimosUsuarios(ultimos5Users);
 
-      // Últimas 5 empresas
-      const ultimas5Empresas = [...empresasArray]
-        .sort((a, b) => b.id - a.id)
-        .slice(0, 5);
-      setUltimasEmpresas(ultimas5Empresas);
+    // Últimas 5 empresas
+    const ultimas5Empresas = [...empresasArray]
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 5);
+    setUltimasEmpresas(ultimas5Empresas);
 
-      // Datos para gráfico (simulado por ahora, basado en IDs)
-      const graficoData = generarDatosGrafico(usuariosArray, empresasArray);
-      setDatosGraficoUsuarios(graficoData);
+    // Datos para gráfico
+    const graficoData = generarDatosGrafico(usuariosArray, empresasArray);
+    setDatosGraficoUsuarios(graficoData);
 
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error al cargar datos:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Generar datos del gráfico basado en lo que hay
   const generarDatosGrafico = (usuarios, empresas) => {
