@@ -11,34 +11,34 @@ export class Empresa {
   @Column()
   correo: string;
 
-  @Column()
+  @Column({ nullable: true })
   ambito: string;
 
-  @Column()
+  @Column({ nullable: true })
   ubicacion: string;
 
-  @Column()
+  @Column({ nullable: true })
   representante: string;
 
-  @Column()
+  @Column({ nullable: true })
   paginaWeb: string;
 
   @Column({ nullable: true })
   logo: string;
 
-  @Column()
+  @Column({ nullable: true })
   volumenVentas: string;
 
-  @Column()
+  @Column({ nullable: true, default: 0 })
   empleados: number;
 
-  @Column()
+  @Column({ nullable: true })
   antiguedad: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   mision: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   vision: string;
 
   @Column({ nullable: true })
@@ -62,12 +62,19 @@ export class Empresa {
   @Column({ nullable: true })
   objetivos: string;
 
-  // 🔹 NUEVO: campos SCIAN
   @Column({ nullable: true, length: 10 })
   scianCodigo: string;
 
   @Column({ nullable: true, type: 'text' })
   scianDescripcion: string;
+
+  // Vincula la empresa con el usuario dueño
+  @Column({ nullable: true })
+  userId?: number;
+
+  // Paquete elegido al registrarse
+  @Column({ default: 'basico' })
+  paquete: string;
 
   @CreateDateColumn()
   createdAt: Date;
