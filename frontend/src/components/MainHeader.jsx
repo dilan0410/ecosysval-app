@@ -28,13 +28,16 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
       setUser(parsed);
 
       if (parsed.id) {
-        fetch(`${API_URL}/users/${parsed.id}`)
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.profile_image) setProfilePic(`${API_URL}${data.profile_image}`);
-          })
-          .catch(() => {});
-      }
+      const token = localStorage.getItem("token");
+      fetch(`${API_URL}/users/${parsed.id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.profile_image) setProfilePic(`${API_URL}${data.profile_image}`);
+        })
+        .catch(() => {});
+    }
     } catch (e) {
       console.error("Error leyendo usuario:", e);
     }

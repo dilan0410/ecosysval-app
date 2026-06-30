@@ -41,7 +41,12 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
  * - empresaId del usuario logueado
  * - o query param / route param
  */
-const EMPRESA_ID_DEFAULT = 1;
+
+// Helper para obtener el token JWT del localStorage
+function getAuthHeaders() {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 /** Opciones SCIAN (mock) */
 const OPCIONES_SCIAN = [
@@ -135,7 +140,10 @@ export default function Perfil() {
     setError("");
 
     try {
-      const res = await fetch(`${API_URL}/empresas/${EMPRESA_ID_DEFAULT}`);
+      // Usar endpoint que devuelve la empresa del usuario LOGUEADO
+      const res = await fetch(`${API_URL}/empresas/mi-empresa`, {
+        headers: getAuthHeaders(),
+      });
 
       if (res.ok) {
         const data = await res.json();
@@ -143,9 +151,12 @@ export default function Perfil() {
         setForm(mapEmpresaToForm(data));
         setEditMode(false);
       } else if (res.status === 404) {
+        // No tiene empresa registrada → habilitar creación
         setEmpresa(null);
         setForm(FORM_INIT);
-        setEditMode(true); // crear perfil
+        setEditMode(true);
+      } else if (res.status === 401) {
+        setError("Tu sesión ha expirado. Por favor inicia sesión de nuevo.");
       } else {
         throw new Error(`Error ${res.status}`);
       }
@@ -225,6 +236,7 @@ export default function Perfil() {
 
     const res = await fetch(`${API_URL}/empresas/${empresaId}/logo`, {
       method: "PATCH",
+      headers: getAuthHeaders(),
       body: fd,
     });
 
@@ -254,17 +266,24 @@ export default function Perfil() {
         // Actualizar
         const res = await fetch(`${API_URL}/empresas/${empresa.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify(form),
         });
         if (!res.ok) throw new Error("Error al actualizar");
         saved = await res.json();
       } else {
-        // Crear
+        // Crear - incluir userId del usuario logueado
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
         const res = await fetch(`${API_URL}/empresas`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          headers: { 
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({ ...form, userId: user.id }),
         });
         if (!res.ok) throw new Error("Error al crear");
         saved = await res.json();
@@ -318,7 +337,9 @@ export default function Perfil() {
     setError("");
 
     try {
-      const res = await fetch(`${API_URL}/empresas/${empresa.id}/reporte`);
+      const res = await fetch(`${API_URL}/empresas/${empresa.id}/reporte`, {
+      headers: getAuthHeaders(),
+    });
       if (!res.ok) throw new Error("Error al generar PDF");
 
       const data = await res.json();
