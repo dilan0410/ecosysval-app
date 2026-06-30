@@ -6,6 +6,7 @@ import {
   Patch,
   Delete,
   Body,
+  Req,
   Param,
   ParseIntPipe,
   NotFoundException,
@@ -36,6 +37,20 @@ export class EmpresaController {
   @Post()
   crear(@Body() body: any) {
     return this.empresaService.crear(body);
+  }
+
+  // Obtener la empresa del usuario logueado
+  @UseGuards(JwtAuthGuard)
+  @Get('mi-empresa')
+  async miEmpresa(@Req() req: any) {
+    const userId = req.user.id;
+    const empresa = await this.empresaService.obtenerPorUserId(userId);
+    
+    if (!empresa) {
+      throw new NotFoundException('No tienes empresa registrada');
+    }
+    
+    return empresa;
   }
 
   // PÚBLICO: Cualquiera puede ver la lista de empresas

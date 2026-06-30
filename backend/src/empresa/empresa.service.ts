@@ -27,6 +27,10 @@ export class EmpresaService {
     return this.empresaRepository.findOne({ where: { id } });
   }
 
+  async obtenerPorUserId(userId: number) {
+    return this.empresaRepository.findOne({ where: { userId } });
+  }
+
   async actualizar(id: number, data: Partial<Empresa>) {
     await this.empresaRepository.update(id, data);
     return this.obtenerPorId(id);

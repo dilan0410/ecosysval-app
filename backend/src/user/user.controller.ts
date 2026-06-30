@@ -13,6 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
+import { EmpresaService } from '../empresa/empresa.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
@@ -25,7 +26,10 @@ import { Roles } from '../auth/guards/roles.decorator';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly empresaService: EmpresaService,
+  ) {}
 
   // =========================
   // Helpers para uploads
@@ -45,16 +49,87 @@ export class UserController {
   };
 
   // =========================
-  // Crear usuario (registro) - PÚBLICO (cualquiera puede registrarse)
+  // Crear usuario + empresa (registro completo)
   // =========================
   @Post()
-  async create(@Body() user: any) {
-    if (!user?.password) {
-      return { success: false, message: 'La contraseña es obligatoria' };
+    async create(@Body() body: any) {
+      if (!body?.password) {
+        return { success: false, message: 'La contraseña es obligatoria' };
+      }
+      
+      const {
+        name,
+        email,
+        password,
+        razonSocial,
+        representante,
+        ubicacion,
+        paginaWeb,
+        paquete,
+        ...resto
+      } = body;
+
+      // VERIFICAR SI EL EMAIL YA EXISTE
+      const usuarioExistente = await this.userService.findByEmail(email);
+      if (usuarioExistente) {
+        return { 
+          success: false, 
+          message: 'Este email ya está registrado. Usa otro o inicia sesión.' 
+        };
+      }
+
+      // 1. Crear usuario
+      let newUser;
+      try {
+        newUser = await this.userService.create({
+          name,
+          email,
+          password,
+        });
+      } catch (error) {
+        console.error('Error creando usuario:', error.message);
+        return { 
+          success: false, 
+          message: 'Error al crear el usuario' 
+        };
+      }
+
+      // 2. Crear empresa vinculada al usuario
+      if (razonSocial) {
+        try {
+          await this.empresaService.crear({
+            razonSocial,
+            correo: email,
+            representante,
+            ubicacion,
+            paginaWeb,
+            paquete: paquete || 'basico',
+            userId: newUser.id,
+          });
+        } catch (error) {
+          console.error('Error creando empresa:', error.message);
+          
+          // Si falla la empresa, ELIMINAR el usuario creado
+          // para evitar usuarios huérfanos
+          try {
+            await this.userService.remove(newUser.id);
+          } catch (e) {
+            console.error('Error al limpiar usuario:', e.message);
+          }
+          
+          return { 
+            success: false, 
+            message: 'Error al crear la empresa. Inténtalo de nuevo.' 
+          };
+        }
+      }
+
+      return { 
+        success: true, 
+        message: 'Usuario y empresa registrados', 
+        user: newUser 
+      };
     }
-    const newUser = await this.userService.create(user);
-    return { success: true, message: 'Usuario registrado', user: newUser };
-  }
 
   // =========================
   // Obtener todos los usuarios - SOLO ADMIN

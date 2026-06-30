@@ -56,10 +56,11 @@ function AppContent() {
   const isLoggedIn = !!storedUser;
 
   const showNavbar =
-    !isLoggedIn &&
-    (location.pathname === "/login" ||
-      location.pathname === "/register" ||
-      location.pathname === "/subscribe");
+      !isLoggedIn &&
+      (location.pathname === "/" ||
+        location.pathname === "/login" ||
+        location.pathname === "/register" ||
+        location.pathname === "/subscribe");
 
   return (
     <>
@@ -67,7 +68,7 @@ function AppContent() {
 
       <div style={{ padding: "20px" }}>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<Subscribe />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/subscribe" element={<Subscribe />} />

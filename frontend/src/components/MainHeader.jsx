@@ -46,7 +46,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
     setMenuOpen(false);
     setShowNotifications(false);
     setShowMessages(false);
-    navigate("/login");
+    navigate("/subscribe");
     setTimeout(() => window.location.reload(), 100);
   };
 
