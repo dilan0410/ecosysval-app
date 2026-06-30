@@ -1,5 +1,5 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
 // Navbar en components
 import Navbar from "./components/Navbar";
@@ -50,12 +50,29 @@ import Eventos from "./pages/Eventos";
 import Admin from "./pages/Admin";
 
 function AppContent() {
-  const location = useLocation();
+    const location = useLocation();
+    const navigate = useNavigate();
 
-  const storedUser = localStorage.getItem("user");
-  const isLoggedIn = !!storedUser;
+    const storedUser = localStorage.getItem("user");
+    const isLoggedIn = !!storedUser;
 
-  const showNavbar =
+    // Auto-redirect: Si está logueado y entra a páginas públicas → /inicio
+    useEffect(() => {
+      const publicRoutes = ["/", "/login", "/register", "/subscribe"];
+      const isPublicRoute = publicRoutes.includes(location.pathname);
+
+      // Si está logueado y entra a ruta pública → /inicio
+      if (isLoggedIn && isPublicRoute) {
+        navigate("/inicio");
+      }
+
+      // Si NO está logueado y entra a ruta privada → /subscribe
+      if (!isLoggedIn && !isPublicRoute) {
+        navigate("/subscribe");
+      }
+    }, [isLoggedIn, location.pathname, navigate]);
+
+    const showNavbar =
       !isLoggedIn &&
       (location.pathname === "/" ||
         location.pathname === "/login" ||
