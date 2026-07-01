@@ -6,6 +6,18 @@ import PDFDocument = require('pdfkit');
 
 @Injectable()
 export class EmpresaReportService {
+  /**
+   * Helper: convierte un array a texto separado por comas
+   * Si es null/undefined/vacío, devuelve "—"
+   */
+  private arrayToText(arr: any): string {
+    if (!arr) return '—';
+    if (Array.isArray(arr)) {
+      return arr.length > 0 ? arr.join(', ') : '—';
+    }
+    return String(arr) || '—';
+  }
+
   async generarPDF(empresa: Empresa): Promise<string> {
     const doc = new PDFDocument({ size: 'A4', margin: 0 });
     const nombreArchivo = `empresa_${empresa.id}.pdf`;
@@ -34,7 +46,7 @@ export class EmpresaReportService {
       doc.image(plantillaPath, 0, 0, { width: pageWidth, height: pageHeight });
     }
 
-    // === Título (NO TOCAR) ===
+    // === Título ===
     doc
       .font('Helvetica-Bold')
       .fontSize(22)
@@ -44,7 +56,7 @@ export class EmpresaReportService {
         align: 'left',
       });
 
-    // === Logo (NO TOCAR) ===
+    // === Logo ===
     try {
       if (
         empresa.logo &&
@@ -67,7 +79,7 @@ export class EmpresaReportService {
     const colLeftX = 80;
     const colRightX = pageWidth / 2 + 120;
 
-    // === Bloque superior (NO TOCAR) ===
+    // === Bloque superior ===
     const offsetTop = 215;
 
     doc
@@ -88,9 +100,9 @@ export class EmpresaReportService {
 
     doc
       .font('Helvetica-Bold')
-      .text('Ubicación', colLeftX, offsetTop + 55)
+      .text('Estado', colLeftX, offsetTop + 55)
       .font('Helvetica')
-      .text(empresa.ubicacion || '—', colLeftX, offsetTop + 70, {
+      .text(empresa.estado || empresa.ubicacion || '—', colLeftX, offsetTop + 70, {
         width: 250,
       });
 
@@ -102,7 +114,7 @@ export class EmpresaReportService {
         width: 250,
       });
 
-    // === Misión y Visión (NO TOCAR) ===
+    // === Misión y Visión ===
     const bloqueCentralY = 385;
     doc
       .font('Helvetica-Bold')
@@ -123,7 +135,7 @@ export class EmpresaReportService {
         align: 'left',
       });
 
-    // === Bloque inferior (NO TOCAR) ===
+    // === Bloque inferior ===
     const bloqueInferiorY = 600;
     const derechaX = pageWidth / 2 + 130;
 
@@ -161,23 +173,33 @@ export class EmpresaReportService {
       .font('Helvetica-Bold')
       .text('Servicios', derechaX, serviciosY)
       .font('Helvetica')
-      .text(empresa.servicios || '—', derechaX, serviciosY + 16, {
+      .text(this.arrayToText(empresa.servicios), derechaX, serviciosY + 16, {
         width: 250,
       });
 
-    // === Importaciones / Exportaciones (BAJADAS 15 PX MÁS) ===
-    const exportY = 780; // antes 765
+    // === Importaciones / Exportaciones ===
+    const exportY = 780;
+
+    // Verificar si tiene operaciones (nuevo formato) o campos viejos
+    const tieneImportacion =
+      (empresa.tiposOperaciones && Array.isArray(empresa.tiposOperaciones) && empresa.tiposOperaciones.includes('Importación')) ||
+      empresa.importaciones;
+
+    const tieneExportacion =
+      (empresa.tiposOperaciones && Array.isArray(empresa.tiposOperaciones) && empresa.tiposOperaciones.includes('Exportación')) ||
+      empresa.exportaciones;
+
     doc
       .font('Helvetica-Bold')
       .text('Importaciones', colLeftX, exportY)
       .font('Helvetica')
-      .text(empresa.importaciones ? 'Sí' : 'No', colLeftX, exportY + 16);
+      .text(tieneImportacion ? 'Sí' : 'No', colLeftX, exportY + 16);
 
     doc
       .font('Helvetica-Bold')
       .text('Exportaciones', derechaX, exportY)
       .font('Helvetica')
-      .text(empresa.exportaciones ? 'Sí' : 'No', derechaX, exportY + 16);
+      .text(tieneExportacion ? 'Sí' : 'No', derechaX, exportY + 16);
 
     // === Pie ===
     doc
