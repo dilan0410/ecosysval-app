@@ -29,25 +29,25 @@ import { NavLink } from "react-router-dom";
  */
 const menuItems = [
   { label: "Inicio", route: "/inicio", icon: "/icons/inicio.png" },
-  { label: "Mis Publicaciones", route: "/profile", icon: "/icons/mis publicaciones.png" },
-  { label: "Perfil Empresarial", route: "/perfil", icon: "/icons/Mi perfil.png" },
-  { label: "Grupos Empresariales", route: "/grupos", icon: "/icons/Grupos empresariales.png" },
-  { label: "Ofertas de Empleo", route: "/empleos", icon: "/icons/Oferta de empleo.png" },
+  { label: "Mis Publicaciones", route: "/profile", icon: "/icons/mis-publicaciones.png" },
+  { label: "Perfil Empresarial", route: "/perfil", icon: "/icons/mi-perfil.png" },
+  { label: "Grupos Empresariales", route: "/grupos", icon: "/icons/grupos-empresariales.png" },
+  { label: "Ofertas de Empleo", route: "/empleos", icon: "/icons/oferta-de-empleo.png" },
 
   { type: "divider", label: "Crecimiento" },
 
-  { label: "Capacitación-Cursos", route: "/cursos", icon: "/icons/Cursos y certificaciones.png" },
+  { label: "Capacitación-Cursos", route: "/cursos", icon: "/icons/cursos-certificaciones.png" },
   { label: "Recompensas", route: "/recompensas", icon: "/icons/recompensas.png" },
-  { label: "Top Mundial", route: "/top-mundial", icon: "/icons/Top mundial.png" },
+  { label: "Top Mundial", route: "/top-mundial", icon: "/icons/top-mundial.png" },
   { label: "Posición en el sistema", route: "/mapa", icon: "/icons/mapa.png" },
 
   { type: "divider", label: "Negocio" },
 
-  { label: "Herramientas Financieras", route: "/herramientas-financieras", icon: "/icons/Herramientas financieras.png" },
-  { label: "E-commerce", route: "/ecommerce", icon: "/icons/E-comerce.png" },
-  { label: "Buzón Oportunidades", route: "/oportunidades", icon: "/icons/Buzón de oportunidades.png" },
-  { label: "Alianzas y Colaboraciones", route: "/alianzas", icon: "/icons/Alianzas y colaboraciones.png" },
-  { label: "Tendencias de Mercado", route: "/tendencias", icon: "/icons/Tendencias de mercado.png" },
+  { label: "Herramientas Financieras", route: "/herramientas-financieras", icon: "/icons/herramientas-financieras.png" },
+  { label: "E-commerce", route: "/ecommerce", icon: "/icons/e-commerce.png" },
+  { label: "Buzón Oportunidades", route: "/oportunidades", icon: "/icons/buzon-oportunidades.png" },
+  { label: "Alianzas y Colaboraciones", route: "/alianzas", icon: "/icons/alianzas-colaboraciones.png" },
+  { label: "Tendencias de Mercado", route: "/tendencias", icon: "/icons/tendencias-mercado.png" },
 
   { type: "divider", label: "Red" },
 
