@@ -28,7 +28,7 @@ import { NavLink } from "react-router-dom";
  * - type: si es "divider", se renderiza como separador/encabezado de sección.
  */
 const menuItems = [
-  { label: "Inicio", route: "/inicio", icon: "/icons/inicio.png" },
+  { label: "Inicio", route: "/inicio", icon: "/icons/Inicio.png" },
   { label: "Mis Publicaciones", route: "/profile", icon: "/icons/mis-publicaciones.png" },
   { label: "Perfil Empresarial", route: "/perfil", icon: "/icons/mi-perfil.png" },
   { label: "Grupos Empresariales", route: "/grupos", icon: "/icons/grupos-empresariales.png" },
