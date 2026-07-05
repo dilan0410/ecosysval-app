@@ -1,5 +1,5 @@
 // src/pages/Profile.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   UserCircle,
   Camera,
@@ -15,19 +15,16 @@ import MainHeader from "../components/MainHeader";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
-// ✅ Helper para obtener token JWT
 function getAuthHeaders() {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** Normaliza rutas que pueden venir con o sin "/" inicial */
 function normalizePath(p) {
   if (!p || typeof p !== "string") return null;
   return p.startsWith("/") ? p : `/${p}`;
 }
 
-// Mapeo de plan → imagen
 const PLAN_IMAGES = {
   basico: "/Basico.png",
   pro: "/Pro.png",
@@ -35,7 +32,6 @@ const PLAN_IMAGES = {
   platino: "/Platino.png",
 };
 
-// Nombres bonitos de planes
 const PLAN_NAMES = {
   basico: "BÁSICO",
   pro: "PRO",
@@ -44,38 +40,22 @@ const PLAN_NAMES = {
 };
 
 export default function Profile() {
-  // -----------------------------
-  // Estado del usuario + assets
-  // -----------------------------
   const [user, setUser] = useState(null);
-  const [empresa, setEmpresa] = useState(null); // NUEVO
-
+  const [empresa, setEmpresa] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [profileBanner, setProfileBanner] = useState(null);
 
-  // -----------------------------
-  // Publicaciones
-  // -----------------------------
   const [publicaciones, setPublicaciones] = useState([]);
   const [nuevoTexto, setNuevoTexto] = useState("");
-
   const [imagenFile, setImagenFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
-
   const [imagenPreview, setImagenPreview] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
-
   const [subiendo, setSubiendo] = useState(false);
 
-  // -----------------------------
-  // Edición
-  // -----------------------------
   const [editandoId, setEditandoId] = useState(null);
   const [textoEditado, setTextoEditado] = useState("");
 
-  // ===============================
-  // Cargar usuario + publicaciones + empresa
-  // ===============================
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) return;
@@ -86,27 +66,23 @@ export default function Profile() {
 
       if (parsedUser?.id) {
         cargarUsuarioYPublicaciones(parsedUser.id);
-        cargarEmpresa(); // NUEVO
+        cargarEmpresa();
       }
     } catch (e) {
       console.error("Usuario en localStorage inválido:", e);
       setUser(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // NUEVO: Cargar datos de la empresa del usuario logueado
   const cargarEmpresa = async () => {
     try {
       const res = await fetch(`${API_URL}/empresas/mi-empresa`, {
         headers: getAuthHeaders(),
       });
-
       if (res.ok) {
         const data = await res.json();
         setEmpresa(data);
       } else if (res.status === 404) {
-        // Usuario sin empresa (ej: admin) - no es error
         setEmpresa(null);
       }
     } catch (error) {
@@ -138,9 +114,6 @@ export default function Profile() {
     }
   };
 
-  // ===============================
-  // Subir imágenes de perfil/banner
-  // ===============================
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
@@ -154,7 +127,6 @@ export default function Profile() {
         headers: getAuthHeaders(),
         body: formData,
       });
-
       const data = await response.json();
       if (data?.success) {
         const p = normalizePath(data?.user?.profile_image);
@@ -178,7 +150,6 @@ export default function Profile() {
         headers: getAuthHeaders(),
         body: formData,
       });
-
       const data = await response.json();
       if (data?.success) {
         const b = normalizePath(data?.user?.banner_image);
@@ -189,9 +160,6 @@ export default function Profile() {
     }
   };
 
-  // ===============================
-  // Crear publicación
-  // ===============================
   const publicar = async () => {
     if (!nuevoTexto && !imagenFile && !videoFile) {
       alert("Por favor, agrega texto, imagen o video para publicar");
@@ -200,7 +168,6 @@ export default function Profile() {
     if (!user?.id) return;
 
     setSubiendo(true);
-
     const formData = new FormData();
     formData.append("userId", user.id.toString());
     formData.append("content", nuevoTexto || "");
@@ -218,7 +185,6 @@ export default function Profile() {
         setVideoFile(null);
         setImagenPreview(null);
         setVideoPreview(null);
-
         await cargarUsuarioYPublicaciones(user.id);
       } else {
         alert("Error al crear publicación: " + (responseData.message || "Error desconocido"));
@@ -231,15 +197,10 @@ export default function Profile() {
     }
   };
 
-  // ===============================
-  // Eliminar publicación
-  // ===============================
   const eliminarPublicacion = async (id) => {
     if (!window.confirm("¿Estás seguro de que quieres eliminar esta publicación?")) return;
-
     try {
       const res = await fetch(`${API_URL}/posts/${id}`, { method: "DELETE" });
-
       if (res.ok) {
         await cargarUsuarioYPublicaciones(user.id);
       } else {
@@ -247,13 +208,9 @@ export default function Profile() {
       }
     } catch (error) {
       console.error("Error al eliminar:", error);
-      alert("Error de conexión al eliminar");
     }
   };
 
-  // ===============================
-  // Editar publicación
-  // ===============================
   const iniciarEdicion = (pub) => {
     setEditandoId(pub.id);
     setTextoEditado(pub.content || "");
@@ -269,14 +226,12 @@ export default function Profile() {
       alert("El contenido no puede estar vacío");
       return;
     }
-
     try {
       const res = await fetch(`${API_URL}/posts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: textoEditado }),
       });
-
       if (res.ok) {
         setEditandoId(null);
         setTextoEditado("");
@@ -286,26 +241,16 @@ export default function Profile() {
       }
     } catch (error) {
       console.error("Error al editar:", error);
-      alert("Error de conexión al editar");
     }
   };
 
-  // ===============================
-  // Archivos (preview)
-  // ===============================
   const handleImagenSeleccionada = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("image/")) {
       alert("Por favor, selecciona un archivo de imagen válido");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      alert("La imagen es demasiado grande. Máximo 10MB permitido.");
-      return;
-    }
-
     setImagenFile(file);
     setVideoFile(null);
     setVideoPreview(null);
@@ -318,16 +263,10 @@ export default function Profile() {
   const handleVideoSeleccionado = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("video/")) {
       alert("Por favor, selecciona un archivo de video válido");
       return;
     }
-    if (file.size > 50 * 1024 * 1024) {
-      alert("El video es demasiado grande. Máximo 50MB permitido.");
-      return;
-    }
-
     setVideoFile(file);
     setImagenFile(null);
     setImagenPreview(null);
@@ -337,19 +276,6 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const removerImagen = () => {
-    setImagenFile(null);
-    setImagenPreview(null);
-  };
-
-  const removerVideo = () => {
-    setVideoFile(null);
-    setVideoPreview(null);
-  };
-
-  // ===============================
-  // Render (sin usuario)
-  // ===============================
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600 font-semibold">
@@ -358,22 +284,15 @@ export default function Profile() {
     );
   }
 
-  // NUEVO: Determinar plan y datos dinámicos
   const planActual = (empresa?.paquete || "basico").toLowerCase();
   const planImagen = PLAN_IMAGES[planActual] || PLAN_IMAGES.basico;
   const planNombre = PLAN_NAMES[planActual] || "BÁSICO";
-  const webEmpresa = empresa?.paginaWeb || "No registrada";
 
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* Fondo gradiente abstracto */}
       <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-          ].join(" ")}
-        />
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)] bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]" />
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -395,9 +314,7 @@ export default function Profile() {
                     Sin imagen de portada
                   </div>
                 )}
-
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
-
                 <label className="absolute top-4 right-4 cursor-pointer">
                   <input type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
                   <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro">
@@ -406,7 +323,7 @@ export default function Profile() {
                 </label>
               </div>
 
-              {/* ===== Perfil card ===== */}
+              {/* ===== Perfil Card ===== */}
               <div className="relative px-5 md:px-7 pb-6">
                 <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
                   <div className="relative w-fit">
@@ -421,7 +338,6 @@ export default function Profile() {
                         <UserCircle className="w-16 h-16 text-muted" />
                       </div>
                     )}
-
                     <label className="absolute -bottom-2 -right-2 cursor-pointer">
                       <input type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
                       <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 transition shadow-pro flex items-center justify-center">
@@ -443,49 +359,14 @@ export default function Profile() {
               </div>
             </section>
 
-            {/* ===== Acciones flotantes ===== */}
-            <div className="mt-6 flex justify-center">
-              <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro px-4 py-3 flex items-center gap-3">
-                <label className="cursor-pointer" title="Publicar Imagen">
-                  <input type="file" accept="image/*" onChange={handleImagenSeleccionada} className="hidden" />
-                  <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-text" />
-                  </div>
-                </label>
-
-                <label className="cursor-pointer" title="Publicar Video">
-                  <input type="file" accept="video/*" onChange={handleVideoSeleccionado} className="hidden" />
-                  <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center">
-                    <Video className="w-5 h-5 text-text" />
-                  </div>
-                </label>
-
-                <button
-                  onClick={publicar}
-                  disabled={(!nuevoTexto && !imagenFile && !videoFile) || subiendo}
-                  className="h-11 px-5 rounded-2xl bg-accent hover:brightness-95 transition shadow-pro font-semibold text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                >
-                  {subiendo ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                      Publicando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Publicar
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* ===== Grid principal ===== */}
+            {/* ===== Grid Principal ===== */}
             <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
-              {/* Columna publicaciones */}
-              <section>
-                <h2 className="text-xl md:text-2xl font-extrabold text-text mb-4">Mis Publicaciones</h2>
+              
+              {/* Columna Publicaciones */}
+              <section className="space-y-6">
+                <h2 className="text-xl md:text-2xl font-extrabold text-text">Mis Publicaciones</h2>
 
+                {/* Caja de Nueva Publicación Organizada */}
                 <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
                   <textarea
                     value={nuevoTexto}
@@ -497,15 +378,10 @@ export default function Profile() {
 
                   {imagenPreview && (
                     <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
-                      <img
-                        src={imagenPreview}
-                        alt="Previsualización"
-                        className="w-full max-h-[420px] object-contain"
-                      />
+                      <img src={imagenPreview} alt="Previsualización" className="w-full max-h-[420px] object-contain" />
                       <button
-                        onClick={removerImagen}
+                        onClick={() => { setImagenFile(null); setImagenPreview(null); }}
                         className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
-                        title="Quitar imagen"
                       >
                         <X className="w-5 h-5 text-text" />
                       </button>
@@ -518,29 +394,44 @@ export default function Profile() {
                         <source src={videoPreview} />
                       </video>
                       <button
-                        onClick={removerVideo}
+                        onClick={() => { setVideoFile(null); setVideoPreview(null); }}
                         className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
-                        title="Quitar video"
                       >
                         <X className="w-5 h-5 text-text" />
                       </button>
                     </div>
                   )}
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-xs text-muted">
-                      {nuevoTexto ? `Caracteres: ${nuevoTexto.length}` : " "}
-                      {(imagenFile || videoFile) ? " • Archivo listo" : ""}
-                    </span>
+                  {/* Acciones del Formulario Integradas */}
+                  <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4">
+                    <div className="flex items-center gap-2">
+                      <label className="cursor-pointer" title="Añadir Imagen">
+                        <input type="file" accept="image/*" onChange={handleImagenSeleccionada} className="hidden" />
+                        <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
+                          <ImageIcon className="w-5 h-5 text-text" />
+                        </div>
+                      </label>
+
+                      <label className="cursor-pointer" title="Añadir Video">
+                        <input type="file" accept="video/*" onChange={handleVideoSeleccionado} className="hidden" />
+                        <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
+                          <Video className="w-5 h-5 text-text" />
+                        </div>
+                      </label>
+
+                      <span className="text-xs text-muted ml-2">
+                        {nuevoTexto ? `${nuevoTexto.length} carac.` : ""}
+                      </span>
+                    </div>
 
                     <button
                       onClick={publicar}
                       disabled={(!nuevoTexto && !imagenFile && !videoFile) || subiendo}
-                      className="h-11 px-5 rounded-2xl bg-surface/70 hover:bg-surface transition text-text font-semibold shadow-pro disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2 border border-border"
+                      className="h-11 px-5 rounded-2xl bg-accent hover:brightness-95 transition text-slate-900 font-semibold shadow-pro disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
                       {subiendo ? (
                         <>
-                          <span className="w-4 h-4 border-2 border-text border-t-transparent rounded-full animate-spin" />
+                          <span className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
                           Publicando...
                         </>
                       ) : (
@@ -553,74 +444,45 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-5">
+                {/* Feed de Publicaciones */}
+                <div className="space-y-5">
                   {publicaciones.length === 0 ? (
                     <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-10 text-center">
                       <div className="text-4xl mb-3">🚀</div>
                       <div className="text-lg font-semibold text-text">Aún no tienes publicaciones</div>
-                      <div className="text-sm text-muted mt-1">
-                        Comparte tus ideas, imágenes o videos con la comunidad
-                      </div>
                     </div>
                   ) : (
                     publicaciones.map((pub) => {
                       const img = normalizePath(pub?.image);
                       const vid = normalizePath(pub?.video);
-
-                      const createdAt = (() => {
-                        const d = new Date(pub?.createdAt);
-                        return Number.isNaN(d.getTime()) ? null : d;
-                      })();
+                      const createdAt = pub?.createdAt ? new Date(pub.createdAt) : null;
 
                       return (
-                        <article
-                          key={pub.id}
-                          className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6"
-                        >
+                        <article key={pub.id} className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
                           <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="flex items-center gap-3">
                               {profilePic ? (
-                                <img
-                                  src={profilePic}
-                                  alt="avatar"
-                                  className="w-10 h-10 rounded-2xl object-cover border border-border"
-                                  loading="lazy"
-                                />
+                                <img src={profilePic} alt="avatar" className="w-10 h-10 rounded-2xl object-cover border border-border" />
                               ) : (
                                 <div className="w-10 h-10 rounded-2xl bg-bg/40 border border-border flex items-center justify-center">
                                   <UserCircle className="w-6 h-6 text-muted" />
                                 </div>
                               )}
-
                               <div>
                                 <div className="font-semibold text-text">{user.name}</div>
                                 <div className="text-xs text-muted">
-                                  {createdAt
-                                    ? createdAt.toLocaleString("es-ES", {
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : ""}
+                                  {createdAt && !isNaN(createdAt.getTime()) ? createdAt.toLocaleString("es-ES", {
+                                    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit"
+                                  }) : ""}
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => iniciarEdicion(pub)}
-                                className="h-10 w-10 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center"
-                                title="Editar"
-                              >
+                              <button onClick={() => iniciarEdicion(pub)} className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center">
                                 <Edit className="w-4 h-4 text-text" />
                               </button>
-                              <button
-                                onClick={() => eliminarPublicacion(pub.id)}
-                                className="h-10 w-10 rounded-2xl border border-border bg-surface/50 hover:bg-red-500/10 transition flex items-center justify-center"
-                                title="Eliminar"
-                              >
+                              <button onClick={() => eliminarPublicacion(pub.id)} className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-red-500/10 transition flex items-center justify-center">
                                 <Trash2 className="w-4 h-4 text-red-500" />
                               </button>
                             </div>
@@ -631,51 +493,29 @@ export default function Profile() {
                               <textarea
                                 value={textoEditado}
                                 onChange={(e) => setTextoEditado(e.target.value)}
-                                className="w-full rounded-2xl border border-border bg-surface/60 text-text placeholder:text-muted/70 p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
+                                className="w-full rounded-2xl border border-border bg-surface/60 text-text p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
                                 rows={3}
                               />
                               <div className="flex gap-2">
-                                <button
-                                  onClick={() => guardarEdicion(pub.id)}
-                                  className="h-11 px-5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 transition text-slate-900 font-semibold shadow-pro inline-flex items-center gap-2"
-                                >
-                                  <Send className="w-4 h-4" />
+                                <button onClick={() => guardarEdicion(pub.id)} className="h-10 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 transition text-slate-900 font-semibold shadow-pro inline-flex items-center gap-2">
                                   Guardar
                                 </button>
-                                <button
-                                  onClick={cancelarEdicion}
-                                  className="h-11 px-5 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition text-text font-semibold"
-                                >
+                                <button onClick={cancelarEdicion} className="h-10 px-4 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition text-text font-semibold">
                                   Cancelar
                                 </button>
                               </div>
                             </div>
                           ) : (
                             <>
-                              {!!pub.content && (
-                                <p className="text-text/90 leading-relaxed text-[15px] mb-4 whitespace-pre-wrap">
-                                  {pub.content}
-                                </p>
-                              )}
-
+                              {!!pub.content && <p className="text-text/90 leading-relaxed text-[15px] mb-4 whitespace-pre-wrap">{pub.content}</p>}
                               {img && (
                                 <div className="overflow-hidden rounded-2xl border border-border bg-bg/40">
-                                  <img
-                                    src={`${API_URL}${img}`}
-                                    alt="Publicación"
-                                    className="w-full max-h-[620px] object-contain"
-                                    loading="lazy"
-                                  />
+                                  <img src={`${API_URL}${img}`} alt="Publicación" className="w-full max-h-[620px] object-contain" loading="lazy" />
                                 </div>
                               )}
-
                               {vid && (
                                 <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-bg/40">
-                                  <video
-                                    controls
-                                    src={`${API_URL}${vid}`}
-                                    className="w-full max-h-[520px] object-contain"
-                                  />
+                                  <video controls src={`${API_URL}${vid}`} className="w-full max-h-[520px] object-contain" />
                                 </div>
                               )}
                             </>
@@ -687,21 +527,14 @@ export default function Profile() {
                 </div>
               </section>
 
-              {/* ===== Columna derecha ===== */}
+              {/* Columna Derecha Widgets */}
               <aside className="space-y-6">
-                {/* MODIFICADO: Información dinámica */}
                 <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5">
                   <h3 className="font-extrabold text-text text-lg mb-3">Información</h3>
                   <ul className="text-text/80 space-y-2 text-sm">
-                    <li>
-                      <b className="text-text">Mensajes:</b> 0
-                    </li>
-                    <li>
-                      <b className="text-text">Publicaciones:</b> {publicaciones.length}
-                    </li>
-                    <li>
-                      <b className="text-text">Amigos:</b> 0
-                    </li>
+                    <li><b className="text-text">Mensajes:</b> 0</li>
+                    <li><b className="text-text">Publicaciones:</b> {publicaciones.length}</li>
+                    <li><b className="text-text">Amigos:</b> 0</li>
                     <li>
                       <b className="text-text">Web:</b>{" "}
                       {empresa?.paginaWeb ? (
@@ -720,9 +553,9 @@ export default function Profile() {
                   </ul>
                 </div>
 
-                {/* MODIFICADO: Membresía dinámica */}
-                <div className="rounded-3xl border border-border bg-accent/20 backdrop-blur-xl shadow-pro p-5">
-                  <h3 className="font-extrabold text-slate-900 text-lg mb-4 text-center">
+                {/* Membresía Dinámica */}
+                <div className="rounded-3xl border border-border bg-accent/10 backdrop-blur-xl shadow-pro p-5">
+                  <h3 className="font-extrabold text-text text-lg mb-4 text-center">
                     Membresía {planNombre}
                   </h3>
                   <div className="flex justify-center">
