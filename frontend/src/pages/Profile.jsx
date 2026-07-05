@@ -13,34 +13,13 @@ import {
 import SidebarMenu from "../components/SidebarMenu";
 import MainHeader from "../components/MainHeader";
 
-/**
- * ✅ Profile.jsx
- * ---------------------------------------------------------
- * Objetivo:
- * - Mostrar perfil del usuario (banner + avatar)
- * - Permitir subir imagen de perfil y banner
- * - Crear publicaciones (texto + imagen o video)
- * - Listar publicaciones del usuario, con edición y eliminación
- *
- * Estilo:
- * - "Glass UI" consistente con Ajustes / Inicio
- * - NO se fuerza fondo por página (NO usar fondo.png aquí)
- *   El fondo global depende del tema y vive en CSS (body { --bg-image }).
- *
- * Backend:
- * - Se toma de VITE_API_URL para que funcione en otro PC sin tocar el código.
- * - Endpoints usados (según tu código):
- *   GET    /users/:id
- *   PATCH  /users/:id/profile-image
- *   PATCH  /users/:id/banner-image
- *   GET    /posts/user/:id
- *   POST   /posts   (FormData con userId, content y files)
- *   DELETE /posts/:id
- *   PATCH  /posts/:id   (JSON { content })
- */
-
-// ✅ Base URL del backend (Vite). Si no existe, usa localhost.
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
+
+// ✅ Helper para obtener token JWT
+function getAuthHeaders() {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 /** Normaliza rutas que pueden venir con o sin "/" inicial */
 function normalizePath(p) {
@@ -48,13 +27,29 @@ function normalizePath(p) {
   return p.startsWith("/") ? p : `/${p}`;
 }
 
+// Mapeo de plan → imagen
+const PLAN_IMAGES = {
+  basico: "/Basico.png",
+  pro: "/Pro.png",
+  premium: "/Premium.png",
+  platino: "/Platino.png",
+};
+
+// Nombres bonitos de planes
+const PLAN_NAMES = {
+  basico: "BÁSICO",
+  pro: "PRO",
+  premium: "PREMIUM",
+  platino: "PLATINO",
+};
+
 export default function Profile() {
   // -----------------------------
   // Estado del usuario + assets
   // -----------------------------
   const [user, setUser] = useState(null);
+  const [empresa, setEmpresa] = useState(null); // NUEVO
 
-  // URLs absolutas para renderizar en <img/>
   const [profilePic, setProfilePic] = useState(null);
   const [profileBanner, setProfileBanner] = useState(null);
 
@@ -79,13 +74,9 @@ export default function Profile() {
   const [textoEditado, setTextoEditado] = useState("");
 
   // ===============================
-  // Cargar usuario + publicaciones
+  // Cargar usuario + publicaciones + empresa
   // ===============================
   useEffect(() => {
-    /**
-     * El frontend asume que existe:
-     * localStorage.getItem("user") con { id, name, ... }
-     */
     const storedUser = localStorage.getItem("user");
     if (!storedUser) return;
 
@@ -95,6 +86,7 @@ export default function Profile() {
 
       if (parsedUser?.id) {
         cargarUsuarioYPublicaciones(parsedUser.id);
+        cargarEmpresa(); // NUEVO
       }
     } catch (e) {
       console.error("Usuario en localStorage inválido:", e);
@@ -103,26 +95,39 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * Carga:
-   * - usuario (para traer profile_image y banner_image desde backend)
-   * - publicaciones del usuario
-   */
+  // NUEVO: Cargar datos de la empresa del usuario logueado
+  const cargarEmpresa = async () => {
+    try {
+      const res = await fetch(`${API_URL}/empresas/mi-empresa`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEmpresa(data);
+      } else if (res.status === 404) {
+        // Usuario sin empresa (ej: admin) - no es error
+        setEmpresa(null);
+      }
+    } catch (error) {
+      console.error("Error al cargar empresa:", error);
+    }
+  };
+
   const cargarUsuarioYPublicaciones = async (idUsuario) => {
     try {
-      // ---- Usuario ----
-      const resUser = await fetch(`${API_URL}/users/${idUsuario}`);
+      const resUser = await fetch(`${API_URL}/users/${idUsuario}`, {
+        headers: getAuthHeaders(),
+      });
       if (!resUser.ok) throw new Error("No se pudo cargar el usuario");
       const dataUser = await resUser.json();
 
-      // profile_image/banner_image deben venir como "/uploads/..."
       const profile = normalizePath(dataUser?.profile_image);
       const banner = normalizePath(dataUser?.banner_image);
 
       setProfilePic(profile ? `${API_URL}${profile}` : null);
       setProfileBanner(banner ? `${API_URL}${banner}` : null);
 
-      // ---- Posts ----
       const resPosts = await fetch(`${API_URL}/posts/user/${idUsuario}`);
       if (!resPosts.ok) throw new Error("No se pudieron cargar los posts");
       const dataPosts = await resPosts.json();
@@ -146,6 +151,7 @@ export default function Profile() {
     try {
       const response = await fetch(`${API_URL}/users/${user.id}/profile-image`, {
         method: "PATCH",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -153,8 +159,6 @@ export default function Profile() {
       if (data?.success) {
         const p = normalizePath(data?.user?.profile_image);
         setProfilePic(p ? `${API_URL}${p}` : null);
-      } else {
-        console.warn("Respuesta inesperada al subir profile:", data);
       }
     } catch (error) {
       console.error("Error al subir imagen de perfil:", error);
@@ -171,6 +175,7 @@ export default function Profile() {
     try {
       const response = await fetch(`${API_URL}/users/${user.id}/banner-image`, {
         method: "PATCH",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -178,8 +183,6 @@ export default function Profile() {
       if (data?.success) {
         const b = normalizePath(data?.user?.banner_image);
         setProfileBanner(b ? `${API_URL}${b}` : null);
-      } else {
-        console.warn("Respuesta inesperada al subir banner:", data);
       }
     } catch (error) {
       console.error("Error al subir imagen de banner:", error);
@@ -202,7 +205,6 @@ export default function Profile() {
     formData.append("userId", user.id.toString());
     formData.append("content", nuevoTexto || "");
 
-    // ✅ Según tu backend, el campo es "files" (puede aceptar múltiples)
     if (imagenFile) formData.append("files", imagenFile);
     if (videoFile) formData.append("files", videoFile);
 
@@ -211,7 +213,6 @@ export default function Profile() {
       const responseData = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        // limpiar editor
         setNuevoTexto("");
         setImagenFile(null);
         setVideoFile(null);
@@ -296,7 +297,6 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // validaciones básicas
     if (!file.type.startsWith("image/")) {
       alert("Por favor, selecciona un archivo de imagen válido");
       return;
@@ -306,7 +306,6 @@ export default function Profile() {
       return;
     }
 
-    // si carga imagen, limpiamos video
     setImagenFile(file);
     setVideoFile(null);
     setVideoPreview(null);
@@ -329,7 +328,6 @@ export default function Profile() {
       return;
     }
 
-    // si carga video, limpiamos imagen
     setVideoFile(file);
     setImagenFile(null);
     setImagenPreview(null);
@@ -355,19 +353,19 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600 font-semibold">
-        No hay usuario logueado ❌
+        No hay usuario logueado
       </div>
     );
   }
 
+  // NUEVO: Determinar plan y datos dinámicos
+  const planActual = (empresa?.paquete || "basico").toLowerCase();
+  const planImagen = PLAN_IMAGES[planActual] || PLAN_IMAGES.basico;
+  const planNombre = PLAN_NAMES[planActual] || "BÁSICO";
+  const webEmpresa = empresa?.paginaWeb || "No registrada";
+
   return (
-    /**
-     * ✅ Importante:
-     * - No background-image aquí
-     * - Fondo global viene por CSS según el tema
-     */
     <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay decorativo (glow) sin reemplazar fondo global */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div
           className={[
@@ -382,12 +380,10 @@ export default function Profile() {
         <MainHeader showSearch={true} showBack={false} />
 
         <div className="flex flex-1">
-          {/* Sidebar */}
           <aside className="hidden md:block w-64">
             <SidebarMenu />
           </aside>
 
-          {/* Main */}
           <main className="flex-1 px-4 md:px-8 py-6">
             {/* ===== Banner ===== */}
             <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
@@ -400,10 +396,8 @@ export default function Profile() {
                   </div>
                 )}
 
-                {/* overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
 
-                {/* botón camera (banner) */}
                 <label className="absolute top-4 right-4 cursor-pointer">
                   <input type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
                   <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro">
@@ -428,7 +422,6 @@ export default function Profile() {
                       </div>
                     )}
 
-                    {/* botón camera (avatar) */}
                     <label className="absolute -bottom-2 -right-2 cursor-pointer">
                       <input type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
                       <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 transition shadow-pro flex items-center justify-center">
@@ -493,7 +486,6 @@ export default function Profile() {
               <section>
                 <h2 className="text-xl md:text-2xl font-extrabold text-text mb-4">Mis Publicaciones</h2>
 
-                {/* Crear post */}
                 <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
                   <textarea
                     value={nuevoTexto}
@@ -503,7 +495,6 @@ export default function Profile() {
                     rows={4}
                   />
 
-                  {/* Preview imagen */}
                   {imagenPreview && (
                     <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
                       <img
@@ -521,7 +512,6 @@ export default function Profile() {
                     </div>
                   )}
 
-                  {/* Preview video */}
                   {videoPreview && (
                     <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
                       <video controls className="w-full max-h-[420px] object-contain">
@@ -563,7 +553,6 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Lista posts */}
                 <div className="mt-6 space-y-5">
                   {publicaciones.length === 0 ? (
                     <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-10 text-center">
@@ -578,7 +567,6 @@ export default function Profile() {
                       const img = normalizePath(pub?.image);
                       const vid = normalizePath(pub?.video);
 
-                      // Fecha segura
                       const createdAt = (() => {
                         const d = new Date(pub?.createdAt);
                         return Number.isNaN(d.getTime()) ? null : d;
@@ -699,33 +687,54 @@ export default function Profile() {
                 </div>
               </section>
 
-              {/* Columna derecha */}
+              {/* ===== Columna derecha ===== */}
               <aside className="space-y-6">
+                {/* MODIFICADO: Información dinámica */}
                 <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5">
                   <h3 className="font-extrabold text-text text-lg mb-3">Información</h3>
                   <ul className="text-text/80 space-y-2 text-sm">
                     <li>
-                      📩 <b className="text-text">Mensajes:</b> 2
+                      <b className="text-text">Mensajes:</b> 0
                     </li>
                     <li>
-                      📝 <b className="text-text">Publicaciones:</b> {publicaciones.length}
+                      <b className="text-text">Publicaciones:</b> {publicaciones.length}
                     </li>
                     <li>
-                      👥 <b className="text-text">Amigos:</b> 19
+                      <b className="text-text">Amigos:</b> 0
                     </li>
                     <li>
-                      🌐 <b className="text-text">Web:</b> www.web.com
+                      <b className="text-text">Web:</b>{" "}
+                      {empresa?.paginaWeb ? (
+                        <a
+                          href={empresa.paginaWeb.startsWith("http") ? empresa.paginaWeb : `https://${empresa.paginaWeb}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent hover:underline"
+                        >
+                          {empresa.paginaWeb}
+                        </a>
+                      ) : (
+                        <span className="text-muted">No registrada</span>
+                      )}
                     </li>
                   </ul>
                 </div>
 
-                {/* Membresía (asset en public) */}
+                {/* MODIFICADO: Membresía dinámica */}
                 <div className="rounded-3xl border border-border bg-accent/20 backdrop-blur-xl shadow-pro p-5">
                   <h3 className="font-extrabold text-slate-900 text-lg mb-4 text-center">
-                    Membresía
+                    Membresía {planNombre}
                   </h3>
                   <div className="flex justify-center">
-                    <img src="/Platino.png" alt="Membresía" className="w-40 h-44 object-contain" />
+                    <img
+                      src={planImagen}
+                      alt={`Membresía ${planNombre}`}
+                      className="w-40 h-44 object-contain"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/Basico.png";
+                      }}
+                    />
                   </div>
                 </div>
               </aside>
