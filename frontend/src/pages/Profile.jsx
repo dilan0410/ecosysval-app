@@ -305,73 +305,73 @@ export default function Profile() {
 
           <main className="flex-1 px-4 md:px-8 py-6">
             {/* ===== Banner de la Empresa ===== */}
-            <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
-              <div className="relative h-56 md:h-64">
-                {empresa?.banner ? (
-                  <img src={`${API_URL}${normalizePath(empresa.banner)}`} alt="Banner Empresa" className="w-full h-full object-cover" />
-                ) : profileBanner ? (
-                  <img src={profileBanner} alt="Banner Usuario" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
-                    Sin imagen de portada empresarial
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
-                
-                {/* RECUPERADO: Botón para cambiar el Banner */}
-                <label className="absolute top-4 right-4 cursor-pointer z-20">
-                  <input type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
-                  <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro backdrop-blur-md">
-                    <Camera className="w-5 h-5 text-text" />
-                  </div>
-                </label>
-              </div>
+          <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
+            <div className="relative h-56 md:h-64">
+              {empresa?.banner ? (
+                <img src={`${API_URL}${normalizePath(empresa.banner)}`} alt="Banner Empresa" className="w-full h-full object-cover" />
+              ) : profileBanner ? (
+                <img src={profileBanner} alt="Banner Usuario" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
+                  Sin imagen de portada empresarial
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
+              
+              {/* RECUPERADO: Botón para cambiar el Banner */}
+              <label className="absolute top-4 right-4 cursor-pointer z-20">
+                <input type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
+                <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro backdrop-blur-md">
+                  <Camera className="w-5 h-5 text-text" />
+                </div>
+              </label>
+            </div>
 
-              {/* ===== Info de la Empresa (Propuesta Híbrida) ===== */}
-              <div className="relative px-5 md:px-7 pb-6">
-                <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
-                  <div className="relative w-fit z-20">
-                    {empresa?.logo ? (
-                      <img
-                        src={`${API_URL}${normalizePath(empresa.logo)}`}
-                        alt="Logo Empresa"
-                        className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
-                      />
-                    ) : profilePic ? (
-                      <img
-                        src={profilePic}
-                        alt="Avatar Usuario"
-                        className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover"
-                      />
-                    ) : (
-                      <div className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border bg-bg/40 flex items-center justify-center shadow-pro">
-                        <UserCircle className="w-16 h-16 text-muted" />
-                      </div>
-                    )}
-                    
-                    {/* RECUPERADO: Botón flotante para cambiar el Logo */}
-                    <label className="absolute -bottom-2 -right-2 cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
-                      <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 transition shadow-pro flex items-center justify-center">
-                        <Camera className="w-5 h-5 text-slate-900" />
-                      </div>
-                    </label>
-                  </div>
+            {/* ===== Info de la Empresa (Propuesta Híbrida) ===== */}
+            <div className="relative px-5 md:px-7 pb-6">
+              <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
+                <div className="relative w-fit z-20">
+                  {empresa?.logo ? (
+                    <img
+                      src={`${API_URL}${normalizePath(empresa.logo)}`}
+                      alt="Logo Empresa"
+                      className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
+                    />
+                  ) : profilePic ? (
+                    <img
+                      src={profilePic}
+                      alt="Avatar Usuario"
+                      className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border bg-bg/40 flex items-center justify-center shadow-pro">
+                      <UserCircle className="w-16 h-16 text-muted" />
+                    </div>
+                  )}
+                  
+                  {/* RECUPERADO: Botón flotante para cambiar el Logo */}
+                  <label className="absolute -bottom-2 -right-2 cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
+                    <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 transition shadow-pro flex items-center justify-center">
+                      <Camera className="w-5 h-5 text-slate-900" />
+                    </div>
+                  </label>
+                </div>
 
-                  <div className="flex-1">
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-text drop-shadow">
-                      {empresa?.nombre || empresa?.razonSocial || user.name}
-                    </h1>
-                    <p className="text-sm text-accent font-medium mt-1">
-                      Representante: <span className="text-muted">{user.name}</span>
-                    </p>
-                    <p className="text-muted mt-1 max-w-3xl text-sm">
-                      {empresa?.descripcion || "Sin descripción empresarial registrada."}
-                    </p>
-                  </div>
+                <div className="flex-1">
+                  <h1 className="text-2xl md:text-3xl font-extrabold text-text drop-shadow">
+                    {empresa?.nombre || empresa?.razonSocial || user.name}
+                  </h1>
+                  <p className="text-sm text-accent font-medium mt-1">
+                    Representante: <span className="text-muted">{user.name}</span>
+                  </p>
+                  <p className="text-muted mt-1 max-w-3xl text-sm">
+                    {empresa?.descripcion || "Sin descripción empresarial registrada."}
+                  </p>
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
             {/* ===== Grid Principal ===== */}
             <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">

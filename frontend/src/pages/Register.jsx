@@ -218,7 +218,6 @@ export default function Register() {
     setFormData({ ...formData, [field]: value });
   };
 
-  // Manejar arrays dinámicos (productos, servicios, etc.)
   const handleArrayChange = (field, index, value) => {
     const newArray = [...formData[field]];
     newArray[index] = value;
@@ -234,7 +233,6 @@ export default function Register() {
     setFormData({ ...formData, [field]: newArray.length ? newArray : [""] });
   };
 
-  // Manejar checkboxes múltiples (ODS, transporte, etc.)
   const handleCheckboxToggle = (field, value) => {
     const current = formData[field];
     const newArray = current.includes(value)
@@ -243,7 +241,6 @@ export default function Register() {
     setFormData({ ...formData, [field]: newArray });
   };
 
-  // Validación de contraseña
   const validatePassword = (password) => {
     const hasMinLength = password.length >= 8;
     const hasUppercase = /[A-Z]/.test(password);
@@ -294,23 +291,22 @@ export default function Register() {
     try {
       // 1. Crear el usuario
       const userRes = await fetch(`${API_URL}/users`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: formData.representante,
-        email: formData.correoLogin,
-        password: formData.password,
-      }),
-    });
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.representante,
+          email: formData.correoLogin,
+          password: formData.password,
+        }),
+      });
 
-    if (!userRes.ok) {
-      const errData = await userRes.json();
-      throw new Error(errData.message || "Error al crear usuario");
-    }
+      if (!userRes.ok) {
+        const errData = await userRes.json();
+        throw new Error(errData.message || "Error al crear usuario");
+      }
 
-    const userResponse = await userRes.json();
+      const userResponse = await userRes.json();
 
-      // El backend devuelve: { success, message, user: { id, ... } }
       if (!userResponse.success || !userResponse.user?.id) {
         throw new Error(userResponse.message || "Error al crear usuario");
       }
@@ -321,54 +317,47 @@ export default function Register() {
       const cleanArray = (arr) =>
         Array.isArray(arr) ? arr.filter((item) => item && item.trim() !== "") : [];
 
-      // 3. Crear la empresa vinculada al usuario
-      const empresaPayload = {
-        // Datos generales
-        razonSocial: formData.razonSocial,
-        correo: formData.correoEmpresa,
-        rfc: formData.rfc,
-        sectorScian: formData.sectorScian,
-        representante: formData.representante,
-        paginaWeb: formData.paginaWeb,
-        estado: formData.estado,
-        empleados: formData.empleados,
-        antiguedad: formData.antiguedad,
-        volumenVentas: formData.volumenVentas,
-        ambito: formData.ambito,
+      // 3. Preparar FormData (para poder enviar el logo + datos juntos)
+      const fd = new FormData();
 
-        // Misión y visión
-        mision: formData.mision,
-        vision: formData.vision,
+      // Campos de texto simples
+      fd.append("razonSocial", formData.razonSocial);
+      fd.append("correo", formData.correoEmpresa);
+      fd.append("rfc", formData.rfc);
+      fd.append("sectorScian", formData.sectorScian);
+      fd.append("representante", formData.representante);
+      fd.append("paginaWeb", formData.paginaWeb);
+      fd.append("estado", formData.estado);
+      fd.append("empleados", formData.empleados);
+      fd.append("antiguedad", formData.antiguedad);
+      fd.append("volumenVentas", formData.volumenVentas);
+      fd.append("ambito", formData.ambito);
+      fd.append("mision", formData.mision);
+      fd.append("vision", formData.vision);
+      fd.append("tieneSucursales", formData.tieneSucursales);
+      fd.append("tieneSocios", formData.tieneSocios);
+      fd.append("userId", userData.id);
+      fd.append("paquete", formData.paquete);
 
-        // Productos y servicios
-        productos: cleanArray(formData.productos),
-        servicios: cleanArray(formData.servicios),
+      // Arrays como JSON string
+      fd.append("productos", JSON.stringify(cleanArray(formData.productos)));
+      fd.append("servicios", JSON.stringify(cleanArray(formData.servicios)));
+      fd.append("ods", JSON.stringify(formData.ods));
+      fd.append("actividadesOds", JSON.stringify(cleanArray(formData.actividadesOds)));
+      fd.append("sucursales", JSON.stringify(cleanArray(formData.sucursales)));
+      fd.append("socios", JSON.stringify(cleanArray(formData.socios)));
+      fd.append("tiposOperaciones", JSON.stringify(formData.tiposOperaciones));
+      fd.append("paisesImportacion", JSON.stringify(cleanArray(formData.paisesImportacion)));
+      fd.append("paisesExportacion", JSON.stringify(cleanArray(formData.paisesExportacion)));
+      fd.append("transporteExtranjero", JSON.stringify(formData.transporteExtranjero));
+      fd.append("transporteNacional", JSON.stringify(formData.transporteNacional));
 
-        // ODS
-        ods: formData.ods,
-        actividadesOds: cleanArray(formData.actividadesOds),
+      // ✅ Logo si fue seleccionado
+      if (formData.logo) {
+        fd.append("file", formData.logo);
+      }
 
-        // Sucursales y socios
-        tieneSucursales: formData.tieneSucursales,
-        tieneSocios: formData.tieneSocios,
-        sucursales: cleanArray(formData.sucursales),
-        socios: cleanArray(formData.socios),
-
-        // Operaciones
-        tiposOperaciones: formData.tiposOperaciones,
-        paisesImportacion: cleanArray(formData.paisesImportacion),
-        paisesExportacion: cleanArray(formData.paisesExportacion),
-        transporteExtranjero: formData.transporteExtranjero,
-        transporteNacional: formData.transporteNacional,
-
-        // Sistema
-        userId: userData.id,
-        paquete: formData.paquete,
-      };
-
-      // NOTA: El backend ya crea empresa básica al crear user.
-      // Necesitamos ACTUALIZAR esa empresa con los datos completos.
-      // Primero buscamos la empresa del usuario
+      // 4. Buscar si ya existe empresa del usuario
       const empresasRes = await fetch(`${API_URL}/empresas`);
       const todasEmpresas = await empresasRes.json();
       const miEmpresaCreada = todasEmpresas.find((e) => e.userId === userData.id);
@@ -376,20 +365,20 @@ export default function Register() {
       let empresaFinal;
 
       if (miEmpresaCreada) {
-        // Ya existe una empresa creada por el backend → ACTUALIZAR con todos los datos
+        // ✅ ACTUALIZAR empresa existente con FormData
         const updateRes = await fetch(`${API_URL}/empresas/${miEmpresaCreada.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(empresaPayload),
+          // ⚠️ Sin Content-Type header, FormData lo configura automáticamente
+          body: fd,
         });
         if (!updateRes.ok) throw new Error("Error al actualizar empresa");
         empresaFinal = await updateRes.json();
       } else {
-        // No existe empresa → CREAR nueva
+        // ✅ CREAR nueva empresa con FormData
         const empresaRes = await fetch(`${API_URL}/empresas`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(empresaPayload),
+          // ⚠️ Sin Content-Type header, FormData lo configura automáticamente
+          body: fd,
         });
         if (!empresaRes.ok) throw new Error("Error al crear empresa");
         empresaFinal = await empresaRes.json();
@@ -414,7 +403,6 @@ export default function Register() {
       className="min-h-screen bg-cover bg-center bg-fixed relative py-8 px-4"
       style={{ backgroundImage: "url('/fondo.png')" }}
     >
-      {/* OVERLAY OSCURO REAL - igual que Login */}
       <div className="absolute inset-0 bg-black/50 z-0" />
 
       <div className="relative z-10 max-w-6xl mx-auto">
@@ -437,13 +425,13 @@ export default function Register() {
         {/* Errores y éxito */}
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200">
-             {error}
+            {error}
           </div>
         )}
 
         {success && (
           <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/40 text-green-200">
-             {success}
+            {success}
           </div>
         )}
 
@@ -665,9 +653,7 @@ export default function Register() {
                   label="¿Con qué países realizas actividades de importación?"
                   subtitle="En cada casilla solo puede ir un país."
                   items={formData.paisesImportacion}
-                  onChange={(i, v) =>
-                    handleArrayChange("paisesImportacion", i, v)
-                  }
+                  onChange={(i, v) => handleArrayChange("paisesImportacion", i, v)}
                   onAdd={() => addArrayItem("paisesImportacion")}
                   onRemove={(i) => removeArrayItem("paisesImportacion", i)}
                 />
@@ -680,9 +666,7 @@ export default function Register() {
                   label="¿Con qué países realizas actividades de exportación?"
                   subtitle="En cada casilla solo puede ir un país."
                   items={formData.paisesExportacion}
-                  onChange={(i, v) =>
-                    handleArrayChange("paisesExportacion", i, v)
-                  }
+                  onChange={(i, v) => handleArrayChange("paisesExportacion", i, v)}
                   onAdd={() => addArrayItem("paisesExportacion")}
                   onRemove={(i) => removeArrayItem("paisesExportacion", i)}
                 />
@@ -691,8 +675,7 @@ export default function Register() {
 
             <div className="mb-6">
               <p className="text-white/90 font-semibold mb-3">
-                ¿Qué medios de transporte utiliza para movimientos en el
-                extranjero?
+                ¿Qué medios de transporte utiliza para movimientos en el extranjero?
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {OPCIONES_TRANSPORTE.map((t) => (
@@ -700,9 +683,7 @@ export default function Register() {
                     key={`ext-${t}`}
                     label={t}
                     checked={formData.transporteExtranjero.includes(t)}
-                    onChange={() =>
-                      handleCheckboxToggle("transporteExtranjero", t)
-                    }
+                    onChange={() => handleCheckboxToggle("transporteExtranjero", t)}
                   />
                 ))}
               </div>
@@ -718,9 +699,7 @@ export default function Register() {
                     key={`nac-${t}`}
                     label={t}
                     checked={formData.transporteNacional.includes(t)}
-                    onChange={() =>
-                      handleCheckboxToggle("transporteNacional", t)
-                    }
+                    onChange={() => handleCheckboxToggle("transporteNacional", t)}
                   />
                 ))}
               </div>
@@ -748,6 +727,17 @@ export default function Register() {
                 onChange={(e) => handleChange("logo", e.target.files[0])}
               />
             </label>
+
+            {/* Preview del logo seleccionado */}
+            {formData.logo && (
+              <div className="mt-4 flex justify-center">
+                <img
+                  src={URL.createObjectURL(formData.logo)}
+                  alt="Preview logo"
+                  className="h-24 w-auto object-contain rounded-xl border border-white/20"
+                />
+              </div>
+            )}
           </Section>
 
           {/* ============================================ */}
@@ -817,9 +807,7 @@ export default function Register() {
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={formData.confirmPassword}
-                    onChange={(e) =>
-                      handleChange("confirmPassword", e.target.value)
-                    }
+                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
                     placeholder="Confirmar contraseña"
                     className="w-full px-4 py-3 pr-10 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
                   />
@@ -838,9 +826,7 @@ export default function Register() {
               <Checkbox
                 label="Acepto los términos y condiciones."
                 checked={formData.aceptaTerminos}
-                onChange={() =>
-                  handleChange("aceptaTerminos", !formData.aceptaTerminos)
-                }
+                onChange={() => handleChange("aceptaTerminos", !formData.aceptaTerminos)}
               />
             </div>
           </Section>

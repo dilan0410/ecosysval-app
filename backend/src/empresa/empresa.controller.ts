@@ -34,9 +34,31 @@ export class EmpresaController {
   ) {}
 
   // PÚBLICO: Cualquiera puede registrar una empresa
+  // PÚBLICO: Registrar una empresa con su logo opcional integrado
   @Post()
-  crear(@Body() body: any) {
-    return this.empresaService.crear(body);
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/logos',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, uniqueSuffix + extname(file.originalname));
+        },
+      }),
+    }),
+  )
+  async crear(
+    @Body() body: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    // Si viene un archivo en la petición, creamos la ruta del logo
+    const empresaData = { ...body };
+    if (file) {
+      empresaData.logo = `/uploads/logos/${file.filename}`;
+    }
+
+    return this.empresaService.crear(empresaData);
   }
 
   // Obtener la empresa del usuario logueado
