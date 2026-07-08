@@ -3,9 +3,15 @@ import { AppModule } from './app.module';
 import { join } from 'path';
 import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" } 
+    // usar esto para que Helmet no bloquee las imágenes estáticas de /uploads en el frontend
+  }));
 
   // ✅ Validaciones globales (DTOs)
   app.useGlobalPipes(
