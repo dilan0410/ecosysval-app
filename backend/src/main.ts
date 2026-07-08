@@ -8,10 +8,14 @@ import helmet from 'helmet';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" } 
-    // usar esto para que Helmet no bloquee las imágenes estáticas de /uploads en el frontend
-  }));
+  // ACTIVAR HELMET CON CONFIGURACIÓN DE RECURSOS INTEGRADA
+  // CONFIGURACIÓN CORRECTA DE SEGURIDAD PARA HELMET
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
 
   // ✅ Validaciones globales (DTOs)
   app.useGlobalPipes(
