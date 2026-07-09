@@ -7,6 +7,16 @@ import { mensajesMock } from "../data/mensajesMock";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
+// Helper universal para URLs de imágenes (soporta local y Supabase)
+function getImageUrl(path) {
+  if (!path) return null;
+  // Si ya es URL completa (Supabase), la retornamos tal cual
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  // Si es ruta relativa vieja, agregamos API_URL
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${API_URL}${normalized}`;
+}
+
 export default function MainHeader({ showSearch = true, showBack = false }) {
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
@@ -18,30 +28,44 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  // 🔹 Cargar usuario y foto
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) return;
+  // 🔹 Cargar usuario y logo de empresa
+    useEffect(() => {
+      const stored = localStorage.getItem("user");
+      if (!stored) return;
 
-    try {
-      const parsed = JSON.parse(stored);
-      setUser(parsed);
+      try {
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
 
-      if (parsed.id) {
-      const token = localStorage.getItem("token");
-      fetch(`${API_URL}/users/${parsed.id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.profile_image) setProfilePic(`${API_URL}${data.profile_image}`);
-        })
-        .catch(() => {});
-    }
-    } catch (e) {
-      console.error("Error leyendo usuario:", e);
-    }
-  }, []);
+        if (parsed.id) {
+          const token = localStorage.getItem("token");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+          // Cargar EMPRESA primero (para el logo)
+          fetch(`${API_URL}/empresas/mi-empresa`, { headers })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((empresa) => {
+              if (empresa?.logo) {
+                // Prioridad 1: logo de empresa
+                setProfilePic(getImageUrl(empresa.logo));
+              } else {
+                // Prioridad 2: si no hay empresa, cargar profile_image del usuario
+                fetch(`${API_URL}/users/${parsed.id}`, { headers })
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (data.profile_image) {
+                      setProfilePic(getImageUrl(data.profile_image));
+                    }
+                  })
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      } catch (e) {
+        console.error("Error leyendo usuario:", e);
+      }
+    }, []);
 
   // 🔹 Cerrar sesión
   const handleLogout = () => {
@@ -72,11 +96,11 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
 
   const displayName = user?.name || user?.empresa || "Usuario";
 
-  // 🔔 Notificaciones
+  // Notificaciones
   const notifications = notificacionesMock;
   const unreadNotifications = notifications.filter((n) => !n.leido).length;
 
-  // 💬 Mensajes
+  // Mensajes
   const mensajes = mensajesMock;
   const unreadMessages = mensajes.filter((m) => !m.leido).length;
 
@@ -92,12 +116,11 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
       <div className="absolute inset-0 bg-gradient-to-r from-[#071326] via-[#071a33] to-[#050b18]" />
       <div className="absolute inset-0 bg-white/5 backdrop-blur-md" />
 
-      {/* Brillos suaves */}
       <div className="pointer-events-none absolute -top-10 -left-10 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
       <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-blue-400/10 blur-3xl" />
 
       <div className="relative flex items-center justify-between px-5 md:px-6 py-3 border-b border-white/10 shadow-[0_12px_30px_-20px_rgba(0,0,0,0.8)]">
-        {/* IZQUIERDA: volver + logo */}
+        {/* IZQUIERDA */}
         <div className="flex items-center gap-3">
           {showBack && (
             <button
@@ -127,15 +150,14 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
           </button>
         </div>
 
-        {/* CENTRO: buscador */}
+        {/* CENTRO */}
         {showSearch && (
           <div className="hidden md:flex flex-1 mx-6">
             <div className="w-full max-w-2xl relative">
               <input
                 type="text"
                 placeholder="Buscar..."
-                className="w-full px-4 py-2.5 rounded-2xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none
-                           focus:ring-2 focus:ring-yellow-300/70 transition shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-yellow-300/70 transition shadow-sm"
               />
               <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5" />
             </div>
@@ -144,7 +166,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
 
         {/* DERECHA */}
         <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
-          {/* 💬 Mensajes -> NAVEGA a /mensajes */}
+          {/* Mensajes */}
           <button
             type="button"
             onClick={() => {
@@ -160,7 +182,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
             )}
           </button>
 
-          {/* 🔔 Notificaciones -> NAVEGA a /notificaciones */}
+          {/* Notificaciones */}
           <button
             type="button"
             onClick={() => {
@@ -192,6 +214,11 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
                 src={profilePic}
                 alt="avatar"
                 className="w-8 h-8 rounded-xl border border-white/15 object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = "none";
+                  setProfilePic(null);
+                }}
               />
             ) : (
               <UserCircle className="w-8 h-8 text-white/70" />

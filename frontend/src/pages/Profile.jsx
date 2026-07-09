@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Video,
   Send,
+  Building2,
 } from "lucide-react";
 import SidebarMenu from "../components/SidebarMenu";
 import MainHeader from "../components/MainHeader";
@@ -23,6 +24,16 @@ function getAuthHeaders() {
 function normalizePath(p) {
   if (!p || typeof p !== "string") return null;
   return p.startsWith("/") ? p : `/${p}`;
+}
+
+// Helper universal para URLs de imágenes (soporta local y Supabase)
+function getImageUrl(path) {
+  if (!path) return null;
+  // Si ya es URL completa (Supabase), la retornamos tal cual
+  if (path.startsWith('http')) return path;
+  // Si es ruta relativa vieja, agregamos API_URL
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${API_URL}${normalized}`;
 }
 
 const PLAN_IMAGES = {
@@ -105,11 +116,9 @@ export default function Profile() {
       if (!resUser.ok) throw new Error("No se pudo cargar el usuario");
       const dataUser = await resUser.json();
 
-      const profile = normalizePath(dataUser?.profile_image);
-      const banner = normalizePath(dataUser?.banner_image);
-
-      setProfilePic(profile ? `${API_URL}${profile}` : null);
-      setProfileBanner(banner ? `${API_URL}${banner}` : null);
+      // Usar helper universal (soporta URLs viejas y de Supabase)
+      setProfilePic(getImageUrl(dataUser?.profile_image));
+      setProfileBanner(getImageUrl(dataUser?.banner_image));
 
       const resPosts = await fetch(`${API_URL}/posts/user/${idUsuario}`);
       if (!resPosts.ok) throw new Error("No se pudieron cargar los posts");
@@ -119,18 +128,21 @@ export default function Profile() {
     } catch (error) {
       console.error("Error al cargar datos del perfil:", error);
     }
-  };
+};
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
+    if (!file || !empresa?.id) {
+      alert("Debes tener una empresa registrada para subir el logo");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
       const response = await fetch(
-        `${API_URL}/users/${user.id}/profile-image`,
+        `${API_URL}/empresas/${empresa.id}/logo`,  // ENDPOINT DE EMPRESA
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -139,24 +151,29 @@ export default function Profile() {
       );
       const data = await response.json();
       if (data?.success) {
-        const p = normalizePath(data?.user?.profile_image);
-        setProfilePic(p ? `${API_URL}${p}` : null);
+        // Actualizamos el estado de empresa con el nuevo logo
+        setEmpresa((prev) => ({ ...prev, logo: data.logo }));
+      } else {
+        alert("Error al subir logo: " + (data?.message || "Desconocido"));
       }
     } catch (error) {
-      console.error("Error al subir imagen de perfil:", error);
+      console.error("Error al subir logo:", error);
     }
   };
 
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
+    if (!file || !empresa?.id) {
+      alert("Debes tener una empresa registrada para subir el banner");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
       const response = await fetch(
-        `${API_URL}/users/${user.id}/banner-image`,
+        `${API_URL}/empresas/${empresa.id}/banner`,  // ENDPOINT DE EMPRESA
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -165,11 +182,13 @@ export default function Profile() {
       );
       const data = await response.json();
       if (data?.success) {
-        const b = normalizePath(data?.user?.banner_image);
-        setProfileBanner(b ? `${API_URL}${b}` : null);
+        // Actualizamos el estado de empresa con el nuevo banner
+        setEmpresa((prev) => ({ ...prev, banner: data.banner }));
+      } else {
+        alert("Error al subir banner: " + (data?.message || "Desconocido"));
       }
     } catch (error) {
-      console.error("Error al subir imagen de banner:", error);
+      console.error("Error al subir banner:", error);
     }
   };
 
@@ -362,16 +381,10 @@ export default function Profile() {
             <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
               <div className="relative h-56 md:h-64">
                 {empresa?.banner ? (
-                  <img
-                    src={`${API_URL}${normalizePath(empresa.banner)}`}
-                    alt="Banner Empresa"
-                    className="w-full h-full object-cover"
-                  />
-                ) : profileBanner ? (
-                  <img
-                    src={profileBanner}
-                    alt="Banner Usuario"
-                    className="w-full h-full object-cover"
+                  <img 
+                    src={getImageUrl(empresa.banner)}  // Usa el helper
+                    alt="Banner Empresa" 
+                    className="w-full h-full object-cover" 
                   />
                 ) : (
                   <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
@@ -400,31 +413,29 @@ export default function Profile() {
                   <div className="relative w-fit z-20">
                     {empresa?.logo ? (
                       <img
-                        src={`${API_URL}${normalizePath(empresa.logo)}`}
+                        src={getImageUrl(empresa.logo)}
                         alt="Logo Empresa"
                         className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
-                      />
-                    ) : profilePic ? (
-                      <img
-                        src={profilePic}
-                        alt="Avatar Usuario"
-                        className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover"
+                        onError={(e) => {
+                          console.warn("Logo no encontrado, usando default");
+                          e.target.onerror = null;
+                          e.target.style.display = "none";
+                          setEmpresa((prev) => ({ ...prev, logo: null }));
+                        }}
                       />
                     ) : (
                       <div className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border bg-bg/40 flex items-center justify-center shadow-pro">
-                        <UserCircle className="w-16 h-16 text-muted" />
+                        <Building2 className="w-16 h-16 text-muted" />
                       </div>
                     )}
-
-                    {/* Botón para cambiar el Logo */}
+                    
+                    {/* Botón cámara para subir logo */}
                     <label className="absolute -bottom-2 -right-2 cursor-pointer z-30">
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onClick={(e) => {
-                          e.target.value = null;
-                        }}
+                        onClick={(e) => { e.target.value = null; }}
                         onChange={handleProfilePicUpload}
                       />
                       <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 active:scale-95 transition shadow-pro flex items-center justify-center">
@@ -769,7 +780,7 @@ export default function Profile() {
                             <div className="flex items-center gap-3">
                               {empresa?.logo ? (
                                 <img
-                                  src={`${API_URL}${normalizePath(empresa.logo)}`}
+                                  src={getImageUrl(empresa.logo)}
                                   alt="logo empresa"
                                   className="w-10 h-10 rounded-2xl object-cover border border-border bg-white"
                                 />

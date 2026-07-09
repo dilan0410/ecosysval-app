@@ -9,131 +9,96 @@ import {
   Patch,
   UploadedFile,
   UseInterceptors,
-  UseGuards, //nuevo
+  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { EmpresaService } from '../empresa/empresa.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { existsSync, mkdirSync } from 'fs';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer'; // CAMBIO: memoryStorage en vez de diskStorage
 
-// NUEVOS IMPORTS PARA PROTECCIÓN
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
+import { StorageService } from '../common/storage/storage.service';
 
 @Controller('users')
 export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly empresaService: EmpresaService,
+    private readonly storageService: StorageService, // NUEVO
   ) {}
-
-  // =========================
-  // Helpers para uploads
-  // =========================
-  private ensureDir(dir: string) {
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  }
-
-  private imageFileFilter = (_req: any, file: Express.Multer.File, cb: any) => {
-    if (!file.mimetype.match(/^image\/(png|jpe?g|gif|webp|svg\+xml)$/)) {
-      return cb(
-        new BadRequestException('Solo se permiten archivos de imagen'),
-        false,
-      );
-    }
-    cb(null, true);
-  };
 
   // =========================
   // Crear usuario + empresa (registro completo)
   // =========================
   @Post()
-    async create(@Body() body: any) {
-      if (!body?.password) {
-        return { success: false, message: 'La contraseña es obligatoria' };
-      }
-      
-      const {
-        name,
-        email,
-        password,
-        razonSocial,
-        representante,
-        ubicacion,
-        paginaWeb,
-        paquete,
-        ...resto
-      } = body;
+  async create(@Body() body: any) {
+    if (!body?.password) {
+      return { success: false, message: 'La contraseña es obligatoria' };
+    }
 
-      // VERIFICAR SI EL EMAIL YA EXISTE
-      const usuarioExistente = await this.userService.findByEmail(email);
-      if (usuarioExistente) {
-        return { 
-          success: false, 
-          message: 'Este email ya está registrado. Usa otro o inicia sesión.' 
-        };
-      }
+    const {
+      name,
+      email,
+      password,
+      razonSocial,
+      representante,
+      ubicacion,
+      paginaWeb,
+      paquete,
+      ...resto
+    } = body;
 
-      // 1. Crear usuario
-      let newUser;
-      try {
-        newUser = await this.userService.create({
-          name,
-          email,
-          password,
-        });
-      } catch (error) {
-        console.error('Error creando usuario:', error.message);
-        return { 
-          success: false, 
-          message: 'Error al crear el usuario' 
-        };
-      }
-
-      // 2. Crear empresa vinculada al usuario
-      if (razonSocial) {
-        try {
-          await this.empresaService.crear({
-            razonSocial,
-            correo: email,
-            representante,
-            ubicacion,
-            paginaWeb,
-            paquete: paquete || 'basico',
-            userId: newUser.id,
-          });
-        } catch (error) {
-          console.error('Error creando empresa:', error.message);
-          
-          // Si falla la empresa, ELIMINAR el usuario creado
-          // para evitar usuarios huérfanos
-          try {
-            await this.userService.remove(newUser.id);
-          } catch (e) {
-            console.error('Error al limpiar usuario:', e.message);
-          }
-          
-          return { 
-            success: false, 
-            message: 'Error al crear la empresa. Inténtalo de nuevo.' 
-          };
-        }
-      }
-
-      return { 
-        success: true, 
-        message: 'Usuario y empresa registrados', 
-        user: newUser 
+    const usuarioExistente = await this.userService.findByEmail(email);
+    if (usuarioExistente) {
+      return {
+        success: false,
+        message: 'Este email ya está registrado. Usa otro o inicia sesión.',
       };
     }
 
-  // =========================
-  // Obtener todos los usuarios - SOLO ADMIN
-  // =========================
+    let newUser;
+    try {
+      newUser = await this.userService.create({ name, email, password });
+    } catch (error) {
+      console.error('Error creando usuario:', error.message);
+      return { success: false, message: 'Error al crear el usuario' };
+    }
+
+    if (razonSocial) {
+      try {
+        await this.empresaService.crear({
+          razonSocial,
+          correo: email,
+          representante,
+          ubicacion,
+          paginaWeb,
+          paquete: paquete || 'basico',
+          userId: newUser.id,
+        });
+      } catch (error) {
+        console.error('Error creando empresa:', error.message);
+        try {
+          await this.userService.remove(newUser.id);
+        } catch (e) {
+          console.error('Error al limpiar usuario:', e.message);
+        }
+        return {
+          success: false,
+          message: 'Error al crear la empresa. Inténtalo de nuevo.',
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Usuario y empresa registrados',
+      user: newUser,
+    };
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @Get()
@@ -141,18 +106,12 @@ export class UserController {
     return this.userService.findAll();
   }
 
-  // =========================
-  // Obtener un usuario por ID - SOLO AUTENTICADOS
-  // =========================
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.userService.findOne(Number(id));
   }
 
-  // =========================
-  // Actualizar usuario - SOLO AUTENTICADOS
-  // =========================
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   async update(@Param('id') id: string, @Body() user: any) {
@@ -160,23 +119,13 @@ export class UserController {
   }
 
   // =========================
-  // Subir imagen de perfil - SOLO AUTENTICADOS
+  // MIGRADO: Subir imagen de perfil a Supabase
   // =========================
   @UseGuards(JwtAuthGuard)
   @Patch(':id/profile-image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadPath = join(process.cwd(), 'uploads', 'profile_images');
-          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (_req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `profile_${unique}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(), // En memoria, para pasar a Supabase
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(png|jpe?g|gif|webp|svg\+xml)$/)) {
           return cb(
@@ -195,32 +144,30 @@ export class UserController {
   ) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
 
-    const relativePath = `/uploads/profile_images/${file.filename}`;
+    // Eliminar imagen anterior de Supabase (si existía)
+    const userActual = await this.userService.findOne(Number(id));
+    if (userActual?.profile_image && userActual.profile_image.includes('supabase')) {
+      await this.storageService.deleteFile(userActual.profile_image);
+    }
+
+    // Subir a Supabase
+    const publicUrl = await this.storageService.uploadFile(file, 'profile_images');
+
     const user = await this.userService.updateImages(Number(id), {
-      profile_image: relativePath,
+      profile_image: publicUrl,
     });
 
     return { success: true, message: 'Imagen de perfil actualizada', user };
   }
 
   // =========================
-  // Subir imagen de banner - SOLO AUTENTICADOS
+  // MIGRADO: Subir imagen de banner a Supabase
   // =========================
   @UseGuards(JwtAuthGuard)
   @Patch(':id/banner-image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadPath = join(process.cwd(), 'uploads', 'banner_images');
-          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (_req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `banner_${unique}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(), // En memoria
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(png|jpe?g|gif|webp|svg\+xml)$/)) {
           return cb(
@@ -239,17 +186,22 @@ export class UserController {
   ) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
 
-    const relativePath = `/uploads/banner_images/${file.filename}`;
+    // Eliminar banner anterior de Supabase (si existía)
+    const userActual = await this.userService.findOne(Number(id));
+    if (userActual?.banner_image && userActual.banner_image.includes('supabase')) {
+      await this.storageService.deleteFile(userActual.banner_image);
+    }
+
+    // Subir a Supabase
+    const publicUrl = await this.storageService.uploadFile(file, 'banner_images');
+
     const user = await this.userService.updateImages(Number(id), {
-      banner_image: relativePath,
+      banner_image: publicUrl,
     });
 
     return { success: true, message: 'Imagen de portada actualizada', user };
   }
 
-  // =========================
-  // Eliminar usuario - SOLO ADMIN
-  // =========================
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @Delete(':id')

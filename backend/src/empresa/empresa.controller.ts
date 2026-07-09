@@ -12,89 +12,97 @@ import {
   NotFoundException,
   UploadedFile,
   UseInterceptors,
-  UseGuards, // NUEVO
+  UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer'; // CAMBIO: memoryStorage en vez de diskStorage
 
 import { EmpresaService } from './empresa.service';
 import { EmpresaReportService } from './empresa.report.service';
 
-// NUEVOS IMPORTS PARA PROTECCIÓN
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
+import { StorageService } from '../common/storage/storage.service';
 
 @Controller('empresas')
 export class EmpresaController {
   constructor(
     private readonly empresaService: EmpresaService,
+    private readonly storageService: StorageService,
     private readonly empresaReportService: EmpresaReportService,
   ) {}
 
-  // PÚBLICO: Cualquiera puede registrar una empresa
-  // PÚBLICO: Registrar una empresa con su logo opcional integrado
+  // ==========================================
+  // POST / — Crear empresa (con logo opcional en Supabase)
+  // ==========================================
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/logos',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, uniqueSuffix + extname(file.originalname));
-        },
-      }),
+      storage: memoryStorage(), // En memoria, para pasarlo a Supabase
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máx
     }),
   )
   async crear(
     @Body() body: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    // Si viene un archivo en la petición, creamos la ruta del logo
     const empresaData = { ...body };
+
+    // Si viene archivo, lo subimos a Supabase Storage
     if (file) {
-      empresaData.logo = `/uploads/logos/${file.filename}`;
+      const logoUrl = await this.storageService.uploadFile(file, 'logos');
+      empresaData.logo = logoUrl;
     }
 
     return this.empresaService.crear(empresaData);
   }
 
-  // Obtener la empresa del usuario logueado
+  // ==========================================
+  // GET /mi-empresa — Empresa del usuario logueado
+  // ==========================================
   @UseGuards(JwtAuthGuard)
   @Get('mi-empresa')
   async miEmpresa(@Req() req: any) {
     const userId = req.user.id;
     const empresa = await this.empresaService.obtenerPorUserId(userId);
-    
+
     if (!empresa) {
       throw new NotFoundException('No tienes empresa registrada');
     }
-    
+
     return empresa;
   }
 
-  // PÚBLICO: Cualquiera puede ver la lista de empresas
+  // ==========================================
+  // GET / — Listar todas
+  // ==========================================
   @Get()
   obtenerTodas() {
     return this.empresaService.obtenerTodas();
   }
 
-  // PÚBLICO: Cualquiera puede ver una empresa específica
+  // ==========================================
+  // GET /:id — Obtener una empresa
+  // ==========================================
   @Get(':id')
   obtenerPorId(@Param('id', ParseIntPipe) id: number) {
     return this.empresaService.obtenerPorId(id);
   }
 
-  // AUTENTICADOS: Editar requiere login
+  // ==========================================
+  // PUT /:id — Actualizar (login requerido)
+  // ==========================================
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   actualizar(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.empresaService.actualizar(id, body);
   }
 
-  // SOLO ADMIN: Eliminar empresas
+  // ==========================================
+  // DELETE /:id — Solo ADMIN
+  // ==========================================
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @Delete(':id')
@@ -102,19 +110,15 @@ export class EmpresaController {
     return this.empresaService.eliminar(id);
   }
 
-  // AUTENTICADOS: Subir logo
+  // ==========================================
+  // PATCH /:id/logo — Subir/cambiar logo (Supabase)
+  // ==========================================
   @UseGuards(JwtAuthGuard)
   @Patch(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/logos',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, uniqueSuffix + extname(file.originalname));
-        },
-      }),
+      storage: memoryStorage(), // En memoria
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máx
     }),
   )
   async uploadLogo(
@@ -122,23 +126,65 @@ export class EmpresaController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
-      return {
-        success: false,
-        message: 'No se recibió archivo de logo',
-      };
+      throw new BadRequestException('No se recibió archivo de logo');
     }
 
-    const logoPath = `/uploads/logos/${file.filename}`;
-    const empresa = await this.empresaService.actualizar(id, { logo: logoPath });
+    // Opcional: eliminar el logo anterior de Supabase (si existía)
+    const empresaActual = await this.empresaService.obtenerPorId(id);
+    if (empresaActual?.logo && empresaActual.logo.includes('supabase')) {
+      await this.storageService.deleteFile(empresaActual.logo);
+    }
+
+    // Subimos el nuevo logo a Supabase
+    const logoUrl = await this.storageService.uploadFile(file, 'logos');
+    const empresa = await this.empresaService.actualizar(id, { logo: logoUrl });
 
     return {
       success: true,
-      logo: logoPath,
+      logo: logoUrl,
       empresa,
     };
   }
 
-  // AUTENTICADOS: Generar PDF
+  // ==========================================
+  // PATCH /:id/banner — Subir/cambiar banner de empresa
+  // ==========================================
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/banner')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB (banners suelen ser más grandes)
+    }),
+  )
+  async uploadBanner(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No se recibió archivo de banner');
+    }
+
+    // Eliminar banner anterior de Supabase (si existía)
+    const empresaActual = await this.empresaService.obtenerPorId(id);
+    if (empresaActual?.banner && empresaActual.banner.includes('supabase')) {
+      await this.storageService.deleteFile(empresaActual.banner);
+    }
+
+    // Subir nuevo banner a Supabase
+    const bannerUrl = await this.storageService.uploadFile(file, 'banners');
+    const empresa = await this.empresaService.actualizar(id, { banner: bannerUrl });
+
+    return {
+      success: true,
+      banner: bannerUrl,
+      empresa,
+    };
+  }
+
+  // ==========================================
+  // GET /:id/reporte — Generar PDF
+  // ==========================================
   @UseGuards(JwtAuthGuard)
   @Get(':id/reporte')
   async generarReporte(@Param('id', ParseIntPipe) id: number) {

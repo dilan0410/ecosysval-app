@@ -127,6 +127,9 @@ export class Empresa {
   @CreateDateColumn()
   createdAt: Date;
 
+  @Column({ nullable: true })
+  banner: string;
+
   // ==========================================
   // CAMPOS OBSOLETOS (mantener por compatibilidad)
   // ==========================================

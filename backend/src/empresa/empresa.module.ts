@@ -4,9 +4,10 @@ import { Empresa } from './empresa.entity';
 import { EmpresaService } from './empresa.service';
 import { EmpresaController } from './empresa.controller';
 import { EmpresaReportService } from './empresa.report.service';
+import { StorageModule } from '../common/storage/storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Empresa])],
+  imports: [StorageModule, TypeOrmModule.forFeature([Empresa])],
   providers: [EmpresaService, EmpresaReportService],
   controllers: [EmpresaController],
   exports: [EmpresaService],

@@ -153,64 +153,49 @@ export default function SidebarMenu({ onItemClick }) {
                 onClick={() => onItemClick?.(label)}
                 className={({ isActive }) =>
                   [
-                    // Estructura base de item
                     "group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all",
-                    // Hover sobrio
                     "hover:bg-white/7",
-                    // Activo: fondo + borde suave
                     isActive ? "bg-white/9 ring-1 ring-white/10" : "bg-transparent",
                   ].join(" ")
                 }
               >
-                {/* ----------------------------------------------------------
-                    INDICADOR LATERAL
-                    - Se muestra solo en activo.
-                    - Color dorado (identidad) sin saturar el fondo.
-                ---------------------------------------------------------- */}
-                <span
-                  className={({ isActive }) =>
-                    [
-                      "absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full transition-all",
-                      isActive ? "bg-yellow-300" : "bg-transparent",
-                    ].join(" ")
-                  }
-                />
+                {({ isActive }) => (  // Aquí desestructuramos isActive
+                  <>
+                    {/* Indicador lateral */}
+                    <span
+                      className={[
+                        "absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full transition-all",
+                        isActive ? "bg-yellow-300" : "bg-transparent",
+                      ].join(" ")}
+                    />
 
-                {/* ----------------------------------------------------------
-                    CONTENEDOR DE ÍCONO
-                    - Fondo tipo glass suave.
-                    - Aumenta levemente en hover.
-                ---------------------------------------------------------- */}
-                <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/9 transition">
-                  <img
-                    src={icon}
-                    alt={label}
-                    className="w-5 h-5 object-contain opacity-90"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/icons/mi-perfil.png";
-                    }}
-                  />
-                </div>
+                    {/* Contenedor de ícono */}
+                    <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/9 transition">
+                      <img
+                        src={icon}
+                        alt={label}
+                        className="w-5 h-5 object-contain opacity-90"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "/icons/mi-perfil.png";
+                        }}
+                      />
+                    </div>
 
-                {/* Texto del item */}
-                <span className="text-sm text-white/80 group-hover:text-white transition">
-                  {label}
-                </span>
+                    {/* Texto del item */}
+                    <span className="text-sm text-white/80 group-hover:text-white transition">
+                      {label}
+                    </span>
 
-                {/* ----------------------------------------------------------
-                    PUNTO DERECHO (estado)
-                    - Activo: dorado.
-                    - Inactivo: blanco tenue, sube un poco en hover.
-                ---------------------------------------------------------- */}
-                <span
-                  className={({ isActive }) =>
-                    [
-                      "ml-auto h-2 w-2 rounded-full transition",
-                      isActive ? "bg-yellow-300" : "bg-white/10 group-hover:bg-white/20",
-                    ].join(" ")
-                  }
-                />
+                    {/* Punto derecho (estado) */}
+                    <span
+                      className={[
+                        "ml-auto h-2 w-2 rounded-full transition",
+                        isActive ? "bg-yellow-300" : "bg-white/10 group-hover:bg-white/20",
+                      ].join(" ")}
+                    />
+                  </>
+                )}
               </NavLink>
             );
           })}

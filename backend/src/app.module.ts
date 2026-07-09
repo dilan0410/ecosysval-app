@@ -11,6 +11,8 @@ import { Post } from './post/post.entity';
 import { EmpresaModule } from './empresa/empresa.module';
 import { ContactModule } from './contact/contact.module'; 
 import { EmpleoModule } from "./empleo/empleo.module";
+import { StorageModule } from './common/storage/storage.module';
+import { StorageService } from './common/storage/storage.service';
 
 @Module({
   imports: [
@@ -53,8 +55,9 @@ import { EmpleoModule } from "./empleo/empleo.module";
     EmpresaModule,
     ContactModule,
     EmpleoModule,
+    StorageModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, StorageService],
 })
 export class AppModule {}

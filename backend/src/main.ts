@@ -1,12 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // CAMBIO: agregar el tipo <NestExpressApplication>
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // ACTIVAR HELMET CON CONFIGURACIÓN DE RECURSOS INTEGRADA
   // CONFIGURACIÓN CORRECTA DE SEGURIDAD PARA HELMET
