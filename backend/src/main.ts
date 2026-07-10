@@ -1,34 +1,32 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'; // NUEVO
 
 async function bootstrap() {
-  // CAMBIO: agregar el tipo <NestExpressApplication>
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
-  // ACTIVAR HELMET CON CONFIGURACIÓN DE RECURSOS INTEGRADA
-  // CONFIGURACIÓN CORRECTA DE SEGURIDAD PARA HELMET
+  // HELMET
   app.use(
     helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
       crossOriginEmbedderPolicy: false,
     }),
   );
 
-  // ✅ Validaciones globales (DTOs)
+  // Validaciones globales
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,            // elimina campos no definidos en el DTO
-      forbidNonWhitelisted: true, // lanza error si mandan campos extra
-      transform: true,            // transforma tipos (ej: "1" -> 1)
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
-  // ✅ Habilitar CORS para tu frontend (React)
+  // CORS
   app.enableCors({
     origin: [
       'http://localhost:3001',
@@ -41,15 +39,52 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // ✅ Servir archivos estáticos (imágenes, videos, etc.)
+  // Archivos estáticos
   app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
-  // ✅ Puerto de ejecución del backend
+  // ============================================
+  // SWAGGER: Documentación automática de la API
+  // ============================================
+  const config = new DocumentBuilder()
+    .setTitle('Ecosysval API')
+    .setDescription(
+      'API del ecosistema empresarial Ecosysval. ' +
+      'Gestión de empresas, usuarios, publicaciones, ofertas de empleo y más.',
+    )
+    .setVersion('1.0')
+    .addTag('auth', 'Autenticación y registro')
+    .addTag('users', 'Gestión de usuarios')
+    .addTag('empresas', 'Gestión de empresas')
+    .addTag('posts', 'Publicaciones')
+    .addTag('empleo', 'Ofertas de empleo')
+    .addTag('contact', 'Formularios de contacto')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Ingresa tu token JWT (obtenido en /auth/login)',
+        in: 'header',
+      },
+      'JWT-auth', // Nombre de referencia para usar en decoradores
+    )
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // Recuerda el token entre recargas
+    },
+    customSiteTitle: 'Ecosysval API Docs',
+  });
+
   const PORT = process.env.PORT || 3000;
   await app.listen(PORT, '0.0.0.0');
 
   console.log(`🚀 Backend corriendo en http://localhost:${PORT}`);
-  console.log(`🖼️ Archivos disponibles en http://localhost:${PORT}/uploads`);
+  console.log(`📚 Documentación API: http://localhost:${PORT}/api`);
+  console.log(`🖼️  Archivos en http://localhost:${PORT}/uploads`);
 }
 
 bootstrap();
