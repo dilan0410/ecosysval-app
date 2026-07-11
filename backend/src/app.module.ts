@@ -1,22 +1,42 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'; // NUEVO
+import { APP_GUARD } from '@nestjs/core'; // NUEVO
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PostModule } from './post/post.module';
-import { User } from './user/user.entity';  
-import { Post } from './post/post.entity'; 
+import { User } from './user/user.entity';
+import { Post } from './post/post.entity';
 import { EmpresaModule } from './empresa/empresa.module';
-import { ContactModule } from './contact/contact.module'; 
-import { EmpleoModule } from "./empleo/empleo.module";
+import { ContactModule } from './contact/contact.module';
+import { EmpleoModule } from './empleo/empleo.module';
 import { StorageModule } from './common/storage/storage.module';
-import { StorageService } from './common/storage/storage.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // NUEVO: Rate Limiting Global
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000, // 1 segundo
+        limit: 3, // 3 peticiones por segundo
+      },
+      {
+        name: 'medium',
+        ttl: 10000, // 10 segundos
+        limit: 20, // 20 peticiones por 10 segundos
+      },
+      {
+        name: 'long',
+        ttl: 60000, // 1 minuto
+        limit: 100, // 100 peticiones por minuto
+      },
+    ]),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -28,7 +48,7 @@ import { StorageService } from './common/storage/storage.service';
             dropSchema: true,
             autoLoadEntities: true,
             synchronize: true,
-            entities: [User, Post], 
+            entities: [User, Post],
           };
         }
 
@@ -58,6 +78,13 @@ import { StorageService } from './common/storage/storage.service';
     StorageModule,
   ],
   controllers: [AppController],
-  providers: [AppService, StorageService],
+  providers: [
+    AppService,
+    // NUEVO: Aplicar ThrottlerGuard globalmente
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
