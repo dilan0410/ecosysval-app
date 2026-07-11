@@ -1,3 +1,4 @@
+// backend/src/user/user.controller.ts
 import {
   Controller,
   Get,
@@ -11,34 +12,70 @@ import {
   UseInterceptors,
   UseGuards,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger'; // NUEVO
+import { Throttle } from '@nestjs/throttler'; // NUEVO
 import { UserService } from './user.service';
 import { EmpresaService } from '../empresa/empresa.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer'; // CAMBIO: memoryStorage en vez de diskStorage
+import { memoryStorage } from 'multer';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.decorator';
 import { StorageService } from '../common/storage/storage.service';
+import { CreateUserDto } from './dto/create-user.dto'; // NUEVO
 
+@ApiTags('users') // NUEVO
 @Controller('users')
 export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly empresaService: EmpresaService,
-    private readonly storageService: StorageService, // NUEVO
+    private readonly storageService: StorageService,
   ) {}
 
-  // =========================
-  // Crear usuario + empresa (registro completo)
-  // =========================
+  // ==========================================
+  // POST / — Registrar usuario + empresa
+  // ==========================================
   @Post()
-  async create(@Body() body: any) {
-    if (!body?.password) {
-      return { success: false, message: 'La contraseña es obligatoria' };
-    }
-
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // Anti-spam: 3 registros/min
+  @ApiOperation({
+    summary: 'Registrar nuevo usuario + empresa',
+    description:
+      'Crea un usuario y opcionalmente una empresa vinculada. ' +
+      'Si SKIP_EMAIL_VERIFICATION=false, se enviará un email de verificación. ' +
+      'Límite: 3 registros por minuto por IP.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario creado. Si requiere verificación, se envió email.',
+    schema: {
+      example: {
+        success: true,
+        message: 'Usuario y empresa registrados. Revisa tu email para verificar.',
+        user: {
+          id: 45,
+          name: 'Juan Perez',
+          email: 'juan@ejemplo.com',
+          email_verified: false,
+          role: 'user',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 409, description: 'Email ya registrado' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos de registro' })
+  async create(@Body() body: CreateUserDto) {
     const {
       name,
       email,
@@ -48,9 +85,9 @@ export class UserController {
       ubicacion,
       paginaWeb,
       paquete,
-      ...resto
     } = body;
 
+    // Verificar si el email ya existe
     const usuarioExistente = await this.userService.findByEmail(email);
     if (usuarioExistente) {
       return {
@@ -59,6 +96,7 @@ export class UserController {
       };
     }
 
+    // Crear usuario
     let newUser;
     try {
       newUser = await this.userService.create({ name, email, password });
@@ -67,6 +105,7 @@ export class UserController {
       return { success: false, message: 'Error al crear el usuario' };
     }
 
+    // Crear empresa vinculada (si viene razonSocial)
     if (razonSocial) {
       try {
         await this.empresaService.crear({
@@ -80,6 +119,7 @@ export class UserController {
         });
       } catch (error) {
         console.error('Error creando empresa:', error.message);
+        // Limpiar usuario huérfano si falla la empresa
         try {
           await this.userService.remove(newUser.id);
         } catch (e) {
@@ -92,40 +132,83 @@ export class UserController {
       }
     }
 
+    // Mensaje según modo (con o sin verificación)
+    const skipVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
+    const message = skipVerification
+      ? 'Usuario y empresa registrados. Ya puedes iniciar sesión.'
+      : 'Usuario y empresa registrados. Revisa tu email para verificar tu cuenta.';
+
     return {
       success: true,
-      message: 'Usuario y empresa registrados',
+      message,
       user: newUser,
     };
   }
 
+  // ==========================================
+  // GET / — Listar todos (solo ADMIN)
+  // ==========================================
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Listar todos los usuarios (solo admin)',
+    description: 'Devuelve la lista completa de usuarios ordenados por ID descendente.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de usuarios' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo admins pueden acceder' })
   @Get()
   async findAll() {
     return this.userService.findAll();
   }
 
+  // ==========================================
+  // GET /:id — Obtener un usuario
+  // ==========================================
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtener un usuario por ID' })
+  @ApiResponse({ status: 200, description: 'Datos del usuario' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.userService.findOne(Number(id));
   }
 
+  // ==========================================
+  // PUT /:id — Actualizar usuario
+  // ==========================================
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Actualizar datos del usuario' })
   @Put(':id')
   async update(@Param('id') id: string, @Body() user: any) {
     return this.userService.update(Number(id), user);
   }
 
-  // =========================
-  // MIGRADO: Subir imagen de perfil a Supabase
-  // =========================
+  // ==========================================
+  // PATCH /:id/profile-image — Subir foto perfil
+  // ==========================================
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Subir imagen de perfil',
+    description: 'Sube una imagen a Supabase Storage. Máx 5MB. Formatos: png, jpg, gif, webp.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   @Patch(':id/profile-image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(), // En memoria, para pasar a Supabase
+      storage: memoryStorage(),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(png|jpe?g|gif|webp|svg\+xml)$/)) {
           return cb(
@@ -135,7 +218,7 @@ export class UserController {
         }
         cb(null, true);
       },
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
   async uploadProfileImage(
@@ -144,13 +227,11 @@ export class UserController {
   ) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
 
-    // Eliminar imagen anterior de Supabase (si existía)
     const userActual = await this.userService.findOne(Number(id));
     if (userActual?.profile_image && userActual.profile_image.includes('supabase')) {
       await this.storageService.deleteFile(userActual.profile_image);
     }
 
-    // Subir a Supabase
     const publicUrl = await this.storageService.uploadFile(file, 'profile_images');
 
     const user = await this.userService.updateImages(Number(id), {
@@ -160,14 +241,28 @@ export class UserController {
     return { success: true, message: 'Imagen de perfil actualizada', user };
   }
 
-  // =========================
-  // MIGRADO: Subir imagen de banner a Supabase
-  // =========================
+  // ==========================================
+  // PATCH /:id/banner-image — Subir banner
+  // ==========================================
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Subir imagen de banner',
+    description: 'Sube una imagen a Supabase Storage. Máx 5MB.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   @Patch(':id/banner-image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(), // En memoria
+      storage: memoryStorage(),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(png|jpe?g|gif|webp|svg\+xml)$/)) {
           return cb(
@@ -186,13 +281,11 @@ export class UserController {
   ) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
 
-    // Eliminar banner anterior de Supabase (si existía)
     const userActual = await this.userService.findOne(Number(id));
     if (userActual?.banner_image && userActual.banner_image.includes('supabase')) {
       await this.storageService.deleteFile(userActual.banner_image);
     }
 
-    // Subir a Supabase
     const publicUrl = await this.storageService.uploadFile(file, 'banner_images');
 
     const user = await this.userService.updateImages(Number(id), {
@@ -202,8 +295,13 @@ export class UserController {
     return { success: true, message: 'Imagen de portada actualizada', user };
   }
 
+  // ==========================================
+  // DELETE /:id — Eliminar (solo ADMIN)
+  // ==========================================
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Eliminar usuario (solo admin)' })
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.userService.remove(Number(id));

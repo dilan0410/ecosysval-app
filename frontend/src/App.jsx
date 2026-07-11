@@ -45,6 +45,7 @@ import Recomendaciones from "./pages/Recomendaciones";
 import Favoritos from "./pages/Favoritos";
 import Contactos from "./pages/Contactos";
 import Eventos from "./pages/Eventos";
+import Verificar from "./pages/Verificar";
 
 // NUEVA PÁGINA: Panel de Administrador
 import Admin from "./pages/Admin";
@@ -58,11 +59,15 @@ function AppContent() {
 
     // Auto-redirect: Si está logueado y entra a páginas públicas → /inicio
     useEffect(() => {
-      const publicRoutes = ["/", "/login", "/register", "/subscribe"];
+      const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar"];
       const isPublicRoute = publicRoutes.includes(location.pathname);
 
-      // Si está logueado y entra a ruta pública → /inicio
-      if (isLoggedIn && isPublicRoute) {
+      // MEJORA: Si está logueado, NO redirigir si está en /verificar
+      // (para que pueda ver el mensaje de "ya verificado")
+      const isVerificarRoute = location.pathname === "/verificar";
+
+      // Si está logueado y entra a ruta pública (pero NO /verificar) → /inicio
+      if (isLoggedIn && isPublicRoute && !isVerificarRoute) {
         navigate("/inicio");
       }
 
@@ -119,6 +124,7 @@ function AppContent() {
           <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/contactos" element={<Contactos />} />
           <Route path="/eventos" element={<Eventos />} />
+          <Route path="/verificar" element={<Verificar />} />  {/* ✅ NUEVO */}
           
           {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
           <Route 

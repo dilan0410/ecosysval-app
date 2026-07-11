@@ -384,8 +384,20 @@ export default function Register() {
         empresaFinal = await empresaRes.json();
       }
 
-      setSuccess("¡Empresa registrada correctamente! Redirigiendo...");
-      setTimeout(() => navigate("/login"), 2000);
+      // NUEVO: Mensaje adaptativo según si requiere verificación o no
+        const requiereVerificacion = userResponse.message?.toLowerCase().includes("verifica") 
+          || userResponse.message?.toLowerCase().includes("revisa");
+
+        if (requiereVerificacion) {
+          setSuccess(
+            `¡Empresa registrada correctamente! ` +
+            `Revisa tu email (${formData.correoLogin}) para verificar tu cuenta antes de iniciar sesión.`
+          );
+          setTimeout(() => navigate("/login"), 5000); // 5 segundos para leer
+        } else {
+          setSuccess("¡Empresa registrada correctamente! Redirigiendo al login...");
+          setTimeout(() => navigate("/login"), 2000);
+        }
     } catch (err) {
       console.error(err);
       setError(err.message || "Ocurrió un error al registrar.");

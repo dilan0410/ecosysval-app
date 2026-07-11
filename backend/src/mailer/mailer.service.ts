@@ -197,4 +197,153 @@ export class MailerService {
       </html>
     `;
   }
+
+  // ==========================================
+  // NUEVO: ENVIAR CORREO DE VERIFICACIÓN
+  // ==========================================
+  async enviarCorreoVerificacion(
+    toEmail: string,
+    nombre: string,
+    token: string,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const verifyUrl = `${frontendUrl}/verificar?token=${token}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background: #f5f7fa;
+            }
+            .container {
+              background: #ffffff;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #071326 0%, #1a2a44 100%);
+              color: white;
+              padding: 40px 30px;
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 26px;
+            }
+            .header p {
+              margin: 8px 0 0;
+              color: #fbbf24;
+              font-size: 14px;
+            }
+            .content {
+              padding: 40px 30px;
+              text-align: center;
+            }
+            .content p {
+              font-size: 16px;
+              color: #4b5563;
+              margin: 16px 0;
+            }
+            .button {
+              display: inline-block;
+              padding: 14px 32px;
+              background: #fbbf24;
+              color: #111827 !important;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: 700;
+              font-size: 16px;
+              margin: 20px 0;
+            }
+            .link-fallback {
+              background: #f9fafb;
+              padding: 16px;
+              border-radius: 8px;
+              font-size: 12px;
+              color: #6b7280;
+              word-break: break-all;
+              margin-top: 20px;
+            }
+            .footer {
+              padding: 20px 30px;
+              background: #f9fafb;
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+            }
+            .warning {
+              background: #fef3c7;
+              border-left: 3px solid #fbbf24;
+              padding: 12px;
+              border-radius: 4px;
+              margin-top: 20px;
+              font-size: 13px;
+              text-align: left;
+              color: #92400e;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>¡Bienvenido a Ecosysval!</h1>
+              <p>Verifica tu email para empezar</p>
+            </div>
+            
+            <div class="content">
+              <p>Hola <strong>${nombre}</strong>,</p>
+              <p>Gracias por registrarte en Ecosysval. Para activar tu cuenta y empezar a usar la plataforma, verifica tu email haciendo click en el botón:</p>
+              
+              <a href="${verifyUrl}" class="button">Verificar mi email</a>
+              
+              <div class="warning">
+                Este link expira en 24 horas. Si no verificas tu email, no podrás iniciar sesión.
+              </div>
+              
+              <div class="link-fallback">
+                ¿No funciona el botón? Copia y pega este link en tu navegador:<br>
+                <a href="${verifyUrl}">${verifyUrl}</a>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Si no creaste esta cuenta, puedes ignorar este correo.</p>
+              <p><strong>Ecosysval</strong> - Ecosistema empresarial</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const result = await this.resend.emails.send({
+        from: `Ecosysval <${this.fromEmail}>`,
+        to: toEmail,
+        subject: 'Verifica tu email en Ecosysval',
+        html,
+      });
+
+      if (result.error) {
+        this.logger.error('Error al enviar email de verificación:', result.error);
+        throw new Error(`Error: ${result.error.message}`);
+      }
+
+      this.logger.log(`Email de verificación enviado a ${toEmail}. ID: ${result.data?.id}`);
+      return result.data;
+    } catch (error) {
+      this.logger.error('Error inesperado enviando verificación:', error);
+      throw error;
+    }
+  }
+
 }
