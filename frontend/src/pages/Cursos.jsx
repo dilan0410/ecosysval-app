@@ -95,7 +95,14 @@ export default function Cursos() {
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) throw new Error("No se pudo enviar el formulario");
+      if (!res.ok) {
+        const errorData = await res.json();
+        // Muestra los errores específicos del backend
+        const errorMessage = Array.isArray(errorData.message)
+          ? errorData.message.join(', ')
+          : errorData.message || 'No se pudo enviar el formulario';
+        throw new Error(errorMessage);
+      }
 
       setOk(true);
 
