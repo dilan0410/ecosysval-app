@@ -238,10 +238,12 @@ export default function Profile() {
     if (videoFile) formData.append("files", videoFile);
 
     try {
-      const res = await fetch(`${API_URL}/posts`, {
-        method: "POST",
-        body: formData,
+      const res = await fetch(`${API_URL}/posts`, { 
+        method: "POST", 
+        headers: getAuthHeaders(),  // NUEVO: agregar token JWT
+        body: formData 
       });
+
       const responseData = await res.json().catch(() => ({}));
 
       if (res.ok) {
@@ -266,14 +268,12 @@ export default function Profile() {
   };
 
   const eliminarPublicacion = async (id) => {
-    if (
-      !window.confirm(
-        "¿Estás seguro de que quieres eliminar esta publicación?"
-      )
-    )
-      return;
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta publicación?")) return;
     try {
-      const res = await fetch(`${API_URL}/posts/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/posts/${id}`, { 
+        method: "DELETE",
+        headers: getAuthHeaders(),  // NUEVO
+      });
       if (res.ok) {
         await cargarUsuarioYPublicaciones(user.id);
       } else {
@@ -302,9 +302,13 @@ export default function Profile() {
     try {
       const res = await fetch(`${API_URL}/posts/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),  // NUEVO: agregar token
+        },
         body: JSON.stringify({ content: textoEditado }),
       });
+
       if (res.ok) {
         setEditandoId(null);
         setTextoEditado("");
@@ -765,8 +769,8 @@ export default function Profile() {
                     </div>
                   ) : (
                     publicaciones.map((pub) => {
-                      const img = normalizePath(pub?.image);
-                      const vid = normalizePath(pub?.video);
+                      const img = pub?.image;
+                      const vid = pub?.video;
                       const createdAt = pub?.createdAt
                         ? new Date(pub.createdAt)
                         : null;
@@ -867,7 +871,7 @@ export default function Profile() {
                               {img && (
                                 <div className="overflow-hidden rounded-2xl border border-border bg-bg/40">
                                   <img
-                                    src={`${API_URL}${img}`}
+                                    src={getImageUrl(img)}
                                     alt="Publicación"
                                     className="w-full max-h-[620px] object-contain"
                                     loading="lazy"
@@ -878,7 +882,7 @@ export default function Profile() {
                                 <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-bg/40">
                                   <video
                                     controls
-                                    src={`${API_URL}${vid}`}
+                                    src={getImageUrl(vid)}
                                     className="w-full max-h-[520px] object-contain"
                                   />
                                 </div>
