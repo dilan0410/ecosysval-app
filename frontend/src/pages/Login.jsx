@@ -1,6 +1,6 @@
 // frontend/src/pages/Login.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -134,33 +134,43 @@ function Login() {
             </div>
 
             <div className="relative">
-              <label className="block text-sm font-medium text-white mb-1">
+            {/* MEJORADO: Label + link al mismo nivel */}
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-white">
                 Contraseña
               </label>
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="********"
-                className="w-full px-4 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-yellow-400 outline-none pr-10"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-slate-700"
+              <a
+                href="/forgot-password"
+                className="text-yellow-300 hover:underline text-xs"
               >
-                {showPassword ? "🙈" : "👁️"}
-              </button>
+                ¿Olvidaste tu contraseña?
+              </a>
             </div>
-
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="********"
+              className="w-full px-4 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-yellow-400 outline-none pr-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-yellow-400 text-slate-900 py-2 rounded-lg font-semibold hover:brightness-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-slate-700"
             >
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+              {showPassword ? "🙈" : "👁️"}
             </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-yellow-400 text-slate-900 py-2 rounded-lg font-semibold hover:brightness-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+          </button>
+
           </form>
 
           {/* NUEVO: Mensaje con estilo según tipo */}

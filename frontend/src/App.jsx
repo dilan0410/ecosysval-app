@@ -46,6 +46,8 @@ import Favoritos from "./pages/Favoritos";
 import Contactos from "./pages/Contactos";
 import Eventos from "./pages/Eventos";
 import Verificar from "./pages/Verificar";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // NUEVA PÁGINA: Panel de Administrador
 import Admin from "./pages/Admin";
@@ -59,15 +61,18 @@ function AppContent() {
 
     // Auto-redirect: Si está logueado y entra a páginas públicas → /inicio
     useEffect(() => {
-      const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar"];
+      const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar", "/forgot-password", "/reset-password"];
       const isPublicRoute = publicRoutes.includes(location.pathname);
 
       // MEJORA: Si está logueado, NO redirigir si está en /verificar
       // (para que pueda ver el mensaje de "ya verificado")
-      const isVerificarRoute = location.pathname === "/verificar";
+      const isPublicOnlyRoute = 
+        location.pathname === "/verificar" ||
+        location.pathname === "/forgot-password" ||
+        location.pathname === "/reset-password";
 
       // Si está logueado y entra a ruta pública (pero NO /verificar) → /inicio
-      if (isLoggedIn && isPublicRoute && !isVerificarRoute) {
+      if (isLoggedIn && isPublicRoute && !isPublicOnlyRoute) {
         navigate("/inicio");
       }
 
@@ -124,7 +129,9 @@ function AppContent() {
           <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/contactos" element={<Contactos />} />
           <Route path="/eventos" element={<Eventos />} />
-          <Route path="/verificar" element={<Verificar />} />  {/* ✅ NUEVO */}
+          <Route path="/verificar" element={<Verificar />} />  {/* NUEVO */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />  {/* NUEVO */}
+          <Route path="/reset-password" element={<ResetPassword />} />    {/* NUEVO */}
           
           {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
           <Route 

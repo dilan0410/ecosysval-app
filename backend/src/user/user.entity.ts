@@ -31,6 +31,14 @@ export class User {
   @Column({ type: 'text', nullable: true })
   verification_token: string | null;  // Cambio
 
+  // NUEVO: Token para recuperación de contraseña
+  @Column({ type: 'text', nullable: true })
+  reset_password_token: string | null;
+
+  // NUEVO: Fecha de expiración del token de reset
+  @Column({ type: 'timestamp', nullable: true })
+  reset_password_expires: Date | null;
+
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];
 }

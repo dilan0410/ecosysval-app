@@ -346,4 +346,174 @@ export class MailerService {
     }
   }
 
+    // ==========================================
+    // NUEVO: ENVIAR CORREO DE RECUPERACIÓN DE CONTRASEÑA
+    // ==========================================
+    async enviarCorreoRecuperacion(
+      toEmail: string,
+      nombre: string,
+      token: string,
+    ) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f5f7fa;
+              }
+              .container {
+                background: #ffffff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              }
+              .header {
+                background: linear-gradient(135deg, #071326 0%, #1a2a44 100%);
+                color: white;
+                padding: 40px 30px;
+                text-align: center;
+              }
+              .header h1 {
+                margin: 0;
+                font-size: 26px;
+              }
+              .header p {
+                margin: 8px 0 0;
+                color: #fbbf24;
+                font-size: 14px;
+              }
+              .content {
+                padding: 40px 30px;
+                text-align: center;
+              }
+              .content p {
+                font-size: 16px;
+                color: #4b5563;
+                margin: 16px 0;
+              }
+              .button {
+                display: inline-block;
+                padding: 14px 32px;
+                background: #fbbf24;
+                color: #111827 !important;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 16px;
+                margin: 20px 0;
+              }
+              .link-fallback {
+                background: #f9fafb;
+                padding: 16px;
+                border-radius: 8px;
+                font-size: 12px;
+                color: #6b7280;
+                word-break: break-all;
+                margin-top: 20px;
+              }
+              .footer {
+                padding: 20px 30px;
+                background: #f9fafb;
+                text-align: center;
+                color: #6b7280;
+                font-size: 12px;
+              }
+              .warning {
+                background: #fef3c7;
+                border-left: 3px solid #fbbf24;
+                padding: 12px;
+                border-radius: 4px;
+                margin-top: 20px;
+                font-size: 13px;
+                text-align: left;
+                color: #92400e;
+              }
+              .security-note {
+                background: #fee2e2;
+                border-left: 3px solid #dc2626;
+                padding: 12px;
+                border-radius: 4px;
+                margin-top: 12px;
+                font-size: 12px;
+                text-align: left;
+                color: #991b1b;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Recuperar Contraseña</h1>
+                <p>Solicitud de restablecimiento</p>
+              </div>
+              
+              <div class="content">
+                <p>Hola <strong>${nombre}</strong>,</p>
+                <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en Ecosysval. Haz click en el botón para crear una nueva contraseña:</p>
+                
+                <a href="${resetUrl}" class="button">Restablecer contraseña</a>
+                
+                <div class="warning">
+                  <strong>Este link expira en 1 hora.</strong> Después tendrás que solicitar uno nuevo.
+                </div>
+                
+                <div class="security-note">
+                  <strong>¿No solicitaste este cambio?</strong> Ignora este correo. Tu contraseña seguirá siendo la misma. Nadie puede acceder a tu cuenta sin este link.
+                </div>
+                
+                <div class="link-fallback">
+                  ¿No funciona el botón? Copia y pega este link en tu navegador:<br>
+                  <a href="${resetUrl}">${resetUrl}</a>
+                </div>
+              </div>
+              
+              <div class="footer">
+                <p>Por seguridad, este link solo puede usarse UNA vez.</p>
+                <p><strong>Ecosysval</strong> - Ecosistema empresarial</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      try {
+        const result = await this.resend.emails.send({
+          from: `Ecosysval <${this.fromEmail}>`,
+          to: toEmail,
+          subject: 'Restablece tu contraseña de Ecosysval',
+          html,
+        });
+
+        if (result.error) {
+          this.logger.error(
+            'Error al enviar email de recuperación:',
+            result.error,
+          );
+          throw new Error(`Error: ${result.error.message}`);
+        }
+
+        this.logger.log(
+          `Email de recuperación enviado a ${toEmail}. ID: ${result.data?.id}`,
+        );
+        return result.data;
+      } catch (error) {
+        this.logger.error(
+          'Error inesperado enviando recuperación:',
+          error,
+        );
+        throw error;
+      }
+    }
+
 }

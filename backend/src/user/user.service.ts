@@ -1,5 +1,5 @@
 // backend/src/user/user.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -173,4 +173,101 @@ export class UserService {
   remove(id: number) {
     return this.userRepository.delete(id);
   }
+
+    // ==========================================
+  // NUEVO: SOLICITAR RECUPERACIÓN DE CONTRASEÑA
+  // ==========================================
+  async requestPasswordReset(email: string) {
+    const user = await this.findByEmail(email);
+
+    // Por seguridad, NO revelamos si el email existe o no
+    // (evita que atacantes descubran qué emails están registrados)
+    if (!user) {
+      return {
+        success: true,
+        message:
+          'Si el email está registrado, recibirás un correo con instrucciones.',
+      };
+    }
+
+    // Generar token único (UUID)
+    const token = uuidv4();
+
+    // Expiración: 1 hora desde ahora
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    // Guardar token y expiración en la BD
+    user.reset_password_token = token;
+    user.reset_password_expires = expiresAt;
+    await this.userRepository.save(user);
+
+    // Enviar email con el link
+    try {
+      await this.mailerService.enviarCorreoRecuperacion(
+        user.email,
+        user.name || 'Usuario',
+        token,
+      );
+      console.log(`Email de recuperación enviado a ${user.email}`);
+    } catch (error) {
+      console.error(
+        `Error enviando email de recuperación a ${user.email}:`,
+        error.message,
+      );
+      // No lanzamos error para no revelar si el email existe
+    }
+
+    return {
+      success: true,
+      message:
+        'Si el email está registrado, recibirás un correo con instrucciones.',
+    };
+  }
+
+  // ==========================================
+  // NUEVO: RESETEAR CONTRASEÑA
+  // ==========================================
+  async resetPassword(
+    token: string,
+    password: string,
+    confirmPassword: string,
+  ) {
+    // Validar que las contraseñas coincidan
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Las contraseñas no coinciden');
+    }
+
+    // Buscar usuario por el token
+    const user = await this.userRepository.findOneBy({
+      reset_password_token: token,
+    });
+
+    if (!user) {
+      throw new NotFoundException('Token inválido o ya utilizado');
+    }
+
+    // Verificar que el token NO haya expirado
+    if (!user.reset_password_expires || user.reset_password_expires < new Date()) {
+      throw new BadRequestException(
+        'El token ha expirado. Solicita uno nuevo.',
+      );
+    }
+
+    // Hashear la nueva contraseña
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Borrar el token y la expiración (evita reutilización)
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+
+    await this.userRepository.save(user);
+
+    return {
+      success: true,
+      message: 'Contraseña restablecida correctamente. Ya puedes iniciar sesión.',
+    };
+  }
+
 }
