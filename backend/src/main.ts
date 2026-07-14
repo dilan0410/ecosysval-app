@@ -5,6 +5,7 @@ import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'; // NUEVO
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,6 +26,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // NUEVO: Registrar Exception Filter Global
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS
   app.enableCors({
