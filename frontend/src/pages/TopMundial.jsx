@@ -11,8 +11,7 @@
  */
 
 import React, { useMemo, useState } from "react";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
+import Layout from "../components/Layout";
 import { Lock, ArrowUpRight, Sparkles, X, Check, Filter, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../components/ThemeProvider";
@@ -88,31 +87,9 @@ export default function TopMundial() {
   const tintCls = theme === "light" ? "bg-white/15" : "bg-black/10";
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlays premium sin romper fondo global */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_50%_100%,rgba(36,70,139,0.12),transparent_60%)]",
-          ].join(" ")}
-        />
-        <div className={`absolute inset-0 ${tintCls}`} />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* Sidebar theme-ready */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 relative overflow-hidden">
-            <div className="mx-auto w-full max-w-7xl px-6 py-10">
+    <>
+      <Layout>
+            <div className="mx-auto w-full max-w-7xl">
               {/* Header superior */}
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
@@ -197,7 +174,7 @@ export default function TopMundial() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface/50 px-4 py-2 text-sm font-semibold text-text hover:bg-surface transition"
@@ -426,6 +403,7 @@ export default function TopMundial() {
                 </aside>
               </div>
             </div>
+      </Layout>
 
             {/* MODAL PLANES */}
             {openPlans && (
@@ -530,10 +508,7 @@ export default function TopMundial() {
                 </div>
               </Modal>
             )}
-          </main>
-        </div>
-      </div>
-    </div>
+    </>            
   );
 }
 

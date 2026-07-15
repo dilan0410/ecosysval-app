@@ -1,7 +1,6 @@
 // src/pages/Alianzas.jsx
 import React, { useMemo, useState } from "react";
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 import {
   Handshake,
@@ -290,28 +289,8 @@ export default function Alianzas() {
   }, [tab, filtradas]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* Overlay pro, respeta fondo global */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_92%_18%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader showSearch={true} />
-
-        <div className="flex flex-1">
-          {/* Sidebar sin hardcode */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 p-6">
+    <>
+      <Layout>
             <div className="mx-auto w-full max-w-6xl space-y-6">
               {/* Title */}
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -358,19 +337,21 @@ export default function Alianzas() {
               <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   {/* Tabs */}
-                  <div className="inline-flex rounded-2xl border border-border bg-surface/50 p-1">
-                    {["Resumen", "Transacciones", "Conexiones", "Negociaciones"].map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTab(t)}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-                          tab === t ? "bg-accent text-slate-900" : "text-text/80 hover:bg-surface"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                  <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
+                    <div className="inline-flex rounded-2xl border border-border bg-surface/50 p-1 w-max">
+                      {["Resumen", "Transacciones", "Conexiones", "Negociaciones"].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTab(t)}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${
+                            tab === t ? "bg-accent text-slate-900" : "text-text/80 hover:bg-surface"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Search */}
@@ -427,13 +408,11 @@ export default function Alianzas() {
                 )}
               </div>
             </div>
+      </Layout>
 
             {/* Drawer detalle */}
             {selected && <DetalleDrawer theme={theme} rel={selected} onClose={() => setSelected(null)} />}
-          </main>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 

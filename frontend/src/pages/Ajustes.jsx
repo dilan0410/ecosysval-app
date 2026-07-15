@@ -1,7 +1,6 @@
 // src/pages/Ajustes.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 import {
   Shield,
@@ -172,35 +171,8 @@ export default function Ajustes() {
   };
 
   return (
-    /**
-     * ✅ Importante:
-     * - NO colocamos background-image aquí.
-     * - El fondo viene global por CSS (body { background-image: var(--bg-image) }).
-     */
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay decorativo (glow) SIN reemplazar el fondo global */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      {/* ✅ App encima del overlay */}
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* Sidebar */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          {/* Content */}
-          <main className="flex-1 px-4 md:px-8 py-6">
+    <>
+      <Layout>
             <div className="mx-auto max-w-6xl space-y-5">
               {/* Header */}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -547,8 +519,7 @@ export default function Ajustes() {
                 </div>
               </div>
             </div>
-          </main>
-        </div>
+      </Layout>
 
         {/* Toast */}
         {toast && (
@@ -556,8 +527,7 @@ export default function Ajustes() {
             <div className="text-sm">{toast}</div>
           </div>
         )}
-      </div>
-    </div>
+    </>
   );
 }
 

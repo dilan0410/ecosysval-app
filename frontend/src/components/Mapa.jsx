@@ -64,8 +64,8 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
 
   return (
     <div
-      className="w-full rounded-xl shadow-lg border border-gray-200 overflow-hidden"
-      style={{ height: "500px" }}
+      className="w-full max-w-full rounded-xl shadow-lg border border-gray-200 overflow-hidden relative"
+      style={{ height: "500px", contain: "strict" }}
     >
       <Map
         mapboxAccessToken={MAPBOX_TOKEN}

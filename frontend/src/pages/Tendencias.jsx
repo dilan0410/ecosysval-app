@@ -17,8 +17,7 @@
 // ======================================================
 
 import React, { useMemo, useState } from "react";
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 // ------------------------------------------------------
@@ -344,31 +343,7 @@ export default function Tendencias() {
     : { backgroundColor: "rgba(11,22,48,0.95)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12 };
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ------------------------------------------------------
-          ✨ Overlay decorativo (mantiene el fondo global)
-         ------------------------------------------------------ */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_92%_18%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header global (con search opcional) */}
-        <MainHeader showSearch={true} />
-
-        <div className="flex flex-1">
-          {/* Sidebar responsive */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 p-6">
+    <Layout>
             <div className="mx-auto w-full max-w-6xl space-y-6">
               {/* ------------------------------------------------------
                   🧾 Header de página
@@ -408,7 +383,7 @@ export default function Tendencias() {
                   </div>
 
                   {/* Acciones rápidas */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={() => alert("Mock: actualizar / sincronizar tendencias")}
@@ -510,7 +485,7 @@ export default function Tendencias() {
                     </span>
                   </div>
 
-                  <div className="mt-5 h-[260px]">
+                  <div className="mt-5 h-[260px] w-full min-w-0 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={lineSeries}>
                         <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" />
@@ -536,7 +511,7 @@ export default function Tendencias() {
                     </span>
                   </div>
 
-                  <div className="mt-5 h-[260px]">
+                  <div className="mt-5 h-[260px] w-full min-w-0 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={barSeries}>
                         <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" />
@@ -632,7 +607,7 @@ export default function Tendencias() {
                               </div>
                             </div>
 
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                               <button
                                 type="button"
                                 className="rounded-xl bg-accent px-4 py-2 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-105 transition"
@@ -720,10 +695,7 @@ export default function Tendencias() {
               </div>
               {/* FIN Unmet + Recommendations */}
             </div>
-          </main>
-        </div>
-      </div>
-    </div>
+    </Layout>
   );
 }
 

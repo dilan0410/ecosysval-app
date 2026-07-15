@@ -20,8 +20,7 @@
 import React, { useMemo, useState } from "react";
 import { Search, MessageSquare, Trash2, Star, Users, Building2, MapPin } from "lucide-react";
 
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 /* ---------------- Mock data (luego lo conectas a backend) ---------------- */
@@ -149,28 +148,7 @@ export default function Contactos() {
   }, [search]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay pro (NO reemplaza el fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_92%_18%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader showSearch={true} />
-
-        <div className="flex flex-1">
-          {/* Sidebar sin hardcode */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 p-6">
+    <Layout>
             <div className="max-w-6xl mx-auto space-y-6">
               {/* Header */}
               <div className={`${glassCard} p-6 text-text`}>
@@ -313,9 +291,6 @@ export default function Contactos() {
                 </div>
               )}
             </div>
-          </main>
-        </div>
-      </div>
-    </div>
+    </Layout>
   );
 }

@@ -24,8 +24,7 @@
  */
 
 import React, { useState } from "react";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 /**
@@ -126,39 +125,7 @@ export default function Cursos() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen relative">
-      {/* ✅ Overlays pro (NO reemplazan el fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        {/* Capa decorativa (fcursos.png) suave */}
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-40"
-          style={{ backgroundImage: "url('/fcursos.png')" }}
-        />
-
-        {/* Glow radial premium */}
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-          ].join(" ")}
-        />
-
-        {/* Tinte leve por tema para contraste */}
-        <div className={theme === "light" ? "absolute inset-0 bg-white/20" : "absolute inset-0 bg-black/10"} />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* Sidebar */}
-          <aside className="w-64 hidden md:block">
-            <SidebarMenu />
-          </aside>
-
-          {/* Main */}
-          <main className="flex-1 relative overflow-hidden">
+    <Layout>
             <section className="relative mx-auto max-w-7xl px-6 py-14 grid gap-12 md:grid-cols-2">
               {/* ==========================================================
                   COPY (Panel glass)
@@ -297,10 +264,7 @@ export default function Cursos() {
                 </form>
               </div>
             </section>
-          </main>
-        </div>
-      </div>
-    </div>
+    </Layout>
   );
 }
 

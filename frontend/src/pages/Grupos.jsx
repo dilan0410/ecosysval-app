@@ -32,8 +32,7 @@ import {
   X,
 } from "lucide-react";
 
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 /** Plan del usuario (mock). Luego: backend/contexto */
@@ -265,27 +264,8 @@ export default function Grupos() {
   }, [selected]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay pro (NO reemplaza fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader showSearch={true} />
-
-        <div className="flex flex-1">
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 p-6">
+    <>
+      <Layout>
             <div className="mx-auto w-full max-w-6xl space-y-6">
               {/* HEADER */}
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -475,10 +455,8 @@ export default function Grupos() {
                 locked={!canAccess(selected.nivelAcceso, PLAN_USUARIO)}
               />
             )}
-          </main>
-        </div>
-      </div>
-    </div>
+      </Layout>
+    </>
   );
 }
 

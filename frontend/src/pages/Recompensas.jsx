@@ -15,11 +15,10 @@
  */
 
 import React, { useMemo, useState } from "react";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
 import { X, Check, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../components/ThemeProvider";
+import Layout from "../components/Layout";
 
 const PLANES_ORDEN = ["BÁSICO", "PRO", "PREMIUM", "PLATINO"];
 
@@ -167,30 +166,9 @@ export default function Recompensas() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlays premium (sin romper fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-        <div className={theme === "light" ? "absolute inset-0 bg-white/20" : "absolute inset-0 bg-black/10"} />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* Sidebar: theme-ready */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 relative overflow-hidden">
-            <section className="mx-auto w-full max-w-6xl px-6 py-10">
+    <>
+      <Layout>
+            <section className="mx-auto w-full max-w-6xl">
               {/* Header */}
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
@@ -221,7 +199,7 @@ export default function Recompensas() {
               </div>
 
               {/* Contenedor glass */}
-              <div className="mt-7 rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-6 md:p-8">
+              <div className="mt-7 rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4 md:p-8">
                 <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                   {recompensasData.map((item) => {
                     const locked = idxUser < PLANES_ORDEN.indexOf(item.plan);
@@ -233,7 +211,7 @@ export default function Recompensas() {
                         key={item.id}
                         className={[
                           "relative flex flex-col rounded-2xl border border-border bg-surface/50 backdrop-blur",
-                          "p-5 shadow-sm transition-all duration-200",
+                          "p-5 shadow-sm transition-all duration-200 min-w-0 overflow-hidden",
                           "hover:-translate-y-0.5 hover:bg-surface/60 hover:shadow-pro",
                           locked ? "" : `ring-1 ${ringCls}`,
                         ].join(" ")}
@@ -283,6 +261,7 @@ export default function Recompensas() {
                 </div>
               </div>
             </section>
+      </Layout>
 
             {/* MODAL */}
             {modalOpen && (
@@ -413,10 +392,7 @@ export default function Recompensas() {
                 </div>
               </Modal>
             )}
-          </main>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 

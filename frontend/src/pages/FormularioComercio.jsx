@@ -2,8 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Send } from "lucide-react";
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 
 const unidadesMock = ["Ninguna", "Toneladas", "Kilogramos", "Piezas", "Litros"];
 const productosMock = ["Madera refinada", "Acero laminado", "Textil industrial"];
@@ -69,28 +68,7 @@ export default function FormularioComercio() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay pro (NO reemplaza fondo global del theme) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1100px_520px_at_10%_10%,rgba(236,182,14,0.14),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_25%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10">
-        <MainHeader showSearch={true} showBack={true} />
-
-        <div className="flex flex-1">
-          {/* ✅ Sidebar: sin color fijo para respetar theme */}
-          <aside className="w-64 hidden md:block border-r border-border bg-surface/70 backdrop-blur">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 p-6">
+    <Layout>
             <div className="mx-auto w-full max-w-6xl grid gap-6 lg:grid-cols-[360px_1fr]">
               {/* IZQUIERDA */}
               <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-6 text-text h-fit">
@@ -305,10 +283,7 @@ export default function FormularioComercio() {
                 </form>
               </section>
             </div>
-          </main>
-        </div>
-      </div>
-    </div>
+    </Layout>
   );
 }
 

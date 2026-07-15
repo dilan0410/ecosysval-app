@@ -36,8 +36,7 @@ import {
 } from "lucide-react";
 
 import Mapa from "../components/Mapa";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
+import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 /**
@@ -123,7 +122,7 @@ export default function MapaPage() {
   // ==========================================================
   // STATE UI
   // ==========================================================
-  const [viewMode, setViewMode] = useState("map"); // map | list
+  const [viewMode, setViewMode] = useState("map");
   const [filterTipo, setFilterTipo] = useState("Ambos"); // Cliente | Proveedor | Ambos
   const [search, setSearch] = useState("");
   const [openBenefitIndex, setOpenBenefitIndex] = useState(null);
@@ -182,38 +181,8 @@ export default function MapaPage() {
   const tintCls = theme === "light" ? "bg-white/15" : "bg-black/10";
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ==========================================================
-          OVERLAYS (premium)
-          - Glows suaves + tint para contraste
-         ========================================================== */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.14),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-        <div className={`absolute inset-0 ${tintCls}`} />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* ==========================================================
-              SIDEBAR (sin hardcode bg-blue-900)
-             ========================================================== */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 relative overflow-y-auto">
-            {/* Overlay de contraste leve sobre contenido */}
-            <div className="absolute inset-0 bg-black/10 -z-10" />
-
-            <div className="p-6">
+    <Layout>
+            <div>
               {/* ==========================================================
                   HEADER DEL MÓDULO
                  ========================================================== */}
@@ -393,10 +362,7 @@ export default function MapaPage() {
                 </div>
               </section>
             </div>
-          </main>
-        </div>
-      </div>
-    </div>
+    </Layout>
   );
 }
 
@@ -433,12 +399,12 @@ function Chip({ label, active, onClick }) {
 function StatCard({ icon: Icon, value, label, compact = false, highlight = false }) {
   return (
     <div
-      className={`rounded-3xl border backdrop-blur-xl shadow-pro p-4 flex items-center gap-4 ${
+      className={`rounded-3xl border backdrop-blur-xl shadow-pro p-4 flex items-center gap-3 min-w-0 ${
         highlight ? "bg-accent/10 border-accent/25" : "bg-surface/60 border-border"
       }`}
     >
       <div
-        className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${
+        className={`shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center border ${
           highlight
             ? "bg-accent/10 border-accent/25 text-accent"
             : "bg-surface/50 border-border text-muted"
@@ -447,7 +413,7 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
         <Icon className="w-5 h-5" />
       </div>
 
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div
           className={`font-extrabold ${compact ? "text-2xl" : "text-3xl"} ${
             highlight ? "text-accent" : "text-text"
@@ -455,7 +421,7 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
         >
           {value}
         </div>
-        <div className={`text-sm ${highlight ? "text-text/85" : "text-muted"} truncate`}>
+        <div className={`text-xs sm:text-sm ${highlight ? "text-text/85" : "text-muted"} truncate`}>
           {label}
         </div>
       </div>
