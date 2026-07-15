@@ -1,23 +1,38 @@
 // src/components/MainHeader.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { Bell, MessageSquare, UserCircle, ChevronDown, LogOut } from "lucide-react";
+import {
+  Bell,
+  MessageSquare,
+  UserCircle,
+  ChevronDown,
+  LogOut,
+  Menu as MenuIcon, // NUEVO: Icono hamburguesa
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { notificacionesMock } from "../data/notificacionesMock";
 import { mensajesMock } from "../data/mensajesMock";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
-// Helper universal para URLs de imágenes (soporta local y Supabase)
+// Helper universal para URLs de imágenes
 function getImageUrl(path) {
   if (!path) return null;
-  // Si ya es URL completa (Supabase), la retornamos tal cual
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  // Si es ruta relativa vieja, agregamos API_URL
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${API_URL}${normalized}`;
 }
 
-export default function MainHeader({ showSearch = true, showBack = false }) {
+/**
+ * MainHeader
+ * @param {boolean} showSearch - Si mostrar el buscador (default true)
+ * @param {boolean} showBack - Si mostrar botón "volver" (default false)
+ * @param {function} onMenuClick - NUEVO: callback al hacer click en hamburguesa
+ */
+export default function MainHeader({
+  showSearch = true,
+  showBack = false,
+  onMenuClick, // NUEVO
+}) {
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
 
@@ -28,46 +43,42 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  // 🔹 Cargar usuario y logo de empresa
-    useEffect(() => {
-      const stored = localStorage.getItem("user");
-      if (!stored) return;
+  // Cargar usuario y logo de empresa
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) return;
 
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
+    try {
+      const parsed = JSON.parse(stored);
+      setUser(parsed);
 
-        if (parsed.id) {
-          const token = localStorage.getItem("token");
-          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      if (parsed.id) {
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-          // Cargar EMPRESA primero (para el logo)
-          fetch(`${API_URL}/empresas/mi-empresa`, { headers })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((empresa) => {
-              if (empresa?.logo) {
-                // Prioridad 1: logo de empresa
-                setProfilePic(getImageUrl(empresa.logo));
-              } else {
-                // Prioridad 2: si no hay empresa, cargar profile_image del usuario
-                fetch(`${API_URL}/users/${parsed.id}`, { headers })
-                  .then((r) => r.json())
-                  .then((data) => {
-                    if (data.profile_image) {
-                      setProfilePic(getImageUrl(data.profile_image));
-                    }
-                  })
-                  .catch(() => {});
-              }
-            })
-            .catch(() => {});
-        }
-      } catch (e) {
-        console.error("Error leyendo usuario:", e);
+        fetch(`${API_URL}/empresas/mi-empresa`, { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((empresa) => {
+            if (empresa?.logo) {
+              setProfilePic(getImageUrl(empresa.logo));
+            } else {
+              fetch(`${API_URL}/users/${parsed.id}`, { headers })
+                .then((r) => r.json())
+                .then((data) => {
+                  if (data.profile_image) {
+                    setProfilePic(getImageUrl(data.profile_image));
+                  }
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
-    }, []);
+    } catch (e) {
+      console.error("Error leyendo usuario:", e);
+    }
+  }, []);
 
-  // 🔹 Cerrar sesión
   const handleLogout = () => {
     localStorage.clear();
     setMenuOpen(false);
@@ -77,7 +88,6 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
     setTimeout(() => window.location.reload(), 100);
   };
 
-  // 🔹 Cerrar menús al hacer click fuera
   useEffect(() => {
     function handleClickOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -96,11 +106,9 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
 
   const displayName = user?.name || user?.empresa || "Usuario";
 
-  // Notificaciones
   const notifications = notificacionesMock;
   const unreadNotifications = notifications.filter((n) => !n.leido).length;
 
-  // Mensajes
   const mensajes = mensajesMock;
   const unreadMessages = mensajes.filter((m) => !m.leido).length;
 
@@ -116,23 +124,40 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
       <div className="absolute inset-0 bg-gradient-to-r from-[#071326] via-[#071a33] to-[#050b18]" />
       <div className="absolute inset-0 bg-white/5 backdrop-blur-md" />
 
+      {/* Efectos decorativos */}
       <div className="pointer-events-none absolute -top-10 -left-10 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
       <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-blue-400/10 blur-3xl" />
 
-      <div className="relative flex items-center justify-between px-5 md:px-6 py-3 border-b border-white/10 shadow-[0_12px_30px_-20px_rgba(0,0,0,0.8)]">
-        {/* IZQUIERDA */}
-        <div className="flex items-center gap-3">
+      {/* CAMBIO: Padding responsivo */}
+      <div className="relative flex items-center justify-between px-3 sm:px-5 md:px-6 py-2.5 md:py-3 border-b border-white/10 shadow-[0_12px_30px_-20px_rgba(0,0,0,0.8)]">
+        
+        {/* ===== IZQUIERDA: Hamburguesa + Logo ===== */}
+        <div className="flex items-center gap-2 md:gap-3">
+          
+          {/* NUEVO: Botón hamburguesa (solo móvil, hasta lg) */}
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="lg:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 active:scale-95 transition"
+            title="Menú"
+            aria-label="Abrir menú"
+          >
+            <MenuIcon className="w-5 h-5 text-white/90" />
+          </button>
+
+          {/* Botón volver (opcional) */}
           {showBack && (
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 active:scale-95 transition"
               title="Volver"
             >
               ←
             </button>
           )}
 
+          {/* Logo */}
           <button
             type="button"
             onClick={() => {
@@ -145,14 +170,14 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
             <img
               src="/ecosysval.png"
               alt="Ecosysval"
-              className="h-9 md:h-10 w-auto object-contain drop-shadow-sm"
+              className="h-8 sm:h-9 md:h-10 w-auto object-contain drop-shadow-sm"
             />
           </button>
         </div>
 
-        {/* CENTRO */}
+        {/* ===== CENTRO: Buscador (oculto en móvil) ===== */}
         {showSearch && (
-          <div className="hidden md:flex flex-1 mx-6">
+          <div className="hidden lg:flex flex-1 mx-6">
             <div className="w-full max-w-2xl relative">
               <input
                 type="text"
@@ -164,8 +189,9 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
           </div>
         )}
 
-        {/* DERECHA */}
-        <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
+        {/* ===== DERECHA: Notificaciones + Mensajes + Usuario ===== */}
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 relative" ref={menuRef}>
+          
           {/* Mensajes */}
           <button
             type="button"
@@ -173,7 +199,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
               closeAllMenus();
               navigate("/mensajes");
             }}
-            className="relative h-10 w-10 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-center justify-center"
+            className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
             title="Mensajes"
           >
             <MessageSquare className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
@@ -189,7 +215,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
               closeAllMenus();
               navigate("/notificaciones");
             }}
-            className="relative h-10 w-10 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-center justify-center"
+            className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
             title="Notificaciones"
           >
             <Bell className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
@@ -198,7 +224,7 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
             )}
           </button>
 
-          {/* USUARIO */}
+          {/* Usuario */}
           <button
             type="button"
             onClick={() => {
@@ -206,14 +232,14 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
               setShowMessages(false);
               setShowNotifications(false);
             }}
-            className="flex items-center gap-2 pl-2 pr-3 h-10 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition"
+            className="flex items-center gap-1.5 md:gap-2 pl-1.5 pr-2 md:pl-2 md:pr-3 h-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition"
             title="Menú de usuario"
           >
             {profilePic ? (
               <img
                 src={profilePic}
                 alt="avatar"
-                className="w-8 h-8 rounded-xl border border-white/15 object-cover"
+                className="w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl border border-white/15 object-cover"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.style.display = "none";
@@ -221,10 +247,11 @@ export default function MainHeader({ showSearch = true, showBack = false }) {
                 }}
               />
             ) : (
-              <UserCircle className="w-8 h-8 text-white/70" />
+              <UserCircle className="w-7 h-7 md:w-8 md:h-8 text-white/70" />
             )}
 
-            <span className="hidden md:block font-semibold text-white/90 max-w-[160px] truncate">
+            {/* Nombre: solo en desktop */}
+            <span className="hidden xl:block font-semibold text-white/90 max-w-[140px] truncate text-sm">
               {displayName}
             </span>
 

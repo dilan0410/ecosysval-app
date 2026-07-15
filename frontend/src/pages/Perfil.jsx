@@ -1,5 +1,6 @@
 // src/pages/Perfil.jsx
 import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
 import { createPortal } from "react-dom";
 import {
   Camera,
@@ -25,9 +26,6 @@ import {
   Truck,
   Award,
 } from "lucide-react";
-
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -233,23 +231,15 @@ export default function Perfil() {
 
   if (!empresa) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <MainHeader showSearch={true} showBack={false} />
-        <div className="flex flex-1">
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-          <main className="flex-1 p-8">
-            <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-8 text-center shadow-2xl">
-              <Building2 className="w-16 h-16 mx-auto text-white/40 mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">
+        <Layout>
+          <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-8 text-center shadow-2xl">
+            <Building2 className="w-16 h-16 mx-auto text-white/40 mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">
                 No tienes empresa registrada
-              </h2>
-              <p className="text-white/60">{error}</p>
-            </div>
-          </main>
-        </div>
-      </div>
+            </h2>
+            <p className="text-white/60">{error}</p>
+          </div>
+        </Layout>
     );
   }
 
@@ -258,16 +248,9 @@ export default function Perfil() {
   // ==========================================
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <MainHeader showSearch={true} showBack={false} />
-
-      <div className="flex flex-1">
-        <aside className="hidden md:block w-64">
-          <SidebarMenu />
-        </aside>
-
-        <main className="flex-1 px-4 md:px-8 py-6">
-          <div className="max-w-6xl mx-auto space-y-6">
+    <>
+      <Layout>
+        <div className="max-w-6xl mx-auto space-y-6">
 
             {/* ===== HEADER ===== */}
             <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-6 md:p-8 shadow-2xl">
@@ -281,7 +264,7 @@ export default function Perfil() {
                   </p>
                 </div>
 
-                {/* ✅ Botones: Editar + Descargar PDF */}
+                {/* Botones: Editar + Descargar PDF */}
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={() => {
@@ -480,12 +463,11 @@ export default function Perfil() {
                 </div>
               </SectionCard>
             )}
+</div>
+      </Layout>
 
-          </div>
-        </main>
-      </div>
 
-      {/* ===== MODAL DE EDICIÓN (renderizado con Portal) ===== */}
+        {/* ===== MODAL DE EDICIÓN (renderizado con Portal) ===== */}
         {modalAbierto && createPortal(
           <div
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
@@ -632,7 +614,7 @@ export default function Perfil() {
           </div>,
           document.body //Se renderiza directamente en el <body>, fuera del árbol del componente
         )}
-    </div>
+    </>
   );
 }
 

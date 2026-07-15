@@ -11,8 +11,7 @@ import {
   Send,
   Building2,
 } from "lucide-react";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
+import Layout from "../components/Layout"; // ✅ NUEVO
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -29,9 +28,7 @@ function normalizePath(p) {
 // Helper universal para URLs de imágenes (soporta local y Supabase)
 function getImageUrl(path) {
   if (!path) return null;
-  // Si ya es URL completa (Supabase), la retornamos tal cual
   if (path.startsWith('http')) return path;
-  // Si es ruta relativa vieja, agregamos API_URL
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return `${API_URL}${normalized}`;
 }
@@ -55,6 +52,7 @@ export default function Profile() {
   const [empresa, setEmpresa] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [profileBanner, setProfileBanner] = useState(null);
+  // ❌ ELIMINADO: const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Estados para edición de empresa
   const [editando, setEditando] = useState(false);
@@ -97,7 +95,6 @@ export default function Profile() {
       if (res.ok) {
         const data = await res.json();
         setEmpresa(data);
-        // Inicializamos formEmpresa con los datos reales al cargar
         setFormEmpresa({ ...data });
       } else if (res.status === 404) {
         setEmpresa(null);
@@ -116,7 +113,6 @@ export default function Profile() {
       if (!resUser.ok) throw new Error("No se pudo cargar el usuario");
       const dataUser = await resUser.json();
 
-      // Usar helper universal (soporta URLs viejas y de Supabase)
       setProfilePic(getImageUrl(dataUser?.profile_image));
       setProfileBanner(getImageUrl(dataUser?.banner_image));
 
@@ -128,7 +124,7 @@ export default function Profile() {
     } catch (error) {
       console.error("Error al cargar datos del perfil:", error);
     }
-};
+  };
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -142,7 +138,7 @@ export default function Profile() {
 
     try {
       const response = await fetch(
-        `${API_URL}/empresas/${empresa.id}/logo`,  // ENDPOINT DE EMPRESA
+        `${API_URL}/empresas/${empresa.id}/logo`,
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -151,7 +147,6 @@ export default function Profile() {
       );
       const data = await response.json();
       if (data?.success) {
-        // Actualizamos el estado de empresa con el nuevo logo
         setEmpresa((prev) => ({ ...prev, logo: data.logo }));
       } else {
         alert("Error al subir logo: " + (data?.message || "Desconocido"));
@@ -173,7 +168,7 @@ export default function Profile() {
 
     try {
       const response = await fetch(
-        `${API_URL}/empresas/${empresa.id}/banner`,  // ENDPOINT DE EMPRESA
+        `${API_URL}/empresas/${empresa.id}/banner`,
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -182,7 +177,6 @@ export default function Profile() {
       );
       const data = await response.json();
       if (data?.success) {
-        // Actualizamos el estado de empresa con el nuevo banner
         setEmpresa((prev) => ({ ...prev, banner: data.banner }));
       } else {
         alert("Error al subir banner: " + (data?.message || "Desconocido"));
@@ -192,7 +186,6 @@ export default function Profile() {
     }
   };
 
-  // Función para guardar cambios de la empresa
   const guardarCambios = async () => {
     try {
       const resp = await fetch(`${API_URL}/empresas/${empresa.id}`, {
@@ -208,7 +201,7 @@ export default function Profile() {
 
       const updated = await resp.json();
       setEmpresa(updated);
-      setFormEmpresa({ ...updated }); // Sincronizamos el formulario con los datos guardados
+      setFormEmpresa({ ...updated });
       setEditando(false);
     } catch (err) {
       console.error(err);
@@ -216,9 +209,8 @@ export default function Profile() {
     }
   };
 
-  // Cancelar edición sin guardar cambios
   const cancelarEdicion = () => {
-    setFormEmpresa({ ...empresa }); // Restauramos los datos originales
+    setFormEmpresa({ ...empresa });
     setEditando(false);
   };
 
@@ -238,10 +230,10 @@ export default function Profile() {
     if (videoFile) formData.append("files", videoFile);
 
     try {
-      const res = await fetch(`${API_URL}/posts`, { 
-        method: "POST", 
-        headers: getAuthHeaders(),  // NUEVO: agregar token JWT
-        body: formData 
+      const res = await fetch(`${API_URL}/posts`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: formData,
       });
 
       const responseData = await res.json().catch(() => ({}));
@@ -270,9 +262,9 @@ export default function Profile() {
   const eliminarPublicacion = async (id) => {
     if (!window.confirm("¿Estás seguro de que quieres eliminar esta publicación?")) return;
     try {
-      const res = await fetch(`${API_URL}/posts/${id}`, { 
+      const res = await fetch(`${API_URL}/posts/${id}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),  // NUEVO
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         await cargarUsuarioYPublicaciones(user.id);
@@ -302,9 +294,9 @@ export default function Profile() {
     try {
       const res = await fetch(`${API_URL}/posts/${id}`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          ...getAuthHeaders(),  // NUEVO: agregar token
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({ content: textoEditado }),
       });
@@ -365,556 +357,229 @@ export default function Profile() {
   const planImagen = PLAN_IMAGES[planActual] || PLAN_IMAGES.basico;
   const planNombre = PLAN_NAMES[planActual] || "BÁSICO";
 
+  // ==========================================
+  // RENDER MIGRADO A LAYOUT
+  // ==========================================
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* Fondo gradiente */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]" />
-      </div>
+    <Layout>
+      {/* ===== Banner de la Empresa ===== */}
+      <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
+        <div className="relative h-56 md:h-64">
+          {empresa?.banner ? (
+            <img
+              src={getImageUrl(empresa.banner)}
+              alt="Banner Empresa"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
+              Sin imagen de portada empresarial
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader showSearch={true} showBack={false} />
+          {/* Botón para cambiar el Banner */}
+          <label className="absolute top-4 right-4 cursor-pointer z-20">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBannerUpload}
+            />
+            <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro backdrop-blur-md">
+              <Camera className="w-5 h-5 text-text" />
+            </div>
+          </label>
+        </div>
 
-        <div className="flex flex-1">
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          <main className="flex-1 px-4 md:px-8 py-6">
-            {/* ===== Banner de la Empresa ===== */}
-            <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
-              <div className="relative h-56 md:h-64">
-                {empresa?.banner ? (
-                  <img 
-                    src={getImageUrl(empresa.banner)}  // Usa el helper
-                    alt="Banner Empresa" 
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
-                    Sin imagen de portada empresarial
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
-
-                {/* Botón para cambiar el Banner */}
-                <label className="absolute top-4 right-4 cursor-pointer z-20">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleBannerUpload}
-                  />
-                  <div className="h-11 w-11 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center shadow-pro backdrop-blur-md">
-                    <Camera className="w-5 h-5 text-text" />
-                  </div>
-                </label>
-              </div>
-
-              {/* Info de la Empresa */}
-              <div className="relative px-5 md:px-7 pb-6">
-                <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
-                  <div className="relative w-fit z-20">
-                    {empresa?.logo ? (
-                      <img
-                        src={getImageUrl(empresa.logo)}
-                        alt="Logo Empresa"
-                        className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
-                        onError={(e) => {
-                          console.warn("Logo no encontrado, usando default");
-                          e.target.onerror = null;
-                          e.target.style.display = "none";
-                          setEmpresa((prev) => ({ ...prev, logo: null }));
-                        }}
-                      />
-                    ) : (
-                      <div className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border bg-bg/40 flex items-center justify-center shadow-pro">
-                        <Building2 className="w-16 h-16 text-muted" />
-                      </div>
-                    )}
-                    
-                    {/* Botón cámara para subir logo */}
-                    <label className="absolute -bottom-2 -right-2 cursor-pointer z-30">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onClick={(e) => { e.target.value = null; }}
-                        onChange={handleProfilePicUpload}
-                      />
-                      <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 active:scale-95 transition shadow-pro flex items-center justify-center">
-                        <Camera className="w-5 h-5 text-slate-900" />
-                      </div>
-                    </label>
-                  </div>
-
-                  <div className="flex-1">
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-text drop-shadow">
-                      {empresa?.nombre || empresa?.razonSocial || user.name}
-                    </h1>
-                    <p className="text-sm text-accent font-medium mt-1">
-                      Representante:{" "}
-                      <span className="text-muted">{user.name}</span>
-                    </p>
-                    <p className="text-muted mt-1 max-w-3xl text-sm">
-                      {empresa?.descripcion ||
-                        "Sin descripción empresarial registrada."}
-                    </p>
-                  </div>
+        {/* Info de la Empresa */}
+        <div className="relative px-5 md:px-7 pb-6">
+          <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
+            <div className="relative w-fit z-20">
+              {empresa?.logo ? (
+                <img
+                  src={getImageUrl(empresa.logo)}
+                  alt="Logo Empresa"
+                  className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
+                  onError={(e) => {
+                    console.warn("Logo no encontrado, usando default");
+                    e.target.onerror = null;
+                    e.target.style.display = "none";
+                    setEmpresa((prev) => ({ ...prev, logo: null }));
+                  }}
+                />
+              ) : (
+                <div className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border bg-bg/40 flex items-center justify-center shadow-pro">
+                  <Building2 className="w-16 h-16 text-muted" />
                 </div>
-              </div>
-            </section>
+              )}
 
-            {/* ===== Grid Principal ===== */}
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
-              {/* Columna Izquierda */}
-              <section className="space-y-6">
+              {/* Botón cámara para subir logo */}
+              <label className="absolute -bottom-2 -right-2 cursor-pointer z-30">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onClick={(e) => { e.target.value = null; }}
+                  onChange={handleProfilePicUpload}
+                />
+                <div className="h-10 w-10 rounded-2xl bg-accent hover:brightness-95 active:scale-95 transition shadow-pro flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-slate-900" />
+                </div>
+              </label>
+            </div>
 
-                {/* ===== SECCIÓN DATOS DE LA EMPRESA ===== */}
-                {empresa && formEmpresa && (
-                  <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
-                    {/* Encabezado con botones */}
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-xl font-bold text-text">
-                        Datos Generales de la Empresa
-                      </h3>
-                      <div className="flex gap-2">
-                        {editando && (
-                          <button
-                            onClick={cancelarEdicion}
-                            className="px-4 py-2 rounded-xl font-medium border border-border bg-surface/50 hover:bg-surface/70 text-text transition"
-                          >
-                            Cancelar
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (editando) {
-                              guardarCambios();
-                            } else {
-                              setEditando(true);
-                            }
-                          }}
-                          className="bg-accent text-slate-900 px-4 py-2 rounded-xl font-medium hover:brightness-95 transition"
-                        >
-                          {editando ? "Guardar Cambios" : "Editar Perfil"}
-                        </button>
-                      </div>
-                    </div>
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text drop-shadow">
+                {empresa?.nombre || empresa?.razonSocial || user.name}
+              </h1>
+              <p className="text-sm text-accent font-medium mt-1">
+                Representante:{" "}
+                <span className="text-muted">{user.name}</span>
+              </p>
+              <p className="text-muted mt-1 max-w-3xl text-sm">
+                {empresa?.descripcion ||
+                  "Sin descripción empresarial registrada."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-                    {/* Campos dinámicos: texto plano o input según modo */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Razón Social */}
-                      <div>
-                        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          Razón Social
-                        </label>
-                        {editando ? (
-                          <input
-                            type="text"
-                            value={formEmpresa.razonSocial || ""}
-                            onChange={(e) =>
-                              setFormEmpresa({
-                                ...formEmpresa,
-                                razonSocial: e.target.value,
-                              })
-                            }
-                            className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
-                          />
-                        ) : (
-                          <p className="font-semibold text-text mt-1">
-                            {empresa?.razonSocial || (
-                              <span className="text-muted">No registrado</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
+      {/* ===== Grid Principal ===== */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Columna Izquierda */}
+        <section className="space-y-6">
 
-                      {/* Nombre Comercial */}
-                      <div>
-                        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          Nombre Comercial
-                        </label>
-                        {editando ? (
-                          <input
-                            type="text"
-                            value={formEmpresa.nombre || ""}
-                            onChange={(e) =>
-                              setFormEmpresa({
-                                ...formEmpresa,
-                                nombre: e.target.value,
-                              })
-                            }
-                            className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
-                          />
-                        ) : (
-                          <p className="font-semibold text-text mt-1">
-                            {empresa?.nombre || (
-                              <span className="text-muted">No registrado</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* RFC */}
-                      <div>
-                        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          RFC
-                        </label>
-                        {editando ? (
-                          <input
-                            type="text"
-                            value={formEmpresa.rfc || ""}
-                            onChange={(e) =>
-                              setFormEmpresa({
-                                ...formEmpresa,
-                                rfc: e.target.value,
-                              })
-                            }
-                            className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
-                          />
-                        ) : (
-                          <p className="font-semibold text-text mt-1">
-                            {empresa?.rfc || (
-                              <span className="text-muted">No registrado</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Página Web */}
-                      <div>
-                        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          Página Web
-                        </label>
-                        {editando ? (
-                          <input
-                            type="text"
-                            value={formEmpresa.paginaWeb || ""}
-                            onChange={(e) =>
-                              setFormEmpresa({
-                                ...formEmpresa,
-                                paginaWeb: e.target.value,
-                              })
-                            }
-                            className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
-                          />
-                        ) : (
-                          <p className="font-semibold text-text mt-1">
-                            {empresa?.paginaWeb ? (
-                              <a
-                                href={
-                                  empresa.paginaWeb.startsWith("http")
-                                    ? empresa.paginaWeb
-                                    : `https://${empresa.paginaWeb}`
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-accent hover:underline"
-                              >
-                                {empresa.paginaWeb}
-                              </a>
-                            ) : (
-                              <span className="text-muted">No registrada</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Descripción (ancho completo) */}
-                      <div className="md:col-span-2">
-                        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          Descripción
-                        </label>
-                        {editando ? (
-                          <textarea
-                            value={formEmpresa.descripcion || ""}
-                            onChange={(e) =>
-                              setFormEmpresa({
-                                ...formEmpresa,
-                                descripcion: e.target.value,
-                              })
-                            }
-                            rows={3}
-                            className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40 resize-none"
-                          />
-                        ) : (
-                          <p className="font-semibold text-text mt-1">
-                            {empresa?.descripcion || (
-                              <span className="text-muted">Sin descripción</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ===== Mis Publicaciones ===== */}
-                <h2 className="text-xl md:text-2xl font-extrabold text-text">
-                  Mis Publicaciones
-                </h2>
-
-                {/* Caja de Nueva Publicación */}
-                <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
-                  <textarea
-                    value={nuevoTexto}
-                    onChange={(e) => setNuevoTexto(e.target.value)}
-                    placeholder="¿Qué deseas compartir hoy?"
-                    className="w-full rounded-2xl border border-border bg-surface/60 text-text placeholder:text-muted/70 p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
-                    rows={4}
-                  />
-
-                  {imagenPreview && (
-                    <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
-                      <img
-                        src={imagenPreview}
-                        alt="Previsualización"
-                        className="w-full max-h-[420px] object-contain"
-                      />
-                      <button
-                        onClick={() => {
-                          setImagenFile(null);
-                          setImagenPreview(null);
-                        }}
-                        className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
-                      >
-                        <X className="w-5 h-5 text-text" />
-                      </button>
-                    </div>
-                  )}
-
-                  {videoPreview && (
-                    <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
-                      <video
-                        controls
-                        className="w-full max-h-[420px] object-contain"
-                      >
-                        <source src={videoPreview} />
-                      </video>
-                      <button
-                        onClick={() => {
-                          setVideoFile(null);
-                          setVideoPreview(null);
-                        }}
-                        className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
-                      >
-                        <X className="w-5 h-5 text-text" />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Acciones del formulario de publicación */}
-                  <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4">
-                    <div className="flex items-center gap-2">
-                      <label className="cursor-pointer" title="Añadir Imagen">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImagenSeleccionada}
-                          className="hidden"
-                        />
-                        <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
-                          <ImageIcon className="w-5 h-5 text-text" />
-                        </div>
-                      </label>
-
-                      <label className="cursor-pointer" title="Añadir Video">
-                        <input
-                          type="file"
-                          accept="video/*"
-                          onChange={handleVideoSeleccionado}
-                          className="hidden"
-                        />
-                        <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
-                          <Video className="w-5 h-5 text-text" />
-                        </div>
-                      </label>
-
-                      <span className="text-xs text-muted ml-2">
-                        {nuevoTexto ? `${nuevoTexto.length} carac.` : ""}
-                      </span>
-                    </div>
-
+          {/* ===== SECCIÓN DATOS DE LA EMPRESA ===== */}
+          {empresa && formEmpresa && (
+            <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-text">
+                  Datos Generales de la Empresa
+                </h3>
+                <div className="flex gap-2">
+                  {editando && (
                     <button
-                      onClick={publicar}
-                      disabled={
-                        (!nuevoTexto && !imagenFile && !videoFile) || subiendo
-                      }
-                      className="h-11 px-5 rounded-2xl bg-accent hover:brightness-95 transition text-slate-900 font-semibold shadow-pro disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                      onClick={cancelarEdicion}
+                      className="px-4 py-2 rounded-xl font-medium border border-border bg-surface/50 hover:bg-surface/70 text-text transition"
                     >
-                      {subiendo ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                          Publicando...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Publicar
-                        </>
-                      )}
+                      Cancelar
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (editando) {
+                        guardarCambios();
+                      } else {
+                        setEditando(true);
+                      }
+                    }}
+                    className="bg-accent text-slate-900 px-4 py-2 rounded-xl font-medium hover:brightness-95 transition"
+                  >
+                    {editando ? "Guardar Cambios" : "Editar Perfil"}
+                  </button>
                 </div>
+              </div>
 
-                {/* Feed de Publicaciones */}
-                <div className="space-y-5">
-                  {publicaciones.length === 0 ? (
-                    <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-10 text-center">
-                      <div className="text-4xl mb-3">🚀</div>
-                      <div className="text-lg font-semibold text-text">
-                        Aún no tienes publicaciones
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Razón Social */}
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Razón Social
+                  </label>
+                  {editando ? (
+                    <input
+                      type="text"
+                      value={formEmpresa.razonSocial || ""}
+                      onChange={(e) =>
+                        setFormEmpresa({
+                          ...formEmpresa,
+                          razonSocial: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
+                    />
                   ) : (
-                    publicaciones.map((pub) => {
-                      const img = pub?.image;
-                      const vid = pub?.video;
-                      const createdAt = pub?.createdAt
-                        ? new Date(pub.createdAt)
-                        : null;
-
-                      return (
-                        <article
-                          key={pub.id}
-                          className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6"
-                        >
-                          <div className="flex items-start justify-between gap-3 mb-4">
-                            <div className="flex items-center gap-3">
-                              {empresa?.logo ? (
-                                <img
-                                  src={getImageUrl(empresa.logo)}
-                                  alt="logo empresa"
-                                  className="w-10 h-10 rounded-2xl object-cover border border-border bg-white"
-                                />
-                              ) : profilePic ? (
-                                <img
-                                  src={profilePic}
-                                  alt="avatar usuario"
-                                  className="w-10 h-10 rounded-2xl object-cover border border-border"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-2xl bg-bg/40 border border-border flex items-center justify-center">
-                                  <UserCircle className="w-6 h-6 text-muted" />
-                                </div>
-                              )}
-
-                              <div>
-                                <div className="font-semibold text-text">
-                                  {empresa?.nombre ||
-                                    empresa?.razonSocial ||
-                                    user.name}
-                                </div>
-                                <div className="text-xs text-muted">
-                                  {createdAt && !isNaN(createdAt.getTime())
-                                    ? createdAt.toLocaleString("es-ES", {
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : ""}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => iniciarEdicion(pub)}
-                                className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center"
-                              >
-                                <Edit className="w-4 h-4 text-text" />
-                              </button>
-                              <button
-                                onClick={() => eliminarPublicacion(pub.id)}
-                                className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-red-500/10 transition flex items-center justify-center"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {editandoId === pub.id ? (
-                            <div className="space-y-3">
-                              <textarea
-                                value={textoEditado}
-                                onChange={(e) =>
-                                  setTextoEditado(e.target.value)
-                                }
-                                className="w-full rounded-2xl border border-border bg-surface/60 text-text p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
-                                rows={3}
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => guardarEdicion(pub.id)}
-                                  className="h-10 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 transition text-slate-900 font-semibold shadow-pro inline-flex items-center gap-2"
-                                >
-                                  Guardar
-                                </button>
-                                <button
-                                  onClick={cancelarEdicionPost}
-                                  className="h-10 px-4 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition text-text font-semibold"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              {!!pub.content && (
-                                <p className="text-text/90 leading-relaxed text-[15px] mb-4 whitespace-pre-wrap">
-                                  {pub.content}
-                                </p>
-                              )}
-                              {img && (
-                                <div className="overflow-hidden rounded-2xl border border-border bg-bg/40">
-                                  <img
-                                    src={getImageUrl(img)}
-                                    alt="Publicación"
-                                    className="w-full max-h-[620px] object-contain"
-                                    loading="lazy"
-                                  />
-                                </div>
-                              )}
-                              {vid && (
-                                <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-bg/40">
-                                  <video
-                                    controls
-                                    src={getImageUrl(vid)}
-                                    className="w-full max-h-[520px] object-contain"
-                                  />
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </article>
-                      );
-                    })
+                    <p className="font-semibold text-text mt-1">
+                      {empresa?.razonSocial || (
+                        <span className="text-muted">No registrado</span>
+                      )}
+                    </p>
                   )}
                 </div>
-              </section>
 
-              {/* ===== Columna Derecha Widgets ===== */}
-              <aside className="space-y-6">
-                <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5">
-                  <h3 className="font-extrabold text-text text-lg mb-3">
-                    Información
-                  </h3>
-                  <ul className="text-text/80 space-y-2 text-sm">
-                    <li>
-                      <b className="text-text">Mensajes:</b> 0
-                    </li>
-                    <li>
-                      <b className="text-text">Publicaciones:</b>{" "}
-                      {publicaciones.length}
-                    </li>
-                    <li>
-                      <b className="text-text">Amigos:</b> 0
-                    </li>
-                    <li>
-                      <b className="text-text">Web:</b>{" "}
+                {/* Nombre Comercial */}
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Nombre Comercial
+                  </label>
+                  {editando ? (
+                    <input
+                      type="text"
+                      value={formEmpresa.nombre || ""}
+                      onChange={(e) =>
+                        setFormEmpresa({
+                          ...formEmpresa,
+                          nombre: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                  ) : (
+                    <p className="font-semibold text-text mt-1">
+                      {empresa?.nombre || (
+                        <span className="text-muted">No registrado</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                {/* RFC */}
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    RFC
+                  </label>
+                  {editando ? (
+                    <input
+                      type="text"
+                      value={formEmpresa.rfc || ""}
+                      onChange={(e) =>
+                        setFormEmpresa({
+                          ...formEmpresa,
+                          rfc: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                  ) : (
+                    <p className="font-semibold text-text mt-1">
+                      {empresa?.rfc || (
+                        <span className="text-muted">No registrado</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                {/* Página Web */}
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Página Web
+                  </label>
+                  {editando ? (
+                    <input
+                      type="text"
+                      value={formEmpresa.paginaWeb || ""}
+                      onChange={(e) =>
+                        setFormEmpresa({
+                          ...formEmpresa,
+                          paginaWeb: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                  ) : (
+                    <p className="font-semibold text-text mt-1">
                       {empresa?.paginaWeb ? (
                         <a
                           href={
@@ -931,32 +596,337 @@ export default function Profile() {
                       ) : (
                         <span className="text-muted">No registrada</span>
                       )}
-                    </li>
-                  </ul>
+                    </p>
+                  )}
                 </div>
 
-                {/* Membresía */}
-                <div className="rounded-3xl border border-border bg-accent/10 backdrop-blur-xl shadow-pro p-5">
-                  <h3 className="font-extrabold text-text text-lg mb-4 text-center">
-                    Membresía {planNombre}
-                  </h3>
-                  <div className="flex justify-center">
-                    <img
-                      src={planImagen}
-                      alt={`Membresía ${planNombre}`}
-                      className="w-40 h-44 object-contain"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "/Basico.png";
-                      }}
+                {/* Descripción (ancho completo) */}
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Descripción
+                  </label>
+                  {editando ? (
+                    <textarea
+                      value={formEmpresa.descripcion || ""}
+                      onChange={(e) =>
+                        setFormEmpresa({
+                          ...formEmpresa,
+                          descripcion: e.target.value,
+                        })
+                      }
+                      rows={3}
+                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40 resize-none"
                     />
-                  </div>
+                  ) : (
+                    <p className="font-semibold text-text mt-1">
+                      {empresa?.descripcion || (
+                        <span className="text-muted">Sin descripción</span>
+                      )}
+                    </p>
+                  )}
                 </div>
-              </aside>
+              </div>
             </div>
-          </main>
-        </div>
+          )}
+
+          {/* ===== Mis Publicaciones ===== */}
+          <h2 className="text-xl md:text-2xl font-extrabold text-text">
+            Mis Publicaciones
+          </h2>
+
+          {/* Caja de Nueva Publicación */}
+          <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
+            <textarea
+              value={nuevoTexto}
+              onChange={(e) => setNuevoTexto(e.target.value)}
+              placeholder="¿Qué deseas compartir hoy?"
+              className="w-full rounded-2xl border border-border bg-surface/60 text-text placeholder:text-muted/70 p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
+              rows={4}
+            />
+
+            {imagenPreview && (
+              <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
+                <img
+                  src={imagenPreview}
+                  alt="Previsualización"
+                  className="w-full max-h-[420px] object-contain"
+                />
+                <button
+                  onClick={() => {
+                    setImagenFile(null);
+                    setImagenPreview(null);
+                  }}
+                  className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
+                >
+                  <X className="w-5 h-5 text-text" />
+                </button>
+              </div>
+            )}
+
+            {videoPreview && (
+              <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
+                <video controls className="w-full max-h-[420px] object-contain">
+                  <source src={videoPreview} />
+                </video>
+                <button
+                  onClick={() => {
+                    setVideoFile(null);
+                    setVideoPreview(null);
+                  }}
+                  className="absolute top-3 right-3 h-10 w-10 rounded-2xl bg-surface/80 hover:bg-surface transition flex items-center justify-center border border-border"
+                >
+                  <X className="w-5 h-5 text-text" />
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4">
+              <div className="flex items-center gap-2">
+                <label className="cursor-pointer" title="Añadir Imagen">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImagenSeleccionada}
+                    className="hidden"
+                  />
+                  <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-text" />
+                  </div>
+                </label>
+
+                <label className="cursor-pointer" title="Añadir Video">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoSeleccionado}
+                    className="hidden"
+                  />
+                  <div className="h-10 w-10 rounded-xl border border-border bg-surface/50 hover:bg-surface/90 transition flex items-center justify-center">
+                    <Video className="w-5 h-5 text-text" />
+                  </div>
+                </label>
+
+                <span className="text-xs text-muted ml-2">
+                  {nuevoTexto ? `${nuevoTexto.length} carac.` : ""}
+                </span>
+              </div>
+
+              <button
+                onClick={publicar}
+                disabled={
+                  (!nuevoTexto && !imagenFile && !videoFile) || subiendo
+                }
+                className="h-11 px-5 rounded-2xl bg-accent hover:brightness-95 transition text-slate-900 font-semibold shadow-pro disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {subiendo ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                    Publicando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Publicar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Feed de Publicaciones */}
+          <div className="space-y-5">
+            {publicaciones.length === 0 ? (
+              <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-10 text-center">
+                <div className="text-4xl mb-3">🚀</div>
+                <div className="text-lg font-semibold text-text">
+                  Aún no tienes publicaciones
+                </div>
+              </div>
+            ) : (
+              publicaciones.map((pub) => {
+                const img = pub?.image;
+                const vid = pub?.video;
+                const createdAt = pub?.createdAt
+                  ? new Date(pub.createdAt)
+                  : null;
+
+                return (
+                  <article
+                    key={pub.id}
+                    className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3">
+                        {empresa?.logo ? (
+                          <img
+                            src={getImageUrl(empresa.logo)}
+                            alt="logo empresa"
+                            className="w-10 h-10 rounded-2xl object-cover border border-border bg-white"
+                          />
+                        ) : profilePic ? (
+                          <img
+                            src={profilePic}
+                            alt="avatar usuario"
+                            className="w-10 h-10 rounded-2xl object-cover border border-border"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-2xl bg-bg/40 border border-border flex items-center justify-center">
+                            <UserCircle className="w-6 h-6 text-muted" />
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="font-semibold text-text">
+                            {empresa?.nombre ||
+                              empresa?.razonSocial ||
+                              user.name}
+                          </div>
+                          <div className="text-xs text-muted">
+                            {createdAt && !isNaN(createdAt.getTime())
+                              ? createdAt.toLocaleString("es-ES", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => iniciarEdicion(pub)}
+                          className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center"
+                        >
+                          <Edit className="w-4 h-4 text-text" />
+                        </button>
+                        <button
+                          onClick={() => eliminarPublicacion(pub.id)}
+                          className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-red-500/10 transition flex items-center justify-center"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {editandoId === pub.id ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={textoEditado}
+                          onChange={(e) => setTextoEditado(e.target.value)}
+                          className="w-full rounded-2xl border border-border bg-surface/60 text-text p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
+                          rows={3}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => guardarEdicion(pub.id)}
+                            className="h-10 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 transition text-slate-900 font-semibold shadow-pro inline-flex items-center gap-2"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            onClick={cancelarEdicionPost}
+                            className="h-10 px-4 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition text-text font-semibold"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {!!pub.content && (
+                          <p className="text-text/90 leading-relaxed text-[15px] mb-4 whitespace-pre-wrap">
+                            {pub.content}
+                          </p>
+                        )}
+                        {img && (
+                          <div className="overflow-hidden rounded-2xl border border-border bg-bg/40">
+                            <img
+                              src={getImageUrl(img)}
+                              alt="Publicación"
+                              className="w-full max-h-[620px] object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        {vid && (
+                          <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-bg/40">
+                            <video
+                              controls
+                              src={getImageUrl(vid)}
+                              className="w-full max-h-[520px] object-contain"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        {/* ===== Columna Derecha Widgets ===== */}
+        <aside className="space-y-6">
+          <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5">
+            <h3 className="font-extrabold text-text text-lg mb-3">
+              Información
+            </h3>
+            <ul className="text-text/80 space-y-2 text-sm">
+              <li>
+                <b className="text-text">Mensajes:</b> 0
+              </li>
+              <li>
+                <b className="text-text">Publicaciones:</b>{" "}
+                {publicaciones.length}
+              </li>
+              <li>
+                <b className="text-text">Amigos:</b> 0
+              </li>
+              <li>
+                <b className="text-text">Web:</b>{" "}
+                {empresa?.paginaWeb ? (
+                  <a
+                    href={
+                      empresa.paginaWeb.startsWith("http")
+                        ? empresa.paginaWeb
+                        : `https://${empresa.paginaWeb}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline"
+                  >
+                    {empresa.paginaWeb}
+                  </a>
+                ) : (
+                  <span className="text-muted">No registrada</span>
+                )}
+              </li>
+            </ul>
+          </div>
+
+          {/* Membresía */}
+          <div className="rounded-3xl border border-border bg-accent/10 backdrop-blur-xl shadow-pro p-5">
+            <h3 className="font-extrabold text-text text-lg mb-4 text-center">
+              Membresía {planNombre}
+            </h3>
+            <div className="flex justify-center">
+              <img
+                src={planImagen}
+                alt={`Membresía ${planNombre}`}
+                className="w-40 h-44 object-contain"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "/Basico.png";
+                }}
+              />
+            </div>
+          </div>
+        </aside>
       </div>
-    </div>
+    </Layout>
   );
 }

@@ -18,8 +18,7 @@
  */
 
 import React, { useMemo, useState } from "react";
-import SidebarMenu from "../components/SidebarMenu";
-import MainHeader from "../components/MainHeader";
+import Layout from "../components/Layout";
 import { mensajesMock } from "../data/mensajesMock";
 import { Search, Mail, MailOpen, ArrowLeft, X } from "lucide-react";
 import { useTheme } from "../components/ThemeProvider";
@@ -59,6 +58,7 @@ function chipClass(active, theme) {
 export default function Mensajes() {
   const { theme } = useTheme();
   const [q, setQ] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false); // NUEVO
   const [selected, setSelected] = useState(null);
 
   /** Filtrado por búsqueda (asunto / remitente / preview) */
@@ -78,29 +78,7 @@ export default function Mensajes() {
   const unreadCount = useMemo(() => (mensajesMock || []).filter((m) => !m.leido).length, []);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay pro (NO reemplaza fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.16),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_92%_18%,rgba(59,130,246,0.10),transparent_55%)]",
-          ].join(" ")}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader title="ECOSYSVAL" />
-
-        <div className="flex flex-1">
-          {/* Sidebar */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          {/* Contenido */}
-          <main className="flex-1 p-6">
+    <Layout mainClassName="!p-6">
             <div className="mx-auto w-full max-w-7xl space-y-6">
               {/* Header de página */}
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -308,10 +286,7 @@ export default function Mensajes() {
                 </section>
               </div>
             </div>
-          </main>
-        </div>
-      </div>
-    </div>
+          </Layout>
   );
 }
 

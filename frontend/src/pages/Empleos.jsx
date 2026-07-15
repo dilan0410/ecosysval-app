@@ -21,8 +21,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import MainHeader from "../components/MainHeader";
-import SidebarMenu from "../components/SidebarMenu";
+import Layout from "../components/Layout";
 import JobCard from "../components/JobCard";
 import { X, Plus, Search, FileText, Loader2 } from "lucide-react";
 import { useTheme } from "../components/ThemeProvider";
@@ -39,6 +38,7 @@ export default function Empleos() {
   // STATE PRINCIPAL
   // ==========================================================
   const [jobs, setJobs] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // NUEVO
   const [openJob, setOpenJob] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -219,32 +219,9 @@ export default function Empleos() {
   }, [jobs, q]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* ✅ Overlay pro (NO reemplaza fondo global) */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className={[
-            "absolute inset-0",
-            "bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,182,14,0.18),transparent_55%)]",
-            "bg-[radial-gradient(900px_450px_at_90%_20%,rgba(59,130,246,0.12),transparent_55%)]",
-          ].join(" ")}
-        />
-        {/* tinte suave según tema (opcional) */}
-        <div className={theme === "light" ? "absolute inset-0 bg-white/15" : "absolute inset-0 bg-black/10"} />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <MainHeader />
-
-        <div className="flex flex-1">
-          {/* Sidebar */}
-          <aside className="hidden md:block w-64">
-            <SidebarMenu />
-          </aside>
-
-          {/* Main content */}
-          <main className="flex-1 px-4 md:px-8 py-6">
-            <div className="mx-auto max-w-7xl grid gap-6 lg:grid-cols-[420px_1fr]">
+  <>
+    <Layout>
+      <div className="mx-auto max-w-7xl grid gap-6 lg:grid-cols-[420px_1fr]">
               {/* ==========================================================
                   FORMULARIO (panel marco + inputs glass)
                  ========================================================== */}
@@ -440,9 +417,8 @@ export default function Empleos() {
                   </div>
                 )}
               </section>
-            </div>
-          </main>
-        </div>
+            </div>        
+    </Layout>
 
         {/* ==========================================================
             MODAL DETALLE
@@ -498,8 +474,7 @@ export default function Empleos() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+  </>
   );
 }
 
