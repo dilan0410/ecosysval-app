@@ -1,5 +1,7 @@
 // SENTRY: debe ir ANTES de cualquier otro import
+// Import explícito para evitar tree-shaking en producción
 import './instrument';
+import * as Sentry from '@sentry/nestjs';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
