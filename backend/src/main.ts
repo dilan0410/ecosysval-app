@@ -1,3 +1,6 @@
+// SENTRY: debe ir ANTES de cualquier otro import
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { join } from 'path';

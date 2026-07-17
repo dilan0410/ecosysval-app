@@ -8,6 +8,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+// SENTRY
+import * as Sentry from '@sentry/nestjs';
 
 /**
  * Exception Filter Global
@@ -69,6 +71,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `[${request.method}] ${request.url} - Status: ${status} - Message: ${message}`,
       exception instanceof Error ? exception.stack : undefined,
     );
+
+        // SENTRY: solo reportar errores 500+ (ignorar 400s que son del usuario)
+    if (status >= 500 && exception instanceof Error) {
+      Sentry.captureException(exception, {
+        tags: {
+          method: request.method,
+          path: request.url,
+        },
+        extra: {
+          statusCode: status,
+        },
+      });
+    }
 
     // Respuesta unificada
     const errorResponse = {
