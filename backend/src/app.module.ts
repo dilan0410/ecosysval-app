@@ -15,9 +15,15 @@ import { ContactModule } from './contact/contact.module';
 import { EmpleoModule } from './empleo/empleo.module';
 import { StorageModule } from './common/storage/storage.module';
 
+// WINSTON: Logger global
+import { LoggerModule } from './common/logger/logger.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // WINSTON: Logger global
+    LoggerModule,
 
     // NUEVO: Rate Limiting Global
     ThrottlerModule.forRoot([
