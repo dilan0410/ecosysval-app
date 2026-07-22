@@ -18,6 +18,8 @@ import { StorageModule } from './common/storage/storage.module';
 // WINSTON: Logger global
 import { LoggerModule } from './common/logger/logger.module';
 
+// ANALYTICS
+import { AdminModule } from './admin/admin.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -82,6 +84,7 @@ import { LoggerModule } from './common/logger/logger.module';
     ContactModule,
     EmpleoModule,
     StorageModule,
+    AdminModule, // analytics
   ],
   controllers: [AppController],
   providers: [
