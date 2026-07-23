@@ -5,12 +5,14 @@ import { Post } from './post.entity';
 import { PostService } from './post.service';
 import { PostController } from './post.controller';
 import { User } from '../user/user.entity';
-import { StorageModule } from '../common/storage/storage.module'; // NUEVO
+import { Empresa } from '../empresa/empresa.entity';
+import { StorageModule } from '../common/storage/storage.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Post, User]),
-    StorageModule, // NUEVO
+    // Agregamos Empresa al forFeature
+    TypeOrmModule.forFeature([Post, User, Empresa]),
+    StorageModule,
   ],
   providers: [PostService],
   controllers: [PostController],

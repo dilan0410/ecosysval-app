@@ -88,8 +88,20 @@ export default function Inicio() {
 }
 
 function PostCard({ post }) {
+  // PRIORIDAD DE DATOS DE EMPRESA:
+  // 1º: Datos de la empresa asociada (logo + razón social)
+  // 2º: Datos del usuario (nombre + foto perfil)
+  // 3º: Fallbacks genéricos
+  
   const userName =
-    post?.user?.name || post?.user?.nombre || post?.user?.empresa || "Empresa";
+    post?.user?.empresa?.razonSocial  // 1º: razón social de la empresa
+    ?? post?.user?.name                // 2º: nombre del usuario
+    ?? "Empresa";                      // 3º: fallback
+
+  const avatarUrl =
+    post?.user?.empresa?.logo         // 1º: logo de la empresa
+    ?? post?.user?.profile_image      // 2º: foto de perfil del usuario
+    ?? null;                          // 3º: nada → mostrar inicial
 
   const createdAt = useMemo(() => {
     if (!post?.createdAt) return null;
@@ -101,14 +113,29 @@ function PostCard({ post }) {
     <article className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl overflow-hidden border border-border bg-surface/50 flex items-center justify-center">
-            {post?.user?.profile_image ? (
-              <img
-                src={getImageUrl(post.user.profile_image)}
-                alt={`Avatar ${userName}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
+          {/* Avatar con prioridad: empresa.logo > user.profile_image > inicial */}
+          <div className="h-11 w-11 rounded-2xl overflow-hidden border border-border bg-surface/50 flex items-center justify-center relative">
+            {avatarUrl ? (
+              <>
+                <img
+                  src={getImageUrl(avatarUrl)}
+                  alt={`Avatar ${userName}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    // Si la imagen falla al cargar → mostrar inicial
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+                {/* Fallback oculto (se muestra si la imagen falla) */}
+                <span
+                  className="text-text font-extrabold absolute inset-0 flex items-center justify-center"
+                  style={{ display: "none" }}
+                >
+                  {userName?.[0]?.toUpperCase() || "E"}
+                </span>
+              </>
             ) : (
               <span className="text-text font-extrabold">
                 {userName?.[0]?.toUpperCase() || "E"}

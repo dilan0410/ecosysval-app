@@ -9,6 +9,8 @@
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.4.3",
     "axios": "^1.5.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
     "mapbox-gl": "^3.18.1",

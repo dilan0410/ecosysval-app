@@ -6,10 +6,13 @@ import {
   TrendingUp, 
   Activity,
   ArrowUp,
-  ArrowDown,
-  Calendar,
   Shield,
-  UserCheck
+  UserCheck,
+  Mail,
+  MapPin,
+  Package,
+  Globe,
+  Download
 } from "lucide-react";
 import { 
   LineChart, 
@@ -27,21 +30,20 @@ import {
   Legend
 } from "recharts";
 
+// PDF Generator
+import { generarReportePDF } from "../utils/generarReportePDF";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
 function Admin() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalEmpresas: 0,
-    totalEmpleos: 0,
-    totalAdmins: 0,
-    totalUsuariosNormales: 0,
-  });
-  const [ultimosUsuarios, setUltimosUsuarios] = useState([]);
-  const [ultimasEmpresas, setUltimasEmpresas] = useState([]);
-  const [datosGraficoUsuarios, setDatosGraficoUsuarios] = useState([]);
+  const [error, setError] = useState(null);
+
+  // Estados para datos REALES del backend
+  const [overview, setOverview] = useState(null);
+  const [usuariosPorMes, setUsuariosPorMes] = useState(null);
+  const [empresasStats, setEmpresasStats] = useState(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -52,95 +54,139 @@ function Admin() {
   }, []);
 
   const cargarDatos = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    
-    // OPTIMIZACIÓN: Hacer las 3 peticiones EN PARALELO
-    const [usersRes, empresasRes, empleosRes] = await Promise.all([
-      fetch(`${API_URL}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-      fetch(`${API_URL}/empresas`),
-      fetch(`${API_URL}/empleos`),
-    ]);
-    
-    // Convertir respuestas a JSON (también en paralelo)
-    const [users, empresas, empleos] = await Promise.all([
-      usersRes.json(),
-      empresasRes.json(),
-      empleosRes.json(),
-    ]);
-    
-    const usuariosArray = Array.isArray(users) ? users : [];
-    const empresasArray = Array.isArray(empresas) ? empresas : [];
-    const empleosArray = Array.isArray(empleos) ? empleos : [];
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem("token");
 
-    // Calcular estadísticas
-    const totalAdmins = usuariosArray.filter(u => u.role === 'admin').length;
-    const totalUsuariosNormales = usuariosArray.filter(u => u.role === 'user').length;
+      // Peticiones EN PARALELO a los nuevos endpoints reales
+      const [overviewRes, usuariosRes, empresasRes] = await Promise.all([
+        fetch(`${API_URL}/admin/stats/overview`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/admin/stats/usuarios`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/admin/stats/empresas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-    setStats({
-      totalUsers: usuariosArray.length,
-      totalEmpresas: empresasArray.length,
-      totalEmpleos: empleosArray.length,
-      totalAdmins,
-      totalUsuariosNormales,
-    });
+      // Verificar respuestas
+      if (!overviewRes.ok || !usuariosRes.ok || !empresasRes.ok) {
+        throw new Error("Error al cargar estadísticas");
+      }
 
-    // Últimos 5 usuarios
-    const ultimos5Users = [...usuariosArray]
-      .sort((a, b) => b.id - a.id)
-      .slice(0, 5);
-    setUltimosUsuarios(ultimos5Users);
+      // Convertir a JSON en paralelo
+      const [overviewData, usuariosData, empresasData] = await Promise.all([
+        overviewRes.json(),
+        usuariosRes.json(),
+        empresasRes.json(),
+      ]);
 
-    // Últimas 5 empresas
-    const ultimas5Empresas = [...empresasArray]
-      .sort((a, b) => b.id - a.id)
-      .slice(0, 5);
-    setUltimasEmpresas(ultimas5Empresas);
-
-    // Datos para gráfico
-    const graficoData = generarDatosGrafico(usuariosArray, empresasArray);
-    setDatosGraficoUsuarios(graficoData);
-
-  } catch (error) {
-    console.error("Error al cargar datos:", error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Generar datos del gráfico basado en lo que hay
-  const generarDatosGrafico = (usuarios, empresas) => {
-    // Por ahora simulamos los últimos 7 días
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    return dias.map((dia, index) => ({
-      dia,
-      usuarios: Math.max(0, Math.floor(Math.random() * usuarios.length) + index),
-      empresas: Math.max(0, Math.floor(Math.random() * empresas.length) + index),
-    }));
+      setOverview(overviewData);
+      setUsuariosPorMes(usuariosData);
+      setEmpresasStats(empresasData);
+    } catch (err) {
+      console.error("Error al cargar datos:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Datos para gráfico de pastel (roles)
-  const datosPastel = [
-    { name: 'Administradores', value: stats.totalAdmins, color: '#fbbf24' },
-    { name: 'Usuarios', value: stats.totalUsuariosNormales, color: '#3b82f6' },
-  ];
+  // Preparar datos para gráfico de líneas (usuarios por mes)
+  const datosGraficoUsuarios = usuariosPorMes
+    ? usuariosPorMes.labels.map((label, index) => ({
+        mes: label,
+        usuarios: usuariosPorMes.data[index],
+      }))
+    : [];
 
-  // Datos para gráfico de barras (comparativa)
-  const datosBarras = [
-    { categoria: 'Usuarios', cantidad: stats.totalUsers, color: '#3b82f6' },
-    { categoria: 'Empresas', cantidad: stats.totalEmpresas, color: '#10b981' },
-    { categoria: 'Empleos', cantidad: stats.totalEmpleos, color: '#a855f7' },
-  ];
+  // Preparar datos para gráfico de barras (empresas por estado - top 8)
+  const datosEmpresasPorEstado = empresasStats?.porEstado
+    ? empresasStats.porEstado.labels.slice(0, 8).map((label, index) => ({
+        estado: label,
+        cantidad: empresasStats.porEstado.data[index],
+      }))
+    : [];
 
+  // Preparar datos para gráfico circular (distribución de paquetes)
+  const datosPaquetes = empresasStats?.porPaquete
+    ? empresasStats.porPaquete.labels.map((label, index) => ({
+        name: label.charAt(0).toUpperCase() + label.slice(1), // Capitalizar
+        value: empresasStats.porPaquete.data[index],
+      }))
+    : [];
+
+  // Colores para el gráfico circular
+  const COLORES_PAQUETES = ["#3b82f6", "#10b981", "#fbbf24", "#a855f7", "#ec4899"];
+
+  // Datos para gráfico de roles
+  const datosRoles = overview
+    ? [
+        { name: "Administradores", value: overview.totalAdmins, color: "#fbbf24" },
+        { name: "Usuarios", value: overview.totalUsuarios - overview.totalAdmins, color: "#3b82f6" },
+      ]
+    : [];
+
+  // Datos para gráfico de verificación de emails
+  const datosVerificacion = overview
+    ? [
+        { name: "Verificados", value: overview.usuariosVerificados, color: "#10b981" },
+        { name: "Pendientes", value: overview.usuariosPendientes, color: "#ef4444" },
+      ]
+    : [];
+
+  // Datos para gráfico de barras (comparativa general)
+  const datosBarras = overview
+    ? [
+        { categoria: "Usuarios", cantidad: overview.totalUsuarios },
+        { categoria: "Empresas", cantidad: overview.totalEmpresas },
+        { categoria: "Empleos", cantidad: overview.totalEmpleos },
+      ]
+    : [];
+
+  // ==========================================
+  // ESTADOS DE CARGA Y ERROR
+  // ==========================================
   if (loading) {
     return (
       <div className="p-8">
-        <div className="text-center text-gray-400">Cargando dashboard...</div>
+        <div className="text-center text-gray-400">
+          <Activity className="animate-pulse mx-auto mb-3" size={48} />
+          Cargando dashboard...
+        </div>
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-6 text-center">
+          <p className="text-red-300 mb-2 font-semibold">Error al cargar datos</p>
+          <p className="text-sm text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={cargarDatos}
+            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+   // Función para descargar PDF
+  const handleDescargarPDF = () => {
+    try {
+      generarReportePDF(overview, usuariosPorMes, empresasStats, user);
+    } catch (err) {
+      console.error("Error al generar PDF:", err);
+      alert("Error al generar el PDF. Intenta de nuevo.");
+    }
+  };
 
   return (
     <div className="p-4 lg:p-8 pt-20 lg:pt-8">
@@ -150,11 +196,21 @@ function Admin() {
           ¡Bienvenido, {user?.name}!
         </h1>
         <p className="text-gray-400">
-          Aquí tienes un resumen completo de la plataforma
+          Sistema de Inteligencia Económica · Datos actualizados en tiempo real
         </p>
       </div>
 
-      {/* TARJETAS DE ESTADÍSTICAS */}
+      <button
+          onClick={handleDescargarPDF}
+          disabled={!overview || !usuariosPorMes || !empresasStats}
+          className="inline-flex mb-10 items-center gap-2 px-5 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          title="Descargar reporte ejecutivo en PDF"
+        >
+          <Download size={20} />
+          Descargar PDF
+        </button>
+
+      {/* TARJETAS DE ESTADÍSTICAS PRINCIPALES (4 KPIs) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Usuarios */}
         <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-xl p-6 hover:scale-105 transition-transform">
@@ -164,15 +220,15 @@ function Admin() {
             </div>
             <div className="flex items-center gap-1 text-green-400 text-xs font-semibold">
               <ArrowUp size={14} />
-              <span>+12%</span>
+              <span>+{overview?.usuariosNuevosEsteMes || 0}</span>
             </div>
           </div>
-          <h3 className="text-3xl font-bold mb-1">{stats.totalUsers}</h3>
+          <h3 className="text-3xl font-bold mb-1">{overview?.totalUsuarios || 0}</h3>
           <p className="text-gray-400 text-sm">Usuarios totales</p>
           <div className="mt-3 pt-3 border-t border-blue-500/20">
             <p className="text-xs text-gray-500">
-              <span className="text-yellow-400 font-semibold">{stats.totalAdmins}</span> admins · 
-              <span className="text-blue-400 font-semibold ml-1">{stats.totalUsuariosNormales}</span> usuarios
+              <span className="text-yellow-400 font-semibold">{overview?.totalAdmins || 0}</span> admins · 
+              <span className="text-blue-400 font-semibold ml-1">{(overview?.totalUsuarios || 0) - (overview?.totalAdmins || 0)}</span> usuarios
             </p>
           </div>
         </div>
@@ -185,14 +241,14 @@ function Admin() {
             </div>
             <div className="flex items-center gap-1 text-green-400 text-xs font-semibold">
               <ArrowUp size={14} />
-              <span>+8%</span>
+              <span>+{overview?.empresasNuevasEsteMes || 0}</span>
             </div>
           </div>
-          <h3 className="text-3xl font-bold mb-1">{stats.totalEmpresas}</h3>
+          <h3 className="text-3xl font-bold mb-1">{overview?.totalEmpresas || 0}</h3>
           <p className="text-gray-400 text-sm">Empresas registradas</p>
           <div className="mt-3 pt-3 border-t border-green-500/20">
             <p className="text-xs text-gray-500">
-              Crecimiento sostenido
+              Nuevas este mes
             </p>
           </div>
         </div>
@@ -204,58 +260,60 @@ function Admin() {
               <Briefcase size={24} className="text-purple-400" />
             </div>
             <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-              <span>—</span>
+              <span>{overview?.empleosActivos || 0} activos</span>
             </div>
           </div>
-          <h3 className="text-3xl font-bold mb-1">{stats.totalEmpleos}</h3>
+          <h3 className="text-3xl font-bold mb-1">{overview?.totalEmpleos || 0}</h3>
           <p className="text-gray-400 text-sm">Empleos publicados</p>
           <div className="mt-3 pt-3 border-t border-purple-500/20">
             <p className="text-xs text-gray-500">
-              Próximamente disponible
+              <span className="text-green-400">{overview?.empleosActivos || 0}</span> activos ·
+              <span className="text-gray-400 ml-1">{overview?.empleosCerrados || 0}</span> cerrados
             </p>
           </div>
         </div>
 
-        {/* Actividad total */}
+        {/* Verificación de Emails */}
         <div className="bg-gradient-to-br from-yellow-600/20 to-orange-800/20 border border-yellow-500/30 rounded-xl p-6 hover:scale-105 transition-transform">
           <div className="flex items-center justify-between mb-3">
             <div className="bg-yellow-500/20 p-3 rounded-lg">
-              <Activity size={24} className="text-yellow-400" />
+              <Mail size={24} className="text-yellow-400" />
             </div>
             <div className="flex items-center gap-1 text-green-400 text-xs font-semibold">
-              <ArrowUp size={14} />
-              <span>+15%</span>
+              <span>{overview?.tasaVerificacion || 0}%</span>
             </div>
           </div>
           <h3 className="text-3xl font-bold mb-1">
-            {stats.totalUsers + stats.totalEmpresas + stats.totalEmpleos}
+            {overview?.usuariosVerificados || 0}
           </h3>
-          <p className="text-gray-400 text-sm">Total de registros</p>
+          <p className="text-gray-400 text-sm">Emails verificados</p>
           <div className="mt-3 pt-3 border-t border-yellow-500/20">
             <p className="text-xs text-gray-500">
-              Plataforma activa
+              <span className="text-red-400">{overview?.usuariosPendientes || 0}</span> pendientes
             </p>
           </div>
         </div>
       </div>
 
-      {/* GRÁFICOS */}
+      {/* GRÁFICOS PRINCIPALES: TENDENCIAS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Gráfico de líneas - Crecimiento */}
+        {/* Gráfico de líneas - Usuarios por mes (REAL) */}
         <div className="lg:col-span-2 bg-black/30 border border-yellow-500/20 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp size={20} className="text-yellow-400" />
-                Actividad de la semana
+                Tendencia de usuarios registrados
               </h3>
-              <p className="text-xs text-gray-400">Últimos 7 días</p>
+              <p className="text-xs text-gray-400">
+                Últimos {usuariosPorMes?.periodo || "6 meses"} · Promedio: {usuariosPorMes?.promedio || 0}/mes
+              </p>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={datosGraficoUsuarios}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="dia" stroke="#9ca3af" />
+              <XAxis dataKey="mes" stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
               <Tooltip 
                 contentStyle={{ 
@@ -269,17 +327,10 @@ function Admin() {
                 type="monotone" 
                 dataKey="usuarios" 
                 stroke="#3b82f6" 
-                strokeWidth={2}
-                name="Usuarios"
-                dot={{ fill: '#3b82f6', r: 4 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="empresas" 
-                stroke="#10b981" 
-                strokeWidth={2}
-                name="Empresas"
-                dot={{ fill: '#10b981', r: 4 }}
+                strokeWidth={3}
+                name="Usuarios nuevos"
+                dot={{ fill: '#3b82f6', r: 5 }}
+                activeDot={{ r: 7 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -290,23 +341,104 @@ function Admin() {
           <div className="mb-4">
             <h3 className="text-lg font-bold flex items-center gap-2">
               <Shield size={20} className="text-yellow-400" />
-              Usuarios por rol
+              Distribución de roles
+            </h3>
+            <p className="text-xs text-gray-400">Usuarios del sistema</p>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie
+                data={datosRoles}
+                cx="50%"
+                cy="50%"
+                outerRadius={90}
+                fill="#8884d8"
+                dataKey="value"
+                label={({ name, value }) => `${value}`}
+              >
+                {datosRoles.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1f2937', 
+                  border: '1px solid #fbbf24',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* GRÁFICOS SECUNDARIOS: EMPRESAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Gráfico de barras - Empresas por estado */}
+        <div className="lg:col-span-2 bg-black/30 border border-yellow-500/20 rounded-xl p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <MapPin size={20} className="text-yellow-400" />
+              Empresas por estado
+            </h3>
+            <p className="text-xs text-gray-400">
+              Top 8 estados con más empresas registradas
+            </p>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={datosEmpresasPorEstado} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis type="number" stroke="#9ca3af" />
+              <YAxis 
+                dataKey="estado" 
+                type="category" 
+                stroke="#9ca3af"
+                width={110}
+                style={{ fontSize: "11px" }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1f2937', 
+                  border: '1px solid #fbbf24',
+                  borderRadius: '8px'
+                }} 
+              />
+              <Bar 
+                dataKey="cantidad" 
+                fill="#fbbf24" 
+                radius={[0, 8, 8, 0]}
+                name="Empresas"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Gráfico de pastel - Paquetes */}
+        <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Package size={20} className="text-yellow-400" />
+              Paquetes comerciales
             </h3>
             <p className="text-xs text-gray-400">Distribución actual</p>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={datosPastel}
+                data={datosPaquetes}
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius={90}
                 fill="#8884d8"
                 dataKey="value"
                 label={({ name, value }) => `${name}: ${value}`}
               >
-                {datosPastel.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                {datosPaquetes.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORES_PAQUETES[index % COLORES_PAQUETES.length]} 
+                  />
                 ))}
               </Pie>
               <Tooltip 
@@ -321,14 +453,14 @@ function Admin() {
         </div>
       </div>
 
-      {/* GRÁFICO DE BARRAS - Comparativa */}
+      {/* GRÁFICO DE BARRAS - Comparativa general */}
       <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6 mb-8">
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <Activity size={20} className="text-yellow-400" />
             Comparativa general
           </h3>
-          <p className="text-xs text-gray-400">Registros por categoría</p>
+          <p className="text-xs text-gray-400">Registros totales por categoría</p>
         </div>
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={datosBarras}>
@@ -343,97 +475,79 @@ function Admin() {
               }} 
             />
             <Bar 
-            dataKey="cantidad" 
-            fill="#fbbf24" 
-            radius={[8, 8, 0, 0]}
-            activeBar={{ fill: '#fbbf24', stroke: '#fbbf24' }}
-          />
+              dataKey="cantidad" 
+              fill="#fbbf24" 
+              radius={[8, 8, 0, 0]}
+              activeBar={{ fill: '#f59e0b', stroke: '#fbbf24' }}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* LISTAS DE ÚLTIMOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Últimos usuarios */}
-        <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-              <UserCheck size={20} className="text-yellow-400" />
-              Últimos usuarios
-            </h3>
-            <span className="text-xs text-gray-400">
-              {ultimosUsuarios.length} mostrados
-            </span>
-          </div>
-          
-          {ultimosUsuarios.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No hay usuarios</p>
-          ) : (
-            <div className="space-y-3">
-              {ultimosUsuarios.map((usuario) => (
-                <div 
-                  key={usuario.id}
-                  className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 font-bold">
-                    {usuario.name?.charAt(0).toUpperCase() || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{usuario.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{usuario.email}</p>
-                  </div>
-                  {usuario.role === 'admin' ? (
-                    <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full font-semibold">
-                      Admin
-                    </span>
-                  ) : (
-                    <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full font-semibold">
-                      User
-                    </span>
-                  )}
-                </div>
-              ))}
+      {/* INDICADORES DE PERFIL COMPLETO */}
+      {empresasStats?.indicadores && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Perfil completo */}
+          <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-emerald-500/20 p-3 rounded-lg">
+                <UserCheck size={24} className="text-emerald-400" />
+              </div>
+              <span className="text-2xl font-bold text-emerald-400">
+                {empresasStats.porcentajes.tasaPerfilCompleto}%
+              </span>
             </div>
-          )}
-        </div>
+            <h3 className="text-xl font-bold mb-1">
+              {empresasStats.indicadores.conLogo}
+            </h3>
+            <p className="text-gray-400 text-sm">Perfiles con logo</p>
+          </div>
 
-        {/* Últimas empresas */}
-        <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-              <Building2 size={20} className="text-yellow-400" />
-              Últimas empresas
-            </h3>
-            <span className="text-xs text-gray-400">
-              {ultimasEmpresas.length} mostradas
-            </span>
-          </div>
-          
-          {ultimasEmpresas.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No hay empresas</p>
-          ) : (
-            <div className="space-y-3">
-              {ultimasEmpresas.map((empresa) => (
-                <div 
-                  key={empresa.id}
-                  className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold">
-                    {empresa.razonSocial?.charAt(0).toUpperCase() || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{empresa.razonSocial}</p>
-                    <p className="text-xs text-gray-400 truncate">{empresa.ubicacion}</p>
-                  </div>
-                  <div className="text-xs text-gray-400 flex items-center gap-1">
-                    <Users size={12} />
-                    {empresa.empleados}
-                  </div>
-                </div>
-              ))}
+          {/* Con sucursales */}
+          <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-blue-500/20 p-3 rounded-lg">
+                <Building2 size={24} className="text-blue-400" />
+              </div>
+              <span className="text-2xl font-bold text-blue-400">
+                {empresasStats.porcentajes.tasaSucursales}%
+              </span>
             </div>
-          )}
+            <h3 className="text-xl font-bold mb-1">
+              {empresasStats.indicadores.conSucursales}
+            </h3>
+            <p className="text-gray-400 text-sm">Con sucursales</p>
+          </div>
+
+          {/* Internacionales */}
+          <div className="bg-black/30 border border-yellow-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-purple-500/20 p-3 rounded-lg">
+                <Globe size={24} className="text-purple-400" />
+              </div>
+              <span className="text-2xl font-bold text-purple-400">
+                {empresasStats.porcentajes.tasaInternacional}%
+              </span>
+            </div>
+            <h3 className="text-xl font-bold mb-1">
+              {empresasStats.indicadores.conOperacionesInt}
+            </h3>
+            <p className="text-gray-400 text-sm">Con operaciones internacionales</p>
+          </div>
         </div>
+      )}
+
+      {/* METADATA / FOOTER */}
+      <div className="text-center text-xs text-gray-500 mt-8">
+        <p>
+          Última actualización: {overview?.calculadoEn ? new Date(overview.calculadoEn).toLocaleString("es-MX") : "—"}
+        </p>
+        <button
+          onClick={cargarDatos}
+          className="mt-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+        >
+          Actualizar datos
+        </button>
       </div>
     </div>
   );
