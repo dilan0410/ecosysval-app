@@ -13,7 +13,7 @@ import { notificacionesMock } from "../data/notificacionesMock";
 import { mensajesMock } from "../data/mensajesMock";
 
 // REFRESH TOKENS
-import { logout as apiLogout } from "../api/axiosClient";
+import { api, logout as apiLogout } from "../api/axiosClient";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -46,41 +46,44 @@ export default function MainHeader({
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  // Cargar usuario y logo de empresa
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) return;
+    // Cargar usuario y logo de empresa
+    useEffect(() => {
+      const stored = localStorage.getItem("user");
+      if (!stored) return;
 
-    try {
-      const parsed = JSON.parse(stored);
-      setUser(parsed);
+      try {
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
 
-      if (parsed.id) {
-        const token = localStorage.getItem("token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-        fetch(`${API_URL}/empresas/mi-empresa`, { headers })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((empresa) => {
-            if (empresa?.logo) {
-              setProfilePic(getImageUrl(empresa.logo));
-            } else {
-              fetch(`${API_URL}/users/${parsed.id}`, { headers })
-                .then((r) => r.json())
-                .then((data) => {
-                  if (data.profile_image) {
-                    setProfilePic(getImageUrl(data.profile_image));
-                  }
-                })
-                .catch(() => {});
-            }
-          })
-          .catch(() => {});
+        if (parsed.id) {
+          // axios: token y refresh automáticos
+          cargarLogoUsuario(parsed.id);
+        }
+      } catch (e) {
+        console.error("Error leyendo usuario:", e);
       }
-    } catch (e) {
-      console.error("Error leyendo usuario:", e);
-    }
-  }, []);
+    }, []);
+
+    // Función separada para claridad
+    const cargarLogoUsuario = async (userId) => {
+      try {
+        // 1. Intentar obtener el logo de la empresa
+        const empresaRes = await api.get("/empresas/mi-empresa");
+        if (empresaRes.data?.logo) {
+          setProfilePic(getImageUrl(empresaRes.data.logo));
+          return;
+        }
+
+        // 2. Fallback: obtener imagen de perfil del usuario
+        const userRes = await api.get(`/users/${userId}`);
+        if (userRes.data?.profile_image) {
+          setProfilePic(getImageUrl(userRes.data.profile_image));
+        }
+      } catch (error) {
+        // Silencioso: si no hay empresa o falla, se muestra el ícono por defecto
+        console.log("No hay logo/imagen disponible");
+      }
+    };
 
   const handleLogout = async () => {
     // Cerrar dropdowns primero

@@ -26,6 +26,7 @@ import {
   Truck,
   Award,
 } from "lucide-react";
+import ResenasSection from "../components/ResenasSection";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -463,6 +464,10 @@ export default function Perfil() {
                 </div>
               </SectionCard>
             )}
+
+            {/* SECCIÓN 8: Reseñas y calificaciones */}
+            <ResenasSection empresaId={empresa.id} esOwner={true} />
+
 </div>
       </Layout>
 

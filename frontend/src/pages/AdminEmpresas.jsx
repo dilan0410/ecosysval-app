@@ -19,6 +19,9 @@ import {
   Edit2
 } from "lucide-react";
 
+// REFRESH TOKENS - axios con interceptor
+import { api } from "../api/axiosClient";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
 function AdminEmpresas() {
@@ -59,24 +62,22 @@ function AdminEmpresas() {
     cargarEmpresas();
   }, []);
 
-  const cargarEmpresas = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API_URL}/empresas`);
-      
-      if (res.ok) {
-        const data = await res.json();
-        setEmpresas(Array.isArray(data) ? data : []);
-      } else {
-        mostrarMensaje("error", "Error al cargar empresas");
+    const cargarEmpresas = async () => {
+      try {
+        setLoading(true);
+        // axios: token y refresh automáticos
+        const res = await api.get("/empresas");
+        setEmpresas(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.error("Error:", error);
+        mostrarMensaje(
+          "error",
+          error.response?.data?.message || "Error al cargar empresas"
+        );
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error:", error);
-      mostrarMensaje("error", "Error de conexión");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   const mostrarMensaje = (tipo, texto) => {
     setMensaje({ tipo, texto });
@@ -137,59 +138,45 @@ function AdminEmpresas() {
       return;
     }
 
-    try {
-      setGuardando(true);
-      const token = localStorage.getItem("token");
-      
-      // Convertir empleados a número
-      const dataToSend = {
-        ...datosEditar,
-        empleados: Number(datosEditar.empleados) || 0,
-      };
-      
-      const res = await fetch(`${API_URL}/empresas/${modalEditar.id}`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(dataToSend),
-      });
-      
-      if (res.ok) {
+      try {
+        setGuardando(true);
+
+        // Convertir empleados a número
+        const dataToSend = {
+          ...datosEditar,
+          empleados: Number(datosEditar.empleados) || 0,
+        };
+
+        // axios: token, refresh y errores automáticos
+        await api.put(`/empresas/${modalEditar.id}`, dataToSend);
+
         mostrarMensaje("exito", "Empresa actualizada correctamente");
         setModalEditar(null);
         cargarEmpresas();
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        setErrorModal(errorData.message || "Error al actualizar empresa");
+      } catch (error) {
+        console.error("Error:", error);
+        // Axios pone el error del servidor en error.response.data
+        setErrorModal(
+          error.response?.data?.message || "Error al actualizar empresa"
+        );
+      } finally {
+        setGuardando(false);
       }
-    } catch (error) {
-      console.error("Error:", error);
-      setErrorModal("Error de conexión con el servidor");
-    } finally {
-      setGuardando(false);
-    }
-  };
+    };
 
   const eliminarEmpresa = async () => {
     if (!modalEliminar) return;
-    
+
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/empresas/${modalEliminar.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.ok) {
-        mostrarMensaje("exito", "Empresa eliminada correctamente");
-        cargarEmpresas();
-      } else {
-        mostrarMensaje("error", "Error al eliminar empresa");
-      }
+      // axios con auto-refresh
+      await api.delete(`/empresas/${modalEliminar.id}`);
+      mostrarMensaje("exito", "Empresa eliminada correctamente");
+      cargarEmpresas();
     } catch (error) {
-      mostrarMensaje("error", "Error de conexión");
+      mostrarMensaje(
+        "error",
+        error.response?.data?.message || "Error al eliminar empresa"
+      );
     } finally {
       setModalEliminar(null);
     }

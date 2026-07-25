@@ -12,7 +12,8 @@ import {
   UserPlus
 } from "lucide-react";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
+// REFRESH TOKENS - axios con interceptor
+import { api } from "../api/axiosClient";
 
 function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -32,29 +33,22 @@ function AdminUsuarios() {
     cargarUsuarios();
   }, []);
 
-  // Función para cargar usuarios
-  const cargarUsuarios = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      
-      const res = await fetch(`${API_URL}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setUsuarios(Array.isArray(data) ? data : []);
-      } else {
-        mostrarMensaje("error", "Error al cargar usuarios");
+    const cargarUsuarios = async () => {
+      try {
+        setLoading(true);
+        // axios: token y refresh automáticos
+        const res = await api.get("/users");
+        setUsuarios(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.error("Error:", error);
+        mostrarMensaje(
+          "error",
+          error.response?.data?.message || "Error al cargar usuarios"
+        );
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error:", error);
-      mostrarMensaje("error", "Error de conexión");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   // Mostrar mensaje temporal
   const mostrarMensaje = (tipo, texto) => {
@@ -95,85 +89,61 @@ const guardarUsuario = async () => {
     return;
   }
 
-  try {
-    setGuardando(true);
-    const token = localStorage.getItem("token");
-    
-    const res = await fetch(`${API_URL}/users/${modalEditar.id}`, {
-      method: "PUT",
-      headers: { 
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}` 
-      },
-      body: JSON.stringify(datosEditar),
-    });
-    
-    if (res.ok) {
+    try {
+      setGuardando(true);
+
+      // axios: token, refresh y errores automáticos
+      await api.put(`/users/${modalEditar.id}`, datosEditar);
+
       // Éxito: cerrar modal y mostrar mensaje en la página
       mostrarMensaje("exito", "Usuario actualizado correctamente");
       setModalEditar(null);
       cargarUsuarios();
-    } else {
-      // Error del servidor: mostrar dentro del modal
-      const errorData = await res.json().catch(() => ({}));
-      setErrorModal(errorData.message || "Error al actualizar usuario");
-    }
-  } catch (error) {
-    console.error("Error:", error);
-    setErrorModal("Error de conexión con el servidor");
-  } finally {
-    setGuardando(false);
-  }
-};
-
-  // Cambiar rol del usuario
-  const cambiarRol = async (usuario) => {
-    const nuevoRol = usuario.role === "admin" ? "user" : "admin";
-    
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/users/${usuario.id}`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ role: nuevoRol }),
-      });
-      
-      if (res.ok) {
-        mostrarMensaje("exito", `Rol cambiado a ${nuevoRol}`);
-        cargarUsuarios();
-      } else {
-        mostrarMensaje("error", "Error al cambiar el rol");
-      }
     } catch (error) {
-      mostrarMensaje("error", "Error de conexión");
+      console.error("Error:", error);
+      // Axios pone el error del servidor en error.response.data
+      setErrorModal(
+        error.response?.data?.message || "Error al actualizar usuario"
+      );
+    } finally {
+      setGuardando(false);
     }
   };
 
+  // Cambiar rol del usuario
+    const cambiarRol = async (usuario) => {
+      const nuevoRol = usuario.role === "admin" ? "user" : "admin";
+
+      try {
+        // axios con auto-refresh
+        await api.put(`/users/${usuario.id}`, { role: nuevoRol });
+        mostrarMensaje("exito", `Rol cambiado a ${nuevoRol}`);
+        cargarUsuarios();
+      } catch (error) {
+        mostrarMensaje(
+          "error",
+          error.response?.data?.message || "Error al cambiar el rol"
+        );
+      }
+  };
+
   // Eliminar usuario
-  const eliminarUsuario = async () => {
-    if (!modalEliminar) return;
-    
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/users/${modalEliminar.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.ok) {
+    const eliminarUsuario = async () => {
+      if (!modalEliminar) return;
+
+      try {
+        // axios con auto-refresh
+        await api.delete(`/users/${modalEliminar.id}`);
         mostrarMensaje("exito", "Usuario eliminado correctamente");
         cargarUsuarios();
-      } else {
-        mostrarMensaje("error", "Error al eliminar usuario");
+      } catch (error) {
+        mostrarMensaje(
+          "error",
+          error.response?.data?.message || "Error al eliminar usuario"
+        );
+      } finally {
+        setModalEliminar(null);
       }
-    } catch (error) {
-      mostrarMensaje("error", "Error de conexión");
-    } finally {
-      setModalEliminar(null);
-    }
   };
 
  // Filtrar usuarios

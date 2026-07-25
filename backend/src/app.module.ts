@@ -20,6 +20,8 @@ import { LoggerModule } from './common/logger/logger.module';
 
 // ANALYTICS
 import { AdminModule } from './admin/admin.module';
+
+import { ResenaModule } from './resena/resena.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -85,6 +87,7 @@ import { AdminModule } from './admin/admin.module';
     EmpleoModule,
     StorageModule,
     AdminModule, // analytics
+    ResenaModule, // reseñas
   ],
   controllers: [AppController],
   providers: [
