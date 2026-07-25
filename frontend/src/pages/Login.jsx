@@ -30,16 +30,18 @@ function Login() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+            if (res.ok) {
+              // Guardar AMBOS tokens (access + refresh)
+              localStorage.setItem("token", data.access_token);
+              localStorage.setItem("refresh_token", data.refresh_token);
+              localStorage.setItem("user", JSON.stringify(data.user));
 
-        if (data.user.role === "admin") {
-          navigate("/admin");
-        } else {
-          navigate("/profile");
-        }
-      } else {
+              if (data.user.role === "admin") {
+                navigate("/admin");
+              } else {
+                navigate("/profile");
+              }
+            } else {
         // NUEVO: Detectar si el error es por email no verificado
         const isNotVerified = data.message?.toLowerCase().includes("verificar");
         

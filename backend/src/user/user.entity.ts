@@ -39,6 +39,13 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   reset_password_expires: Date | null;
 
+  // REFRESH TOKENS
+  @Column({ type: 'text', nullable: true })
+  refresh_token: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refresh_token_expires: Date | null;
+
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];
 }

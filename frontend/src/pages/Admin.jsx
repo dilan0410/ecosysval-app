@@ -33,6 +33,9 @@ import {
 // PDF Generator
 import { generarReportePDF } from "../utils/generarReportePDF";
 
+// REFRESH TOKENS - axios con interceptor
+import { api } from "../api/axiosClient";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
 function Admin() {
@@ -53,47 +56,29 @@ function Admin() {
     cargarDatos();
   }, []);
 
-  const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const token = localStorage.getItem("token");
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      // Peticiones EN PARALELO a los nuevos endpoints reales
-      const [overviewRes, usuariosRes, empresasRes] = await Promise.all([
-        fetch(`${API_URL}/admin/stats/overview`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_URL}/admin/stats/usuarios`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_URL}/admin/stats/empresas`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+        // Peticiones EN PARALELO con axios (auto-refresh incluido)
+        const [overviewRes, usuariosRes, empresasRes] = await Promise.all([
+          api.get("/admin/stats/overview"),
+          api.get("/admin/stats/usuarios"),
+          api.get("/admin/stats/empresas"),
+        ]);
 
-      // Verificar respuestas
-      if (!overviewRes.ok || !usuariosRes.ok || !empresasRes.ok) {
-        throw new Error("Error al cargar estadísticas");
+        // Con axios, los datos vienen en .data (no hace falta .json())
+        setOverview(overviewRes.data);
+        setUsuariosPorMes(usuariosRes.data);
+        setEmpresasStats(empresasRes.data);
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+        setError(err.response?.data?.message || err.message || "Error desconocido");
+      } finally {
+        setLoading(false);
       }
-
-      // Convertir a JSON en paralelo
-      const [overviewData, usuariosData, empresasData] = await Promise.all([
-        overviewRes.json(),
-        usuariosRes.json(),
-        empresasRes.json(),
-      ]);
-
-      setOverview(overviewData);
-      setUsuariosPorMes(usuariosData);
-      setEmpresasStats(empresasData);
-    } catch (err) {
-      console.error("Error al cargar datos:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   // Preparar datos para gráfico de líneas (usuarios por mes)
   const datosGraficoUsuarios = usuariosPorMes

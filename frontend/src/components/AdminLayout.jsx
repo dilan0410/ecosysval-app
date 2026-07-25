@@ -3,6 +3,9 @@ import { useNavigate, Outlet } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 
+// REFRESH TOKENS
+import { logout as apiLogout } from "../api/axiosClient";
+
 function AdminLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -15,10 +18,9 @@ function AdminLayout() {
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
+  const handleLogout = async () => {
+    // Invalidar refresh_token en backend + limpiar localStorage + redirect
+    await apiLogout();
   };
 
   // Cerrar sidebar al cambiar de ruta en móvil

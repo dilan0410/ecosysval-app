@@ -12,6 +12,9 @@ import { useNavigate } from "react-router-dom";
 import { notificacionesMock } from "../data/notificacionesMock";
 import { mensajesMock } from "../data/mensajesMock";
 
+// REFRESH TOKENS
+import { logout as apiLogout } from "../api/axiosClient";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
 // Helper universal para URLs de imágenes
@@ -79,13 +82,15 @@ export default function MainHeader({
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
+  const handleLogout = async () => {
+    // Cerrar dropdowns primero
     setMenuOpen(false);
     setShowNotifications(false);
     setShowMessages(false);
-    navigate("/subscribe");
-    setTimeout(() => window.location.reload(), 100);
+
+    // Invalidar refresh_token en backend + limpiar localStorage
+    // La función apiLogout ya redirige a /login automáticamente
+    await apiLogout();
   };
 
   useEffect(() => {
