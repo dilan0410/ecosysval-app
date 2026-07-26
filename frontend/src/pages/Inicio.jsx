@@ -1,7 +1,8 @@
 // src/pages/Inicio.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import Layout from "../components/Layout"; // NUEVO
-import { Loader2, RefreshCcw } from "lucide-react";
+import { useNavigate } from "react-router-dom"; // NUEVO
+import Layout from "../components/Layout";
+import { Loader2, RefreshCcw, ExternalLink } from "lucide-react"; // AGREGADO ExternalLink
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -88,20 +89,22 @@ export default function Inicio() {
 }
 
 function PostCard({ post }) {
-  // PRIORIDAD DE DATOS DE EMPRESA:
-  // 1º: Datos de la empresa asociada (logo + razón social)
-  // 2º: Datos del usuario (nombre + foto perfil)
-  // 3º: Fallbacks genéricos
-  
+  const navigate = useNavigate();
+
+  // PRIORIDAD DE DATOS DE EMPRESA
   const userName =
-    post?.user?.empresa?.razonSocial  // 1º: razón social de la empresa
-    ?? post?.user?.name                // 2º: nombre del usuario
-    ?? "Empresa";                      // 3º: fallback
+    post?.user?.empresa?.razonSocial
+    ?? post?.user?.name
+    ?? "Empresa";
 
   const avatarUrl =
-    post?.user?.empresa?.logo         // 1º: logo de la empresa
-    ?? post?.user?.profile_image      // 2º: foto de perfil del usuario
-    ?? null;                          // 3º: nada → mostrar inicial
+    post?.user?.empresa?.logo
+    ?? post?.user?.profile_image
+    ?? null;
+
+  // NUEVO: ID de la empresa para navegar al perfil público
+  const empresaId = post?.user?.empresa?.id;
+  const puedeVerPerfil = !!empresaId;
 
   const createdAt = useMemo(() => {
     if (!post?.createdAt) return null;
@@ -109,12 +112,28 @@ function PostCard({ post }) {
     return Number.isNaN(d.getTime()) ? null : d;
   }, [post?.createdAt]);
 
+  // NUEVO: Función para ir al perfil público
+  const irAPerfilEmpresa = (e) => {
+    e.stopPropagation();
+    if (puedeVerPerfil) {
+      navigate(`/empresa/${empresaId}`);
+    }
+  };
+
   return (
     <article className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* Avatar con prioridad: empresa.logo > user.profile_image > inicial */}
-          <div className="h-11 w-11 rounded-2xl overflow-hidden border border-border bg-surface/50 flex items-center justify-center relative">
+          {/* Avatar clickeable */}
+          <button
+            type="button"
+            onClick={irAPerfilEmpresa}
+            disabled={!puedeVerPerfil}
+            className={`h-11 w-11 rounded-2xl overflow-hidden border border-border bg-surface/50 flex items-center justify-center relative transition
+              ${puedeVerPerfil ? "cursor-pointer hover:scale-105 hover:border-yellow-400" : "cursor-default"}
+            `}
+            title={puedeVerPerfil ? `Ver perfil de ${userName}` : ""}
+          >
             {avatarUrl ? (
               <>
                 <img
@@ -123,12 +142,10 @@ function PostCard({ post }) {
                   className="h-full w-full object-cover"
                   loading="lazy"
                   onError={(e) => {
-                    // Si la imagen falla al cargar → mostrar inicial
                     e.target.style.display = "none";
                     e.target.nextSibling.style.display = "flex";
                   }}
                 />
-                {/* Fallback oculto (se muestra si la imagen falla) */}
                 <span
                   className="text-text font-extrabold absolute inset-0 flex items-center justify-center"
                   style={{ display: "none" }}
@@ -141,10 +158,22 @@ function PostCard({ post }) {
                 {userName?.[0]?.toUpperCase() || "E"}
               </span>
             )}
-          </div>
+          </button>
 
           <div>
-            <div className="font-semibold text-text">{userName}</div>
+            {/* Nombre clickeable */}
+            <button
+              type="button"
+              onClick={irAPerfilEmpresa}
+              disabled={!puedeVerPerfil}
+              className={`font-semibold text-text inline-flex items-center gap-1 transition
+                ${puedeVerPerfil ? "hover:text-yellow-400 cursor-pointer" : "cursor-default"}
+              `}
+              title={puedeVerPerfil ? `Ver perfil de ${userName}` : ""}
+            >
+              {userName}
+              {puedeVerPerfil && <ExternalLink className="w-3 h-3 opacity-60" />}
+            </button>
             <div className="text-xs text-muted">
               {createdAt
                 ? createdAt.toLocaleString("es-ES", {

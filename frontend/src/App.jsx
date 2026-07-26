@@ -49,6 +49,8 @@ import Verificar from "./pages/Verificar";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+import EmpresaPublica from "./pages/EmpresaPublica"; // NUEVO
+
 // NUEVA PÁGINA: Panel de Administrador
 import Admin from "./pages/Admin";
 
@@ -62,10 +64,16 @@ function AppContent() {
     // Auto-redirect: Si está logueado y entra a páginas públicas → /inicio
     useEffect(() => {
       const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar", "/forgot-password", "/reset-password"];
-      const isPublicRoute = publicRoutes.includes(location.pathname);
+      
+      // NUEVO: Rutas públicas dinámicas (con parámetros)
+      const publicDynamicRoutes = [
+        /^\/empresa\/\d+$/, // /empresa/123, /empresa/456, etc.
+      ];
+      
+      const isPublicRoute = 
+        publicRoutes.includes(location.pathname) ||
+        publicDynamicRoutes.some((regex) => regex.test(location.pathname));
 
-      // MEJORA: Si está logueado, NO redirigir si está en /verificar
-      // (para que pueda ver el mensaje de "ya verificado")
       const isPublicOnlyRoute = 
         location.pathname === "/verificar" ||
         location.pathname === "/forgot-password" ||
@@ -73,7 +81,11 @@ function AppContent() {
 
       // Si está logueado y entra a ruta pública (pero NO /verificar) → /inicio
       if (isLoggedIn && isPublicRoute && !isPublicOnlyRoute) {
-        navigate("/inicio");
+        // NUEVO: NO redirigir si está viendo un perfil de empresa
+        const esPerfilEmpresa = /^\/empresa\/\d+$/.test(location.pathname);
+        if (!esPerfilEmpresa) {
+          navigate("/inicio");
+        }
       }
 
       // Si NO está logueado y entra a ruta privada → /subscribe
@@ -132,6 +144,9 @@ function AppContent() {
           <Route path="/verificar" element={<Verificar />} />  {/* NUEVO */}
           <Route path="/forgot-password" element={<ForgotPassword />} />  {/* NUEVO */}
           <Route path="/reset-password" element={<ResetPassword />} />    {/* NUEVO */}
+
+          {/* NUEVO: Perfil público de empresa */}
+          <Route path="/empresa/:id" element={<EmpresaPublica />} />
           
           {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
           <Route 
