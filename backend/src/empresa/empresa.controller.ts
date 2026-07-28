@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UseGuards,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer'; // CAMBIO: memoryStorage en vez de diskStorage
@@ -81,6 +82,36 @@ export class EmpresaController {
   @Get()
   obtenerTodas() {
     return this.empresaService.obtenerTodas();
+  }
+
+  // NUEVO: Explorar empresas con filtros
+  @Get('explorar/buscar')
+  explorar(
+    @Query('q') q?: string,
+    @Query('estado') estado?: string,
+    @Query('empleados') empleados?: string,
+    @Query('ordenar') ordenar?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.empresaService.explorar({
+      q,
+      estado,
+      empleados,
+      ordenar,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 12,
+    });
+  }
+
+  // NUEVO: Obtener filtros disponibles
+  @Get('explorar/filtros')
+  async obtenerFiltros() {
+    const [estados, empleados] = await Promise.all([
+      this.empresaService.obtenerEstadosUnicos(),
+      this.empresaService.obtenerRangosEmpleadosUnicos(),
+    ]);
+    return { estados, empleados };
   }
 
   // ==========================================

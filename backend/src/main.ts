@@ -13,6 +13,9 @@ import { join } from 'path';
 import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+
+const compression = require('compression');
+
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'; // NUEVO
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -29,6 +32,12 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
     }),
   );
+
+  // COMPRESSION: Comprime respuestas (gzip)
+  app.use(compression({
+    threshold: 1024, // Solo comprime si es mayor a 1KB
+    level: 6,        // Balance entre velocidad y compresión (0-9)
+  }));
 
   // Validaciones globales
   app.useGlobalPipes(

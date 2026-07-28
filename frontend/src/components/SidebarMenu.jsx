@@ -40,6 +40,7 @@ const menuItems = [
 
   { type: "divider", label: "Red" },
 
+  { label: "Explorar Empresas", route: "/explorar", icon: "/icons/contactos.png" }, // NUEVO
   { label: "Recomendaciones", route: "/recomendaciones", icon: "/icons/recomendaciones.png" },
   { label: "Favoritos", route: "/favoritos", icon: "/icons/favoritos.png" },
   { label: "Contactos", route: "/contactos", icon: "/icons/contactos.png" },

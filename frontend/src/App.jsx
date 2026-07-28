@@ -51,6 +51,8 @@ import ResetPassword from "./pages/ResetPassword";
 
 import EmpresaPublica from "./pages/EmpresaPublica"; // NUEVO
 
+import Explorar from "./pages/Explorar"; // NUEVO
+
 // NUEVA PÁGINA: Panel de Administrador
 import Admin from "./pages/Admin";
 
@@ -147,6 +149,9 @@ function AppContent() {
 
           {/* NUEVO: Perfil público de empresa */}
           <Route path="/empresa/:id" element={<EmpresaPublica />} />
+
+          {/* NUEVO: Explorar empresas */}
+          <Route path="/explorar" element={<Explorar />} />
           
           {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
           <Route 

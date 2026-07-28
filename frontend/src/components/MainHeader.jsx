@@ -39,6 +39,8 @@ export default function MainHeader({
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
 
+  const [busquedaHeader, setBusquedaHeader] = useState(""); // NUEVO
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
@@ -94,6 +96,18 @@ export default function MainHeader({
     // Invalidar refresh_token en backend + limpiar localStorage
     // La función apiLogout ya redirige a /login automáticamente
     await apiLogout();
+  };
+
+  // NUEVO: Buscar empresas desde el header
+  const handleBuscarHeader = (e) => {
+    e.preventDefault();
+    const query = busquedaHeader.trim();
+    if (query) {
+      navigate(`/explorar?q=${encodeURIComponent(query)}`);
+    } else {
+      navigate(`/explorar`);
+    }
+    setBusquedaHeader(""); // Limpiar el input después de buscar
   };
 
   useEffect(() => {
@@ -186,14 +200,32 @@ export default function MainHeader({
         {/* ===== CENTRO: Buscador (oculto en móvil) ===== */}
         {showSearch && (
           <div className="hidden lg:flex flex-1 mx-6">
-            <div className="w-full max-w-2xl relative">
+            <form 
+              onSubmit={handleBuscarHeader}
+              className="w-full max-w-2xl relative"
+            >
               <input
                 type="text"
-                placeholder="Buscar..."
+                value={busquedaHeader}
+                onChange={(e) => setBusquedaHeader(e.target.value)}
+                placeholder="Buscar empresas por nombre, sector, productos..."
                 className="w-full px-4 py-2.5 rounded-2xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-yellow-300/70 transition shadow-sm"
+                maxLength={100}
               />
               <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5" />
-            </div>
+              
+              {/* Botón de búsqueda dentro del input */}
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-slate-900 transition"
+                title="Buscar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+              </button>
+            </form>
           </div>
         )}
 
