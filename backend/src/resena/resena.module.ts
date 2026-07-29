@@ -5,14 +5,15 @@ import { Resena } from './resena.entity';
 import { Empresa } from '../empresa/empresa.entity';
 import { ResenaService } from './resena.service';
 import { ResenaController } from './resena.controller';
+import { NotificacionModule } from '../notificacion/notificacion.module'; // NUEVO
 
 @Module({
   imports: [
-    // Registramos AMBAS entidades porque el service las usa
     TypeOrmModule.forFeature([Resena, Empresa]),
+    NotificacionModule, // NUEVO: Para poder crear notificaciones
   ],
   providers: [ResenaService],
   controllers: [ResenaController],
-  exports: [ResenaService], // Por si otro módulo lo necesita después
+  exports: [ResenaService],
 })
 export class ResenaModule {}

@@ -12,6 +12,7 @@ import { Resena } from './resena.entity';
 import { Empresa } from '../empresa/empresa.entity';
 import { CreateResenaDto } from './dto/create-resena.dto';
 import { UpdateResenaDto } from './dto/update-resena.dto';
+import { NotificacionService } from '../notificacion/notificacion.service'; 
 
 @Injectable()
 export class ResenaService {
@@ -20,6 +21,7 @@ export class ResenaService {
     private readonly resenaRepo: Repository<Resena>,
     @InjectRepository(Empresa)
     private readonly empresaRepo: Repository<Empresa>,
+    private readonly notificacionService: NotificacionService, // NUEVO
   ) {}
 
   // ==========================================
@@ -59,7 +61,33 @@ export class ResenaService {
       comentario: dto.comentario,
     });
 
-    return this.resenaRepo.save(nueva);
+    const resenaGuardada = await this.resenaRepo.save(nueva);
+
+    // CREAR NOTIFICACIÓN al dueño de la empresa
+    // Solo si la empresa TIENE dueño y NO es el mismo usuario
+    if (empresa.userId && empresa.userId !== userId) {
+      try {
+        // Obtener el nombre del autor (empresa del que califica)
+        const empresaAutor = await this.empresaRepo.findOne({
+          where: { userId },
+          select: ['razonSocial'],
+        });
+        const autorNombre = empresaAutor?.razonSocial || 'Un usuario';
+
+        await this.notificacionService.notificarResenaNueva({
+          empresaOwnerId: empresa.userId,
+          empresaId: empresa.id,
+          autorNombre,
+          rating: dto.rating,
+          resenaId: resenaGuardada.id,
+        });
+      } catch (error) {
+        // Si falla la notificación, NO fallar la reseña
+        console.error('Error creando notificación:', error.message);
+      }
+    }
+
+    return resenaGuardada;
   }
 
   // ==========================================
@@ -153,18 +181,44 @@ export class ResenaService {
       throw new NotFoundException('Reseña no encontrada');
     }
 
-    // Solo el autor puede editar
     if (resena.userId !== userId) {
       throw new ForbiddenException(
         'No tienes permiso para editar esta reseña',
       );
     }
 
-    // Actualizar campos
     if (dto.rating !== undefined) resena.rating = dto.rating;
     if (dto.comentario !== undefined) resena.comentario = dto.comentario;
 
-    return this.resenaRepo.save(resena);
+    const resenaActualizada = await this.resenaRepo.save(resena);
+
+    // CREAR NOTIFICACIÓN de edición
+    try {
+      const empresa = await this.empresaRepo.findOne({
+        where: { id: resena.empresaId },
+        select: ['id', 'userId'],
+      });
+
+      if (empresa?.userId && empresa.userId !== userId) {
+        const empresaAutor = await this.empresaRepo.findOne({
+          where: { userId },
+          select: ['razonSocial'],
+        });
+        const autorNombre = empresaAutor?.razonSocial || 'Un usuario';
+
+        await this.notificacionService.notificarResenaEditada({
+          empresaOwnerId: empresa.userId,
+          empresaId: empresa.id,
+          autorNombre,
+          ratingNuevo: resena.rating,
+          resenaId: resena.id,
+        });
+      }
+    } catch (error) {
+      console.error('Error creando notificación de edición:', error.message);
+    }
+
+    return resenaActualizada;
   }
 
   // ==========================================
@@ -176,14 +230,43 @@ export class ResenaService {
       throw new NotFoundException('Reseña no encontrada');
     }
 
-    // Solo el autor o un admin pueden eliminar
     if (resena.userId !== userId && role !== 'admin') {
       throw new ForbiddenException(
         'No tienes permiso para eliminar esta reseña',
       );
     }
 
+    // Guardar datos ANTES de eliminar (para la notificación)
+    const empresaId = resena.empresaId;
+    const autorId = resena.userId;
+
     await this.resenaRepo.delete(id);
+
+    // CREAR NOTIFICACIÓN de eliminación
+    try {
+      const empresa = await this.empresaRepo.findOne({
+        where: { id: empresaId },
+        select: ['id', 'userId'],
+      });
+
+      // Solo notificar si NO fue el dueño quien eliminó
+      if (empresa?.userId && empresa.userId !== userId) {
+        const empresaAutor = await this.empresaRepo.findOne({
+          where: { userId: autorId },
+          select: ['razonSocial'],
+        });
+        const autorNombre = empresaAutor?.razonSocial || 'Un usuario';
+
+        await this.notificacionService.notificarResenaEliminada({
+          empresaOwnerId: empresa.userId,
+          empresaId: empresa.id,
+          autorNombre,
+        });
+      }
+    } catch (error) {
+      console.error('Error creando notificación de eliminación:', error.message);
+    }
+
     return { success: true, message: 'Reseña eliminada correctamente' };
   }
 

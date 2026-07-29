@@ -15,6 +15,7 @@ import { EmpresaModule } from './empresa/empresa.module';
 import { ContactModule } from './contact/contact.module';
 import { EmpleoModule } from './empleo/empleo.module';
 import { StorageModule } from './common/storage/storage.module';
+import { NotificacionModule } from './notificacion/notificacion.module';
 
 // WINSTON: Logger global
 import { LoggerModule } from './common/logger/logger.module';
@@ -89,6 +90,7 @@ import { ResenaModule } from './resena/resena.module';
     StorageModule,
     AdminModule, // analytics
     ResenaModule, // reseñas
+    NotificacionModule, // notificaciones
   ],
   controllers: [AppController],
   providers: [

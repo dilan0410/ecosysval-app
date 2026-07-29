@@ -9,7 +9,7 @@ import {
   Menu as MenuIcon, // NUEVO: Icono hamburguesa
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { notificacionesMock } from "../data/notificacionesMock";
+// import { notificacionesMock } from "../data/notificacionesMock"; // OBSOLETO
 import { mensajesMock } from "../data/mensajesMock";
 
 // REFRESH TOKENS
@@ -38,33 +38,48 @@ export default function MainHeader({
 }) {
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
-
-  const [busquedaHeader, setBusquedaHeader] = useState(""); // NUEVO
+  const [busquedaHeader, setBusquedaHeader] = useState("");
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
 
+  // NUEVO: Contador de notificaciones no leídas
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-    // Cargar usuario y logo de empresa
-    useEffect(() => {
-      const stored = localStorage.getItem("user");
-      if (!stored) return;
+  // Cargar usuario y logo de empresa
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) return;
 
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
+    try {
+      const parsed = JSON.parse(stored);
+      setUser(parsed);
 
-        if (parsed.id) {
-          // axios: token y refresh automáticos
-          cargarLogoUsuario(parsed.id);
-        }
-      } catch (e) {
-        console.error("Error leyendo usuario:", e);
+      if (parsed.id) {
+        // axios: token y refresh automáticos
+        cargarLogoUsuario(parsed.id);
+        cargarContadorNotificaciones(); // NUEVO: Cargar al inicio
       }
-    }, []);
+    } catch (e) {
+      console.error("Error leyendo usuario:", e);
+    }
+  }, []);
+
+  // NUEVO: Polling cada 30 segundos para actualizar el contador
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) return;
+
+    const interval = setInterval(() => {
+      cargarContadorNotificaciones();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(interval); // Limpieza al desmontar
+  }, []);
 
     // Función separada para claridad
     const cargarLogoUsuario = async (userId) => {
@@ -86,6 +101,17 @@ export default function MainHeader({
         console.log("No hay logo/imagen disponible");
       }
     };
+
+  // NUEVO: Cargar contador de notificaciones no leídas
+  const cargarContadorNotificaciones = async () => {
+    try {
+      const res = await api.get("/notificaciones/count");
+      setUnreadCount(res.data?.count || 0);
+    } catch (error) {
+      // Silencioso: si falla (no login, etc), no muestra nada
+      setUnreadCount(0);
+    }
+  };
 
   const handleLogout = async () => {
     // Cerrar dropdowns primero
@@ -128,8 +154,7 @@ export default function MainHeader({
 
   const displayName = user?.name || user?.empresa || "Usuario";
 
-  const notifications = notificacionesMock;
-  const unreadNotifications = notifications.filter((n) => !n.leido).length;
+  // Ya no usamos el mock, el contador viene del backend (unreadCount)
 
   const mensajes = mensajesMock;
   const unreadMessages = mensajes.filter((m) => !m.leido).length;
@@ -259,8 +284,10 @@ export default function MainHeader({
             title="Notificaciones"
           >
             <Bell className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
-            {unreadNotifications > 0 && (
-              <span className="absolute top-1.5 right-1.5 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#071a33]" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#071a33]">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
           </button>
 
