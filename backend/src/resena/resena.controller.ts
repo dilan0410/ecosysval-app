@@ -15,6 +15,7 @@ import { ResenaService } from './resena.service';
 import { CreateResenaDto } from './dto/create-resena.dto';
 import { UpdateResenaDto } from './dto/update-resena.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('resenas')
 export class ResenaController {
@@ -45,6 +46,7 @@ export class ResenaController {
   // Crear una nueva reseña
   // ==========================================
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 reseñas por hora
   @Post()
   async crear(@Body() dto: CreateResenaDto, @Req() req: any) {
     const userId = req.user.id;
