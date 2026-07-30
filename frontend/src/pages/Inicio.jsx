@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom"; // NUEVO
 import Layout from "../components/Layout";
 import { Loader2, RefreshCcw, ExternalLink } from "lucide-react"; // AGREGADO ExternalLink
+import { SkeletonPostList } from "../components/SkeletonPost";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -64,11 +65,8 @@ export default function Inicio() {
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-16 rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro">
-            <Loader2 className="w-8 h-8 animate-spin mb-3 text-text" />
-            <div className="text-muted">Cargando publicaciones...</div>
-          </div>
-        ) : posts.length === 0 ? (
+        <SkeletonPostList count={3} />
+      ) : posts.length === 0 ? (
           <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-12 text-center">
             <div className="text-4xl mb-3">📰</div>
             <p className="text-text font-semibold">Aún no hay publicaciones</p>

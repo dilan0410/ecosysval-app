@@ -14,6 +14,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
+import { SkeletonNotificacionList } from "../components/SkeletonNotificacion";
 
 export default function Notificaciones() {
   const navigate = useNavigate();
@@ -259,10 +260,7 @@ export default function Notificaciones() {
           {/* Lista */}
           <div className="p-5">
             {loading ? (
-              <div className="p-10 text-center text-white/70">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" />
-                Cargando notificaciones...
-              </div>
+              <SkeletonNotificacionList count={4} />
             ) : notifsFiltradas.length === 0 ? (
               <div className="p-10 text-center text-white/70">
                 <div className="mx-auto mb-3 h-12 w-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">

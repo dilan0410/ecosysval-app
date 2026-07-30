@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import ResenasSection from "../components/ResenasSection";
+import SkeletonPerfilEmpresa from "../components/SkeletonPerfilEmpresa";
 import {
   Building2,
   MapPin,
@@ -121,12 +122,7 @@ export default function EmpresaPublica() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center py-20">
-          <div className="flex items-center gap-2 text-white">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Cargando información de la empresa...</span>
-          </div>
-        </div>
+        <SkeletonPerfilEmpresa />
       </Layout>
     );
   }

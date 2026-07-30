@@ -13,6 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import StarRating from "./StarRating";
+import { SkeletonEstadisticas, SkeletonResenaList } from "./SkeletonResena";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -234,10 +235,12 @@ export default function ResenasSection({ empresaId, esOwner = false }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-8 text-white/70">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          Cargando reseñas...
-        </div>
+        <>
+          <SkeletonEstadisticas />
+          <div className="mt-8">
+            <SkeletonResenaList count={3} />
+          </div>
+        </>
       ) : (
         <>
           {/* ===== ESTADÍSTICAS ===== */}

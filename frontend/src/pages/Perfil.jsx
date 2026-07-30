@@ -27,6 +27,7 @@ import {
   Award,
 } from "lucide-react";
 import ResenasSection from "../components/ResenasSection";
+import SkeletonPerfilEmpresa from "../components/SkeletonPerfilEmpresa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -221,12 +222,9 @@ export default function Perfil() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-2 text-white">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Cargando información empresarial...</span>
-        </div>
-      </div>
+      <Layout>
+        <SkeletonPerfilEmpresa />
+      </Layout>
     );
   }
 

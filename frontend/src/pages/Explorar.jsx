@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import EmpresaCard from "../components/EmpresaCard";
+import { SkeletonEmpresaGrid } from "../components/SkeletonEmpresaCard";
 import {
   Search,
   Filter,
@@ -338,10 +339,7 @@ export default function Explorar() {
 
           {/* Grid de empresas */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-white/70">
-              <Loader2 className="w-8 h-8 animate-spin mb-3" />
-              <span>Cargando empresas...</span>
-            </div>
+            <SkeletonEmpresaGrid count={12} />
           ) : error ? (
             <div className="rounded-2xl bg-red-500/20 border border-red-500/40 p-6 text-red-200 text-center">
               {error}
