@@ -13,6 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import StarRating from "./StarRating";
+import { toast } from "sonner"; // NUEVO
 import { SkeletonEstadisticas, SkeletonResenaList } from "./SkeletonResena";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
@@ -106,11 +107,11 @@ export default function ResenasSection({ empresaId, esOwner = false }) {
   async function enviarResena(e) {
     e.preventDefault();
     if (nuevaRating < 1) {
-      alert("Selecciona una calificación de 1 a 5 estrellas.");
+      toast.error("Selecciona una calificación de 1 a 5 estrellas");
       return;
     }
     if (nuevoComentario && nuevoComentario.trim().length > 0 && nuevoComentario.trim().length < 10) {
-      alert("El comentario debe tener al menos 10 caracteres (o dejarlo vacío).");
+      toast.error("El comentario debe tener al menos 10 caracteres");
       return;
     }
 
@@ -130,16 +131,17 @@ export default function ResenasSection({ empresaId, esOwner = false }) {
       });
       const json = await res.json();
       if (!res.ok) {
-        alert(json.message || "No se pudo publicar la reseña.");
+        toast.error(json.message || "No se pudo publicar la reseña");
         return;
       }
       // Éxito
       setNuevaRating(0);
       setNuevoComentario("");
+      toast.success("¡Reseña publicada con éxito!");
       await cargarResenas();
     } catch (e) {
       console.error(e);
-      alert("Error de conexión al publicar reseña.");
+      toast.error("Error de conexión al publicar reseña");
     } finally {
       setEnviando(false);
     }
@@ -159,11 +161,11 @@ export default function ResenasSection({ empresaId, esOwner = false }) {
 
   async function guardarEdicion(id) {
     if (editRating < 1) {
-      alert("Selecciona una calificación válida.");
+      toast.error("Selecciona una calificación válida");
       return;
     }
     if (editComentario && editComentario.trim().length > 0 && editComentario.trim().length < 10) {
-      alert("El comentario debe tener al menos 10 caracteres (o dejarlo vacío).");
+      toast.error("El comentario debe tener al menos 10 caracteres");
       return;
     }
 
@@ -182,37 +184,49 @@ export default function ResenasSection({ empresaId, esOwner = false }) {
       });
       const json = await res.json();
       if (!res.ok) {
-        alert(json.message || "No se pudo actualizar la reseña.");
+        toast.error(json.message || "No se pudo actualizar la reseña");
         return;
       }
       cancelarEdicion();
+      toast.success("Reseña actualizada");
       await cargarResenas();
     } catch (e) {
       console.error(e);
-      alert("Error de conexión al actualizar.");
+      toast.error("Error de conexión al actualizar");
     } finally {
       setGuardandoEdit(false);
     }
   }
 
   async function eliminarResena(id) {
-    if (!window.confirm("¿Seguro que quieres eliminar tu reseña?")) return;
-
-    try {
-      const res = await fetch(`${API_URL}/resenas/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        alert(json.message || "No se pudo eliminar.");
-        return;
-      }
-      await cargarResenas();
-    } catch (e) {
-      console.error(e);
-      alert("Error de conexión al eliminar.");
-    }
+    // Toast de confirmación (más pro que window.confirm)
+    toast("¿Eliminar tu reseña?", {
+      description: "Esta acción no se puede deshacer",
+      action: {
+        label: "Eliminar",
+        onClick: async () => {
+          try {
+            const res = await fetch(`${API_URL}/resenas/${id}`, {
+              method: "DELETE",
+              headers: getAuthHeaders(),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+              toast.error(json.message || "No se pudo eliminar");
+              return;
+            }
+            toast.success("Reseña eliminada");
+            await cargarResenas();
+          } catch (e) {
+            console.error(e);
+            toast.error("Error de conexión al eliminar");
+          }
+        },
+      },
+      cancel: {
+        label: "Cancelar",
+      },
+    });
   }
 
   // ==========================================

@@ -1,3 +1,4 @@
+import { Toaster } from "sonner";
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
@@ -178,6 +179,21 @@ export default function App() {
   return (
     <Router>
       <AppContent />
+      {/* NUEVO: Toaster global para notificaciones */}
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        richColors
+        closeButton
+        duration={4000}
+        toastOptions={{
+          style: {
+            background: "#0b1630",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            color: "white",
+          },
+        }}
+      />
     </Router>
   );
 }

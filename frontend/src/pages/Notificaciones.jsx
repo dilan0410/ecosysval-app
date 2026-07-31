@@ -14,6 +14,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner"; // NUEVO
 import { SkeletonNotificacionList } from "../components/SkeletonNotificacion";
 
 export default function Notificaciones() {
@@ -76,9 +77,10 @@ export default function Notificaciones() {
       await api.patch("/notificaciones/leer-todas");
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
       setNoLeidas(0);
+      toast.success(`${noLeidas} notificaciones marcadas como leídas ✓`);
     } catch (error) {
       console.error("Error marcando todas:", error);
-      alert("Error al marcar todas como leídas");
+      toast.error("Error al marcar todas como leídas");
     } finally {
       setMarcando(false);
     }
@@ -89,20 +91,31 @@ export default function Notificaciones() {
   // ==========================================
   async function eliminarNotificacion(id, event) {
     event.stopPropagation();
-    if (!window.confirm("¿Eliminar esta notificación?")) return;
-
-    try {
-      await api.delete(`/notificaciones/${id}`);
-      const notif = notificaciones.find((n) => n.id === id);
-      setNotificaciones((prev) => prev.filter((n) => n.id !== id));
-      setTotal((prev) => prev - 1);
-      if (notif && !notif.leida) {
-        setNoLeidas((prev) => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error("Error eliminando:", error);
-      alert("Error al eliminar la notificación");
-    }
+    
+    toast("¿Eliminar esta notificación?", {
+      description: "Esta acción no se puede deshacer",
+      action: {
+        label: "Eliminar",
+        onClick: async () => {
+          try {
+            await api.delete(`/notificaciones/${id}`);
+            const notif = notificaciones.find((n) => n.id === id);
+            setNotificaciones((prev) => prev.filter((n) => n.id !== id));
+            setTotal((prev) => prev - 1);
+            if (notif && !notif.leida) {
+              setNoLeidas((prev) => Math.max(0, prev - 1));
+            }
+            toast.success("Notificación eliminada");
+          } catch (error) {
+            console.error("Error eliminando:", error);
+            toast.error("Error al eliminar la notificación");
+          }
+        },
+      },
+      cancel: {
+        label: "Cancelar",
+      },
+    });
   }
 
   // ==========================================

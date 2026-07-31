@@ -11,7 +11,8 @@ import {
   Send,
   Building2,
 } from "lucide-react";
-import Layout from "../components/Layout"; // ✅ NUEVO
+import { toast } from "sonner"; // NUEVO
+import Layout from "../components/Layout"; // NUEVO
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -129,12 +130,15 @@ export default function Profile() {
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !empresa?.id) {
-      alert("Debes tener una empresa registrada para subir el logo");
+      toast.error("Debes tener una empresa registrada para subir el logo");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
+
+    // Toast de loading
+    const loadingToast = toast.loading("Subiendo logo...");
 
     try {
       const response = await fetch(
@@ -148,23 +152,29 @@ export default function Profile() {
       const data = await response.json();
       if (data?.success) {
         setEmpresa((prev) => ({ ...prev, logo: data.logo }));
+        toast.success("Logo actualizado", { id: loadingToast });
       } else {
-        alert("Error al subir logo: " + (data?.message || "Desconocido"));
+        toast.error("Error al subir logo: " + (data?.message || "Desconocido"), {
+          id: loadingToast,
+        });
       }
     } catch (error) {
       console.error("Error al subir logo:", error);
+      toast.error("Error de conexión", { id: loadingToast });
     }
   };
 
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !empresa?.id) {
-      alert("Debes tener una empresa registrada para subir el banner");
+      toast.error("Debes tener una empresa registrada para subir el banner");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
+
+    const loadingToast = toast.loading("Subiendo banner...");
 
     try {
       const response = await fetch(
@@ -178,15 +188,28 @@ export default function Profile() {
       const data = await response.json();
       if (data?.success) {
         setEmpresa((prev) => ({ ...prev, banner: data.banner }));
+        toast.success("Banner actualizado", { id: loadingToast });
       } else {
-        alert("Error al subir banner: " + (data?.message || "Desconocido"));
+        toast.error("Error al subir banner: " + (data?.message || "Desconocido"), {
+          id: loadingToast,
+        });
       }
     } catch (error) {
       console.error("Error al subir banner:", error);
+      toast.error("Error de conexión", { id: loadingToast });
     }
   };
 
   const guardarCambios = async () => {
+    const loadingToast = toast.loading("Guardando cambios...");
+    
+    // Filtrar SOLO los campos válidos que existen en la entidad Empresa
+    const camposValidos = {
+      razonSocial: formEmpresa.razonSocial,
+      rfc: formEmpresa.rfc,
+      paginaWeb: formEmpresa.paginaWeb,
+    };
+    
     try {
       const resp = await fetch(`${API_URL}/empresas/${empresa.id}`, {
         method: "PUT",
@@ -194,7 +217,7 @@ export default function Profile() {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
-        body: JSON.stringify(formEmpresa),
+        body: JSON.stringify(camposValidos),
       });
 
       if (!resp.ok) throw new Error("Error al actualizar empresa");
@@ -203,9 +226,10 @@ export default function Profile() {
       setEmpresa(updated);
       setFormEmpresa({ ...updated });
       setEditando(false);
+      toast.success("Datos guardados con éxito", { id: loadingToast });
     } catch (err) {
       console.error(err);
-      alert("No se pudo guardar la empresa");
+      toast.error("No se pudo guardar la empresa", { id: loadingToast });
     }
   };
 
@@ -216,12 +240,14 @@ export default function Profile() {
 
   const publicar = async () => {
     if (!nuevoTexto && !imagenFile && !videoFile) {
-      alert("Por favor, agrega texto, imagen o video para publicar");
+      toast.error("Agrega texto, imagen o video para publicar");
       return;
     }
     if (!user?.id) return;
 
     setSubiendo(true);
+    const loadingToast = toast.loading("Publicando...");
+
     const formData = new FormData();
     formData.append("userId", user.id.toString());
     formData.append("content", nuevoTexto || "");
@@ -244,36 +270,49 @@ export default function Profile() {
         setVideoFile(null);
         setImagenPreview(null);
         setVideoPreview(null);
+        toast.success("Publicación creada", { id: loadingToast });
         await cargarUsuarioYPublicaciones(user.id);
       } else {
-        alert(
-          "Error al crear publicación: " +
-            (responseData.message || "Error desconocido")
+        toast.error(
+          "Error al crear publicación: " + (responseData.message || "Error desconocido"),
+          { id: loadingToast }
         );
       }
     } catch (error) {
       console.error("Error al publicar:", error);
-      alert("Error de conexión al publicar");
+      toast.error("Error de conexión al publicar", { id: loadingToast });
     } finally {
       setSubiendo(false);
     }
   };
 
   const eliminarPublicacion = async (id) => {
-    if (!window.confirm("¿Estás seguro de que quieres eliminar esta publicación?")) return;
-    try {
-      const res = await fetch(`${API_URL}/posts/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        await cargarUsuarioYPublicaciones(user.id);
-      } else {
-        alert("Error al eliminar publicación");
-      }
-    } catch (error) {
-      console.error("Error al eliminar:", error);
-    }
+    toast("¿Eliminar esta publicación?", {
+      description: "Esta acción no se puede deshacer",
+      action: {
+        label: "Eliminar",
+        onClick: async () => {
+          try {
+            const res = await fetch(`${API_URL}/posts/${id}`, {
+              method: "DELETE",
+              headers: getAuthHeaders(),
+            });
+            if (res.ok) {
+              toast.success("Publicación eliminada");
+              await cargarUsuarioYPublicaciones(user.id);
+            } else {
+              toast.error("Error al eliminar publicación");
+            }
+          } catch (error) {
+            console.error("Error al eliminar:", error);
+            toast.error("Error de conexión");
+          }
+        },
+      },
+      cancel: {
+        label: "Cancelar",
+      },
+    });
   };
 
   const iniciarEdicion = (pub) => {
@@ -288,7 +327,7 @@ export default function Profile() {
 
   const guardarEdicion = async (id) => {
     if (!textoEditado.trim()) {
-      alert("El contenido no puede estar vacío");
+      toast.error("El contenido no puede estar vacío");
       return;
     }
     try {
@@ -304,12 +343,14 @@ export default function Profile() {
       if (res.ok) {
         setEditandoId(null);
         setTextoEditado("");
+        toast.success("Publicación actualizada");
         await cargarUsuarioYPublicaciones(user.id);
       } else {
-        alert("Error al editar publicación");
+        toast.error("Error al editar publicación");
       }
     } catch (error) {
       console.error("Error al editar:", error);
+      toast.error("Error de conexión");
     }
   };
 
@@ -317,7 +358,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("Por favor, selecciona un archivo de imagen válido");
+      toast.error("Selecciona un archivo de imagen válido");
       return;
     }
     setImagenFile(file);
@@ -333,7 +374,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("video/")) {
-      alert("Por favor, selecciona un archivo de video válido");
+      toast.error("Selecciona un archivo de video válido");
       return;
     }
     setVideoFile(file);
@@ -431,7 +472,7 @@ export default function Profile() {
 
             <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-extrabold text-text drop-shadow">
-                {empresa?.nombre || empresa?.razonSocial || user.name}
+                {empresa?.razonSocial || user.name}
               </h1>
               <p className="text-sm text-accent font-medium mt-1">
                 Representante:{" "}
@@ -509,32 +550,6 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Nombre Comercial */}
-                <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Nombre Comercial
-                  </label>
-                  {editando ? (
-                    <input
-                      type="text"
-                      value={formEmpresa.nombre || ""}
-                      onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          nombre: e.target.value,
-                        })
-                      }
-                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
-                    />
-                  ) : (
-                    <p className="font-semibold text-text mt-1">
-                      {empresa?.nombre || (
-                        <span className="text-muted">No registrado</span>
-                      )}
-                    </p>
-                  )}
-                </div>
-
                 {/* RFC */}
                 <div>
                   <label className="text-xs font-semibold text-muted uppercase tracking-wider">
@@ -595,32 +610,6 @@ export default function Profile() {
                         </a>
                       ) : (
                         <span className="text-muted">No registrada</span>
-                      )}
-                    </p>
-                  )}
-                </div>
-
-                {/* Descripción (ancho completo) */}
-                <div className="md:col-span-2">
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Descripción
-                  </label>
-                  {editando ? (
-                    <textarea
-                      value={formEmpresa.descripcion || ""}
-                      onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          descripcion: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40 resize-none"
-                    />
-                  ) : (
-                    <p className="font-semibold text-text mt-1">
-                      {empresa?.descripcion || (
-                        <span className="text-muted">Sin descripción</span>
                       )}
                     </p>
                   )}
@@ -777,9 +766,7 @@ export default function Profile() {
 
                         <div>
                           <div className="font-semibold text-text">
-                            {empresa?.nombre ||
-                              empresa?.razonSocial ||
-                              user.name}
+                            {empresa?.razonSocial || user.name}
                           </div>
                           <div className="text-xs text-muted">
                             {createdAt && !isNaN(createdAt.getTime())

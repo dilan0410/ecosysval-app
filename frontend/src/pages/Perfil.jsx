@@ -26,6 +26,7 @@ import {
   Truck,
   Award,
 } from "lucide-react";
+import { toast } from "sonner"; // NUEVO
 import ResenasSection from "../components/ResenasSection";
 import SkeletonPerfilEmpresa from "../components/SkeletonPerfilEmpresa";
 
@@ -188,7 +189,7 @@ export default function Perfil() {
     }
   }
 
-  // ✅ Función para guardar cambios desde el modal
+  // Función para guardar cambios desde el modal
   async function guardarCambios(e) {
     e.preventDefault();
     setGuardando(true);
@@ -203,14 +204,15 @@ export default function Perfil() {
       });
       const data = await res.json();
       if (res.ok) {
-        setEmpresa(data);       // ✅ Actualiza la vista inmediatamente
-        setModalAbierto(false); // ✅ Cierra el modal
+        setEmpresa(data);       // Actualiza la vista inmediatamente
+        setModalAbierto(false); // Cierra el modal
+        toast.success("Perfil actualizado con éxito");
       } else {
-        alert(`Error: ${data.message || "No se pudo actualizar"}`);
+        toast.error(data.message || "No se pudo actualizar");
       }
     } catch (err) {
       console.error("Error actualizando perfil:", err);
-      alert("Error de conexión al guardar.");
+      toast.error("Error de conexión al guardar");
     } finally {
       setGuardando(false);
     }
