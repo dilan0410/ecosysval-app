@@ -102,7 +102,7 @@ const PAQUETES = [
     id: "basico",
     nombre: "BÁSICO",
     bgImage: "/Basico.png",
-    gratis: true,
+    gratis: false,
     caracteristicas: [
       "Perfil empresarial personalizado",
       "Incorporación al Ecosistema",

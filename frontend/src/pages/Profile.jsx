@@ -624,7 +624,7 @@ export default function Profile() {
           </h2>
 
           {/* Caja de Nueva Publicación */}
-          <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
+          <div className="rounded -3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
             <textarea
               value={nuevoTexto}
               onChange={(e) => setNuevoTexto(e.target.value)}
