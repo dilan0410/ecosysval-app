@@ -279,6 +279,8 @@ export default function MainHeader({
             onClick={() => {
               closeAllMenus();
               navigate("/notificaciones");
+              // Refrescar contador después de 1 segundo (dar tiempo a que el usuario interactúe)
+              setTimeout(cargarContadorNotificaciones, 1000);
             }}
             className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
             title="Notificaciones"

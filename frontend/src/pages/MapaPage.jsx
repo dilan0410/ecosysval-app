@@ -2,27 +2,13 @@
 /**
  * MAPA / POSICIÓN EN EL SISTEMA (ECOSYSVAL)
  * --------------------------------------------------------------------
- * ✅ Objetivo:
- * - Visualizar empresas del ecosistema en 2 modos: Mapa y Lista.
- * - Filtrar por tipo (Cliente / Proveedor / Ambos).
- * - Buscar por: nombre, productos, servicios, ciudad, estado.
- * - Permitir "Conectar" con una empresa (navega al formulario-comercio).
- * - Mostrar métricas rápidas (compras/ventas/restantes/filtrados).
- * - Mostrar un Accordion con beneficios por nivel (Standard / Platino / Black).
- *
- * ✅ Importante (THEME):
- * - Esta vista es "theme-ready": usa tokens (bg-surface, text-text, border-border...)
- * - Dark es el default (según tu theme.css). Light aplica con .light en body/html.
- * - Evitamos hardcode de bg-black/white para que no se rompa en modo claro.
- * - El fondo (fondo.png) idealmente vive en un layout global, NO aquí.
- *
- * ✅ Ajuste visual (línea premium glass del proyecto):
- * - Panels con glass (bg-surface/60 + backdrop-blur).
- * - Buscador en glass (sin volverse blanco sólido).
- * - Pills de tipo (Cliente/Proveedor) adaptadas a theme.
+ * Objetivo:
+ * - Visualizar socios potenciales recomendados por el Sistema Inteligente
+ * - Datos reales desde API Python (MIP 2013 + Clasificación 2024)
+ * - Fallback a mock si la API está caída
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Lock,
@@ -33,19 +19,21 @@ import {
   ShoppingCart,
   Handshake,
   Search,
+  Loader2, 
+  AlertCircle, // para errores
 } from "lucide-react";
 
 import Mapa from "../components/Mapa";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
-/**
- * Data mock (luego: backend)
- * - id: código o nit
- * - tipo: Cliente | Proveedor
- * - productos/servicios: strings demo
- * - lat/lng: coordenadas para mapa
- */
+// Imports para conectar con API Python + axios
+import { obtenerRecomendaciones } from "../api/pythonAPI";
+import { api } from "../api/axiosClient";
+
+// ==========================================================
+// FALLBACK: Datos mock si la API falla
+// ==========================================================
 const empresasMock = [
   {
     id: "0000123",
@@ -93,10 +81,9 @@ const empresasMock = [
   },
 ];
 
-/**
- * Beneficios por nivel (demo)
- * - tier: standard | platinum | black
- */
+// ==========================================================
+// Beneficios (sin cambios)
+// ==========================================================
 const beneficiosNiveles = [
   { title: "Perfil empresarial descargable", tier: "standard", detail: "Descarga un PDF con datos clave, actividad y capacidades." },
   { title: "Identificación de socios comerciales", tier: "standard", detail: "Encuentra aliados por sector, ubicación y capacidad." },
@@ -111,10 +98,67 @@ const beneficiosNiveles = [
   { title: "Desarrollo Organizacional Sustentable", tier: "black", detail: "Programas para sostenibilidad, cultura y desempeño." },
 ];
 
+// ==========================================================
+// Transformar respuesta de Python API al formato del diseño
+// ==========================================================
 /**
- * MapaPage
- * - Contiene filtros, buscador, modo vista, stats y accordion.
+ * Convierte la respuesta de la API Python en el formato que
+ * espera el diseño actual (compatible con empresasMock).
+ *
+ * @param {Object} datosPython - Respuesta de obtenerRecomendaciones
+ * @returns {Array} Lista de empresas en formato del diseño
  */
+function transformarDatosPython(datosPython) {
+  if (!datosPython) return [];
+
+  const empresas = [];
+
+  // Transformar clientes
+  (datosPython.top_clientes || []).forEach((cliente, idx) => {
+    empresas.push({
+      id: `C-${cliente.codigo}`,
+      tipo: "Cliente",
+      nombre: cliente.sector.split(" - ")[1] || cliente.sector,
+      productos: `SCIAN ${cliente.codigo}`,
+      servicios: cliente.categoria,
+      ciudad: "México",
+      estado: "Nacional",
+      // Coordenadas ficticias distribuidas por México
+      lat: 19.4326 + (Math.random() - 0.5) * 8,
+      lng: -99.1332 + (Math.random() - 0.5) * 15,
+      // Datos extra del sistema económico
+      categoria: cliente.categoria,
+      porcentaje: cliente.porcentaje,
+      coeficiente: cliente.coeficiente,
+      codigoScian: cliente.codigo,
+    });
+  });
+
+  // Transformar proveedores
+  (datosPython.top_proveedores || []).forEach((proveedor, idx) => {
+    empresas.push({
+      id: `P-${proveedor.codigo}`,
+      tipo: "Proveedor",
+      nombre: proveedor.sector.split(" - ")[1] || proveedor.sector,
+      productos: `SCIAN ${proveedor.codigo}`,
+      servicios: proveedor.categoria,
+      ciudad: "México",
+      estado: "Nacional",
+      lat: 19.4326 + (Math.random() - 0.5) * 8,
+      lng: -99.1332 + (Math.random() - 0.5) * 15,
+      categoria: proveedor.categoria,
+      porcentaje: proveedor.porcentaje,
+      coeficiente: proveedor.coeficiente,
+      codigoScian: proveedor.codigo,
+    });
+  });
+
+  return empresas;
+}
+
+// ==========================================================
+// MapaPage - Componente principal
+// ==========================================================
 export default function MapaPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -123,24 +167,148 @@ export default function MapaPage() {
   // STATE UI
   // ==========================================================
   const [viewMode, setViewMode] = useState("map");
-  const [filterTipo, setFilterTipo] = useState("Ambos"); // Cliente | Proveedor | Ambos
+  const [filterTipo, setFilterTipo] = useState("Ambos");
   const [search, setSearch] = useState("");
   const [openBenefitIndex, setOpenBenefitIndex] = useState(null);
 
   // ==========================================================
-  // STATS (demo)
+  // State para datos de la API Python
+  // ==========================================================
+  const [empresasReales, setEmpresasReales] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [sectorInfo, setSectorInfo] = useState(null);
+  const [infoMensaje, setInfoMensaje] = useState(null);
+
+  // ==========================================================
+  // Cargar recomendaciones al montar el componente
+  // ==========================================================
+  useEffect(() => {
+    cargarRecomendaciones();
+  }, []);
+
+  async function cargarRecomendaciones() {
+    setLoading(true);
+    setError(null);
+    setInfoMensaje(null); // limpiar mensaje info
+
+    try {
+      // ============================================
+      // 1. OBTENER EMPRESA DEL USUARIO
+      // ============================================
+      let sectorScian = null;
+      let empresaExiste = true;
+
+      try {
+        const empresaRes = await api.get("/empresas/mi-empresa");
+        sectorScian = empresaRes.data?.sectorScian;
+      } catch (err) {
+        // El usuario NO tiene empresa registrada
+        empresaExiste = false;
+        console.warn("Usuario sin empresa registrada");
+      }
+
+      // ============================================
+      // 2. VALIDAR SECTOR SCIAN
+      // ============================================
+      // Reglas del SCIAN válido:
+      // - Debe existir (no null, no undefined, no vacío)
+      // - Debe ser numérico
+      // - Debe tener entre 2 y 6 dígitos (SCIAN oficial)
+      const esScianValido = (codigo) => {
+        if (!codigo) return false;
+        const str = String(codigo).trim();
+        return /^\d{2,6}$/.test(str);
+      };
+
+      let sectorAUsar = sectorScian;
+      let mensajeInfo = null;
+
+      // Caso 1: No tiene empresa
+      if (!empresaExiste) {
+        sectorAUsar = "3111";
+        mensajeInfo = {
+          tipo: "info",
+          texto: "Aún no tienes empresa registrada. Mostrando ejemplo con sector 3111 (Alimentos para animales)."
+        };
+      }
+      // Caso 2: Empresa sin SCIAN
+      else if (!sectorScian) {
+        sectorAUsar = "3111";
+        mensajeInfo = {
+          tipo: "warning",
+          texto: "Tu empresa no tiene un código SCIAN asignado. Mostrando ejemplo con sector 3111."
+        };
+      }
+      // Caso 3: SCIAN inválido (no numérico o formato incorrecto)
+      else if (!esScianValido(sectorScian)) {
+        sectorAUsar = "3111";
+        mensajeInfo = {
+          tipo: "warning",
+          texto: `El código SCIAN "${sectorScian}" no es válido. Mostrando ejemplo con sector 3111. Por favor actualiza tu perfil.`
+        };
+      }
+      // Caso 4: SCIAN válido pero podría no existir en la MIP
+
+      // ============================================
+      // 3. LLAMAR A LA API PYTHON
+      // ============================================
+      let datosPython;
+      try {
+        datosPython = await obtenerRecomendaciones(sectorAUsar, 10);
+      } catch (err) {
+        // El sector NO existe en la MIP
+        if (err.message.includes("no encontrado")) {
+          // Intentar con fallback "3111"
+          console.warn(`Sector ${sectorAUsar} no existe en MIP. Usando fallback 3111.`);
+          mensajeInfo = {
+            tipo: "warning",
+            texto: `El sector "${sectorAUsar}" no está registrado en el sistema. Mostrando ejemplo con sector 3111.`
+          };
+          sectorAUsar = "3111";
+          datosPython = await obtenerRecomendaciones("3111", 10);
+        } else {
+          // Otro tipo de error (red, servidor caído, etc.)
+          throw err;
+        }
+      }
+
+      // ============================================
+      // 4. TRANSFORMAR Y GUARDAR
+      // ============================================
+      const empresasTransformadas = transformarDatosPython(datosPython);
+
+      setEmpresasReales(empresasTransformadas);
+      setSectorInfo({
+        codigo: datosPython.codigo,
+        nombre: datosPython.sector,
+        categoria: datosPython.categoria,
+      });
+      setInfoMensaje(mensajeInfo);
+    } catch (err) {
+      // Error grave: API caída, sin conexión, etc.
+      console.error("Error crítico cargando recomendaciones:", err);
+      setError(err.message || "No se pudieron cargar las recomendaciones");
+      setEmpresasReales(empresasMock); // Fallback a mock
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ==========================================================
+  // STATS
   // ==========================================================
   const comprasRealizadas = 1;
   const ventasRealizadas = 2;
   const restantesPlatino = 2;
 
   // ==========================================================
-  // FILTRO + SEARCH (client-side)
+  // FILTRO + SEARCH (ahora usa empresasReales en vez de empresasMock)
   // ==========================================================
   const empresasFiltradas = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    return empresasMock.filter((e) => {
+    return empresasReales.filter((e) => {
       const coincideTipo = filterTipo === "Ambos" ? true : e.tipo === filterTipo;
 
       const coincideSearch =
@@ -149,16 +317,17 @@ export default function MapaPage() {
         (e.productos || "").toLowerCase().includes(term) ||
         (e.servicios || "").toLowerCase().includes(term) ||
         (e.ciudad || "").toLowerCase().includes(term) ||
-        (e.estado || "").toLowerCase().includes(term);
+        (e.estado || "").toLowerCase().includes(term) ||
+        (e.categoria || "").toLowerCase().includes(term);
 
       return coincideTipo && coincideSearch;
     });
-  }, [filterTipo, search]);
+  }, [filterTipo, search, empresasReales]);
 
   const sociosPotenciales = empresasFiltradas.length;
 
   // ==========================================================
-  // ACCIÓN: Conectar (navega con state)
+  // ACCIÓN: Conectar
   // ==========================================================
   const handleConectar = (empresa) => {
     navigate(`/formulario-comercio/`, {
@@ -174,207 +343,251 @@ export default function MapaPage() {
     });
   };
 
-  // ==========================================================
-  // OVERLAY PREMIUM (theme-aware)
-  // - No fijamos fondo aquí; asumimos layout global.
-  // ==========================================================
-  const tintCls = theme === "light" ? "bg-white/15" : "bg-black/10";
-
   return (
     <Layout>
-            <div>
-              {/* ==========================================================
-                  HEADER DEL MÓDULO
-                 ========================================================== */}
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-                <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-5 py-4">
-                  <h1 className="text-text font-extrabold text-lg md:text-xl">
-                    Posición en el sistema
-                  </h1>
-                  <p className="text-muted text-sm mt-1 max-w-2xl">
-                    Visualiza socios potenciales en mapa o lista. Filtra por tipo, sector y ubicación.
-                  </p>
-                </div>
+      <div>
+        {/* ==========================================================
+            HEADER DEL MÓDULO
+           ========================================================== */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+          <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-5 py-4">
+            <h1 className="text-text font-extrabold text-lg md:text-xl">
+              Posición en el sistema
+            </h1>
+            <p className="text-muted text-sm mt-1 max-w-2xl">
+              Visualiza socios potenciales en mapa o lista. Filtra por tipo, sector y ubicación.
+            </p>
 
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                  <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-4 py-2">
-                    <Users className="w-4 h-4 text-muted" />
-                    <span className="text-sm text-muted">Resultados:</span>
-                    <span className="text-sm font-extrabold text-accent">{sociosPotenciales}</span>
-                  </div>
-
-                  {/* Toggle modo vista */}
-                  <div className="inline-flex rounded-full border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-1">
-                    <button
-                      onClick={() => setViewMode("map")}
-                      type="button"
-                      className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
-                        viewMode === "map"
-                          ? "bg-accent text-slate-900 font-semibold"
-                          : "text-text hover:bg-surface"
-                      }`}
-                    >
-                      <MapIcon className="w-4 h-4" />
-                      Mapa
-                    </button>
-                    <button
-                      onClick={() => setViewMode("list")}
-                      type="button"
-                      className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
-                        viewMode === "list"
-                          ? "bg-accent text-slate-900 font-semibold"
-                          : "text-text hover:bg-surface"
-                      }`}
-                    >
-                      <ListIcon className="w-4 h-4" />
-                      Lista
-                    </button>
-                  </div>
-                </div>
+            {/* Info del sector analizado */}
+            {sectorInfo && !loading && (
+              <div className="mt-3 flex items-center gap-2 text-xs">
+                <span className="text-muted">Analizando sector:</span>
+                <span className="font-semibold text-accent">{sectorInfo.nombre}</span>
+                <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/25">
+                  {sectorInfo.categoria}
+                </span>
               </div>
+            )}
+          </div>
 
-              {/* ==========================================================
-                  STATS
-                 ========================================================== */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-                <StatCard icon={ShoppingCart} value={comprasRealizadas} label="Compras realizadas" />
-                <StatCard icon={Handshake} value={ventasRealizadas} label="Ventas realizadas" />
-                <StatCard icon={Lock} value={restantesPlatino} label="Restantes para rango Platino" compact />
-                <StatCard icon={Users} value={sociosPotenciales} label="Socios potenciales (filtrados)" highlight />
-              </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-4 py-2">
+              <Users className="w-4 h-4 text-muted" />
+              <span className="text-sm text-muted">Resultados:</span>
+              <span className="text-sm font-extrabold text-accent">{sociosPotenciales}</span>
+            </div>
 
-              {/* ==========================================================
-                  BUSCADOR + CHIPS FILTRO
-                 ========================================================== */}
-              <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4 mb-6">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="w-4 h-4 text-muted absolute left-4 top-3.5" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por nombre, productos, servicios, ciudad, estado..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className={[
-                        "w-full rounded-full pl-11 pr-4 py-2.5 text-sm",
-                        "bg-surface/60 border border-border text-text placeholder:text-muted/70",
-                        "outline-none backdrop-blur-md appearance-none bg-clip-padding transition",
-                        "focus:ring-2 focus:ring-ring/40 focus:border-accent/30",
-                      ].join(" ")}
-                    />
-                  </div>
+            {/* Toggle modo vista */}
+            <div className="inline-flex rounded-full border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-1">
+              <button
+                onClick={() => setViewMode("map")}
+                type="button"
+                className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
+                  viewMode === "map"
+                    ? "bg-accent text-slate-900 font-semibold"
+                    : "text-text hover:bg-surface"
+                }`}
+              >
+                <MapIcon className="w-4 h-4" />
+                Mapa
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                type="button"
+                className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
+                  viewMode === "list"
+                    ? "bg-accent text-slate-900 font-semibold"
+                    : "text-text hover:bg-surface"
+                }`}
+              >
+                <ListIcon className="w-4 h-4" />
+                Lista
+              </button>
+            </div>
+          </div>
+        </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Chip label="Cliente" active={filterTipo === "Cliente"} onClick={() => setFilterTipo("Cliente")} />
-                    <Chip label="Proveedor" active={filterTipo === "Proveedor"} onClick={() => setFilterTipo("Proveedor")} />
-                    <Chip label="Ambos" active={filterTipo === "Ambos"} onClick={() => setFilterTipo("Ambos")} />
-                  </div>
-                </div>
-              </div>
+        {/* Banner de error (si falla la API) */}
+        {error && (
+          <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-300">
+                Usando datos de demostración
+              </p>
+              <p className="text-xs text-amber-200/80 mt-1">
+                No se pudo conectar con el Sistema Inteligente Económico. {error}
+              </p>
+              <button
+                onClick={cargarRecomendaciones}
+                className="mt-2 text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        )}
 
-              {/* ==========================================================
-                  LAYOUT PRINCIPAL (Mapa + Lista)
-                 ========================================================== */}
-              <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-                {/* Mapa */}
-                {viewMode === "map" && (
-                  <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
-                    <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                      <div>
-                        <h2 className="text-text font-bold">Mapa de socios</h2>
-                        <p className="text-muted text-xs">
-                          Usa el zoom y selecciona empresas para ver ubicación.
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-                        Vista interactiva
-                      </span>
-                    </div>
+        {/* Banner de info/warning para SCIAN inválido */}
+        {infoMensaje && !error && (
+          <div className={`mb-4 rounded-2xl border p-4 flex items-start gap-3 ${
+            infoMensaje.tipo === "warning"
+              ? "border-yellow-500/30 bg-yellow-500/10"
+              : "border-blue-500/30 bg-blue-500/10"
+          }`}>
+            <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+              infoMensaje.tipo === "warning" ? "text-yellow-500" : "text-blue-500"
+            }`} />
+            <div className="flex-1">
+              <p className={`text-sm font-semibold ${
+                infoMensaje.tipo === "warning" ? "text-yellow-300" : "text-blue-300"
+              }`}>
+                {infoMensaje.tipo === "warning" ? "Aviso" : "Información"}
+              </p>
+              <p className={`text-xs mt-1 ${
+                infoMensaje.tipo === "warning" ? "text-yellow-200/80" : "text-blue-200/80"
+              }`}>
+                {infoMensaje.texto}
+              </p>
+            </div>
+          </div>
+        )}
 
-                    <div className="p-4">
-                      <div className="rounded-2xl overflow-hidden border border-border bg-surface/50">
-                        <Mapa empresas={empresasFiltradas} zoom={5} />
-                      </div>
-                    </div>
-                  </section>
-                )}
+        {/* STATS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+          <StatCard icon={ShoppingCart} value={comprasRealizadas} label="Compras realizadas" />
+          <StatCard icon={Handshake} value={ventasRealizadas} label="Ventas realizadas" />
+          <StatCard icon={Lock} value={restantesPlatino} label="Restantes para rango Platino" compact />
+          <StatCard icon={Users} value={sociosPotenciales} label="Socios potenciales (filtrados)" highlight />
+        </div>
 
-                {/* Lista */}
-                {(viewMode === "map" || viewMode === "list") && (
-                  <section
-                    className={`rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden ${
-                      viewMode === "list" ? "xl:col-span-2" : ""
-                    }`}
-                  >
-                    <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                      <div>
-                        <h2 className="text-text font-bold">Socios potenciales</h2>
-                        <p className="text-muted text-xs">
-                          Filtrados por tu búsqueda y tipo seleccionado.
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-accent border border-accent/25 bg-accent/10 rounded-full px-3 py-1">
-                        {sociosPotenciales} resultados
-                      </span>
-                    </div>
+        {/* BUSCADOR + CHIPS FILTRO */}
+        <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 text-muted absolute left-4 top-3.5" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, productos, servicios, ciudad, estado..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={[
+                  "w-full rounded-full pl-11 pr-4 py-2.5 text-sm",
+                  "bg-surface/60 border border-border text-text placeholder:text-muted/70",
+                  "outline-none backdrop-blur-md appearance-none bg-clip-padding transition",
+                  "focus:ring-2 focus:ring-ring/40 focus:border-accent/30",
+                ].join(" ")}
+              />
+            </div>
 
-                    <div className="p-4 max-h-[560px] overflow-y-auto">
-                      <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} />
-                    </div>
-                  </section>
-                )}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Chip label="Cliente" active={filterTipo === "Cliente"} onClick={() => setFilterTipo("Cliente")} />
+              <Chip label="Proveedor" active={filterTipo === "Proveedor"} onClick={() => setFilterTipo("Proveedor")} />
+              <Chip label="Ambos" active={filterTipo === "Ambos"} onClick={() => setFilterTipo("Ambos")} />
+            </div>
+          </div>
+        </div>
 
-              {/* ==========================================================
-                  BENEFICIOS (Accordion)
-                 ========================================================== */}
-              <section className="mt-8">
-                <div className="flex items-end justify-between gap-4 mb-4">
+        {/* Loading state */}
+        {loading ? (
+          <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-12 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-10 h-10 text-accent animate-spin" />
+            <p className="text-text font-semibold">Analizando cadena de valor...</p>
+            <p className="text-muted text-sm">Consultando MIP 2013 + Clasificación 2024</p>
+          </div>
+        ) : (
+          /* LAYOUT PRINCIPAL (Mapa + Lista) */
+          <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+            {viewMode === "map" && (
+              <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <h2 className="text-text font-extrabold text-lg md:text-xl">
-                      Beneficios del Ecosistema
-                    </h2>
-                    <p className="text-muted text-sm">
-                      Despliega cada beneficio para ver qué incluye y el nivel requerido.
+                    <h2 className="text-text font-bold">Mapa de socios</h2>
+                    <p className="text-muted text-xs">
+                      Usa el zoom y selecciona empresas para ver ubicación.
                     </p>
                   </div>
-
                   <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-                    Standard • Platinum • Black
+                    Vista interactiva
                   </span>
                 </div>
 
-                <div className="space-y-3">
-                  {beneficiosNiveles.map((b, idx) => {
-                    const open = openBenefitIndex === idx;
-                    return (
-                      <AccordionItem
-                        key={idx}
-                        title={b.title}
-                        detail={b.detail}
-                        tier={b.tier}
-                        open={open}
-                        onToggle={() => setOpenBenefitIndex(open ? null : idx)}
-                        theme={theme}
-                      />
-                    );
-                  })}
+                <div className="p-4">
+                  <div className="rounded-2xl overflow-hidden border border-border bg-surface/50">
+                    <Mapa empresas={empresasFiltradas} zoom={5} />
+                  </div>
                 </div>
               </section>
+            )}
+
+            {(viewMode === "map" || viewMode === "list") && (
+              <section
+                className={`rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden ${
+                  viewMode === "list" ? "xl:col-span-2" : ""
+                }`}
+              >
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                  <div>
+                    <h2 className="text-text font-bold">Socios potenciales</h2>
+                    <p className="text-muted text-xs">
+                      Filtrados por tu búsqueda y tipo seleccionado.
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-accent border border-accent/25 bg-accent/10 rounded-full px-3 py-1">
+                    {sociosPotenciales} resultados
+                  </span>
+                </div>
+
+                <div className="p-4 pr-2 max-h-[560px] overflow-y-auto">
+                  <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} />
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* BENEFICIOS (Accordion) - sin cambios */}
+        <section className="mt-8">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-text font-extrabold text-lg md:text-xl">
+                Beneficios del Ecosistema
+              </h2>
+              <p className="text-muted text-sm">
+                Despliega cada beneficio para ver qué incluye y el nivel requerido.
+              </p>
             </div>
+            <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
+              Standard • Platinum • Black
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {beneficiosNiveles.map((b, idx) => {
+              const open = openBenefitIndex === idx;
+              return (
+                <AccordionItem
+                  key={idx}
+                  title={b.title}
+                  detail={b.detail}
+                  tier={b.tier}
+                  open={open}
+                  onToggle={() => setOpenBenefitIndex(open ? null : idx)}
+                  theme={theme}
+                />
+              );
+            })}
+          </div>
+        </section>
+      </div>
     </Layout>
   );
 }
 
 /* ====================================================================
-   UI COMPONENTS (documentados)
+   UI COMPONENTS
    ==================================================================== */
 
-/**
- * Chip (filtro tipo)
- * - active: usa acento (bg-accent)
- * - inactive: glass surface
- */
 function Chip({ label, active, onClick }) {
   return (
     <button
@@ -391,11 +604,6 @@ function Chip({ label, active, onClick }) {
   );
 }
 
-/**
- * StatCard
- * - highlight: resalta con acento (para "Socios potenciales").
- * - compact: reduce tamaño del número.
- */
 function StatCard({ icon: Icon, value, label, compact = false, highlight = false }) {
   return (
     <div
@@ -430,10 +638,7 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
 }
 
 /**
- * ListaEmpresas
- * - Render de cards por empresa.
- * - Pill por tipo (Cliente / Proveedor) theme-aware.
- * - Botón Conectar: navega y pasa state.
+ *  ListaEmpresas ahora muestra categoría y porcentaje
  */
 function ListaEmpresas({ empresas, onConectar, theme }) {
   if (!empresas.length) {
@@ -448,26 +653,40 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
           className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-muted">ID: {e.id}</span>
                 <span className={tipoPill(theme, e.tipo)}>{e.tipo}</span>
+
+                {/* Badge de categoría estratégica */}
+                {e.categoria && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
+                    {e.categoria}
+                  </span>
+                )}
+
+                {/* Porcentaje de relación */}
+                {e.porcentaje !== undefined && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
+                    {e.porcentaje}% relación
+                  </span>
+                )}
               </div>
 
               <h3 className="mt-1 font-semibold text-text truncate">{e.nombre}</h3>
 
               <p className="text-sm text-text/80 mt-1">
-                <span className="text-muted">Productos:</span> {e.productos}
+                <span className="text-muted">Sector:</span> {e.productos}
               </p>
 
               {e.servicios && (
                 <p className="text-sm text-text/80">
-                  <span className="text-muted">Servicios:</span> {e.servicios}
+                  <span className="text-muted">Categoría:</span> {e.servicios}
                 </p>
               )}
 
               <p className="text-sm text-muted mt-1">
-                📍 {e.ciudad} • {e.estado}
+                {e.ciudad} • {e.estado}
               </p>
             </div>
 
@@ -485,10 +704,6 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
   );
 }
 
-/**
- * tipoPill
- * - Badge de Cliente/Proveedor con colores que no se pierden en light/dark.
- */
 function tipoPill(theme, tipo) {
   const isLight = theme === "light";
   const base = "text-[11px] px-2 py-0.5 rounded-full border";
@@ -507,10 +722,6 @@ function tipoPill(theme, tipo) {
   }`;
 }
 
-/**
- * AccordionItem
- * - Item expandible para beneficios por nivel.
- */
 function AccordionItem({ title, detail, tier, open, onToggle, theme }) {
   const styles = getTierStyles(tier, theme);
 
@@ -548,19 +759,12 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme }) {
   );
 }
 
-/**
- * Labels tier
- */
 function tierLabel(tier) {
   if (tier === "standard") return "STANDARD";
   if (tier === "platinum") return "PLATINO";
   return "BLACK";
 }
 
-/**
- * getTierStyles
- * - Píldora y “bar” del icono según nivel + theme.
- */
 function getTierStyles(tier, theme) {
   const isLight = theme === "light";
 

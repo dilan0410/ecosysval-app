@@ -59,7 +59,7 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
   }, [center, empresas, zoom]);
 
   useEffect(() => {
-    console.log("🌍 Mapbox GL cargado correctamente ✅");
+    console.log("Mapbox GL cargado correctamente");
   }, []);
 
   return (
