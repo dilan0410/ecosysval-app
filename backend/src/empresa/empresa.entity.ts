@@ -19,7 +19,8 @@ export class Empresa {
   rfc: string; // NUEVO: RFC de la empresa
 
   @Column({ nullable: true })
-  sectorScian: string; // NUEVO: Código SCIAN (input libre)
+  sectorScian: string; // NUEVO: Código SCIAN (input libre}}
+
 
   @Column({ nullable: true })
   representante: string;
