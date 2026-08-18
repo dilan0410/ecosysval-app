@@ -25,11 +25,32 @@ export class EmpresaService {
 
   // Obtener empresas por código SCIAN
   async obtenerPorSectorScian(sectorScian: string) {
-    return this.empresaRepository.find({
-      where: { sectorScian },
-      order: { createdAt: 'DESC' },
-    });
-  }
+    // Soportar múltiples SCIANs separados por coma
+    // Ejemplo: "1123,1122,3113" → busca empresas de esos 3 sectores
+    const codigos = sectorScian
+      .split(',')
+      .map(c => c.trim())
+      .filter(Boolean);
+
+    if (codigos.length === 0) {
+      return [];
+    }
+
+    // Si es solo 1 SCIAN, usar findOne más simple
+    if (codigos.length === 1) {
+      return this.empresaRepository.find({
+        where: { sectorScian: codigos[0] },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    // Múltiples SCIANs: usar IN query
+    return this.empresaRepository
+      .createQueryBuilder('empresa')
+      .where('empresa.sectorScian IN (:...codigos)', { codigos })
+      .orderBy('empresa.createdAt', 'DESC')
+      .getMany();
+}
 
   // Método para explorar empresas con filtros y paginación
   async explorar(params: {
