@@ -77,10 +77,15 @@ export class EmpresaController {
   }
 
   // ==========================================
-  // GET / — Listar todas
+  // GET / — Listar todas (con filtro opcional por SCIAN)
   // ==========================================
   @Get()
-  obtenerTodas() {
+  obtenerTodas(@Query('sectorScian') sectorScian?: string) {
+    // ⭐ NUEVO: Si viene el parámetro, filtra por SCIAN
+    if (sectorScian) {
+      return this.empresaService.obtenerPorSectorScian(sectorScian);
+    }
+    // Si no viene, devuelve todas (comportamiento original)
     return this.empresaService.obtenerTodas();
   }
 
