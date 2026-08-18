@@ -108,49 +108,143 @@ const beneficiosNiveles = [
  * @param {Object} datosPython - Respuesta de obtenerRecomendaciones
  * @returns {Array} Lista de empresas en formato del diseño
  */
-function transformarDatosPython(datosPython) {
+
+/**
+ * Transforma sectores en empresas (optimizado)
+ * Ahora hace 1 sola petición para todos los SCIANs.
+ */
+async function transformarDatosPython(datosPython, apiClient) {
   if (!datosPython) return [];
 
   const empresas = [];
 
-  // Transformar clientes
-  (datosPython.top_clientes || []).forEach((cliente, idx) => {
-    empresas.push({
-      id: `C-${cliente.codigo}`,
-      tipo: "Cliente",
-      nombre: cliente.sector.split(" - ")[1] || cliente.sector,
-      productos: `SCIAN ${cliente.codigo}`,
-      servicios: cliente.categoria,
-      ciudad: "México",
-      estado: "Nacional",
-      // Coordenadas ficticias distribuidas por México
-      lat: 19.4326 + (Math.random() - 0.5) * 8,
-      lng: -99.1332 + (Math.random() - 0.5) * 15,
-      // Datos extra del sistema económico
-      categoria: cliente.categoria,
-      porcentaje: cliente.porcentaje,
-      coeficiente: cliente.coeficiente,
-      codigoScian: cliente.codigo,
-    });
+  // Coordenadas por defecto para México
+  const generarCoordenadas = () => ({
+    lat: 19.4326 + (Math.random() - 0.5) * 8,
+    lng: -99.1332 + (Math.random() - 0.5) * 15,
   });
 
-  // Transformar proveedores
-  (datosPython.top_proveedores || []).forEach((proveedor, idx) => {
-    empresas.push({
-      id: `P-${proveedor.codigo}`,
-      tipo: "Proveedor",
-      nombre: proveedor.sector.split(" - ")[1] || proveedor.sector,
-      productos: `SCIAN ${proveedor.codigo}`,
-      servicios: proveedor.categoria,
-      ciudad: "México",
-      estado: "Nacional",
-      lat: 19.4326 + (Math.random() - 0.5) * 8,
-      lng: -99.1332 + (Math.random() - 0.5) * 15,
-      categoria: proveedor.categoria,
-      porcentaje: proveedor.porcentaje,
-      coeficiente: proveedor.coeficiente,
-      codigoScian: proveedor.codigo,
-    });
+  // optimizacion: Recolectar todos los SCIANs primero
+  const todosLosCodigos = [
+    ...(datosPython.top_clientes || []).map(c => c.codigo),
+    ...(datosPython.top_proveedores || []).map(p => p.codigo),
+  ];
+
+  // una sola petición para TODOS los SCIANs
+  let empresasReales = [];
+  if (todosLosCodigos.length > 0) {
+    try {
+      const codigosUnicos = [...new Set(todosLosCodigos)];
+      const codigosString = codigosUnicos.join(',');
+      const response = await apiClient.get(
+        `/empresas?sectorScian=${codigosString}`
+      );
+      empresasReales = response.data || [];
+    } catch (error) {
+      console.warn('Error obteniendo empresas reales:', error);
+    }
+  }
+
+  // agrupar empresas reales por SCIAN (para búsqueda rápida)
+  const empresasPorScian = {};
+  empresasReales.forEach(emp => {
+    if (!empresasPorScian[emp.sectorScian]) {
+      empresasPorScian[emp.sectorScian] = [];
+    }
+    empresasPorScian[emp.sectorScian].push(emp);
+  });
+
+  // Procesar clientes
+  (datosPython.top_clientes || []).forEach((cliente) => {
+    const empresasDelSector = empresasPorScian[cliente.codigo] || [];
+
+    if (empresasDelSector.length > 0) {
+      empresasDelSector.forEach((empresa) => {
+        empresas.push({
+          id: `RC-${empresa.id}`,
+          tipo: "Cliente",
+          nombre: empresa.razonSocial || "Sin nombre",
+          productos: `SCIAN ${empresa.sectorScian}`,
+          servicios: cliente.categoria,
+          ciudad: empresa.estado || "México",
+          estado: empresa.estado || "Nacional",
+          ...generarCoordenadas(),
+          categoria: cliente.categoria,
+          porcentaje: cliente.porcentaje,
+          coeficiente: cliente.coeficiente,
+          codigoScian: cliente.codigo,
+          esReal: true,
+          empresaId: empresa.id,
+          empresaData: empresa,
+        });
+      });
+    } else {
+      empresas.push({
+        id: `TC-${cliente.codigo}`,
+        tipo: "Cliente",
+        nombre: cliente.sector.split(" - ")[1] || cliente.sector,
+        productos: `SCIAN ${cliente.codigo}`,
+        servicios: cliente.categoria,
+        ciudad: "México",
+        estado: "Nacional (sector recomendado)",
+        ...generarCoordenadas(),
+        categoria: cliente.categoria,
+        porcentaje: cliente.porcentaje,
+        coeficiente: cliente.coeficiente,
+        codigoScian: cliente.codigo,
+        esReal: false,
+      });
+    }
+  });
+
+  // procesar proveedores (misma logica)
+  (datosPython.top_proveedores || []).forEach((proveedor) => {
+    const empresasDelSector = empresasPorScian[proveedor.codigo] || [];
+
+    if (empresasDelSector.length > 0) {
+      empresasDelSector.forEach((empresa) => {
+        empresas.push({
+          id: `RP-${empresa.id}`,
+          tipo: "Proveedor",
+          nombre: empresa.razonSocial || "Sin nombre",
+          productos: `SCIAN ${empresa.sectorScian}`,
+          servicios: proveedor.categoria,
+          ciudad: empresa.estado || "México",
+          estado: empresa.estado || "Nacional",
+          ...generarCoordenadas(),
+          categoria: proveedor.categoria,
+          porcentaje: proveedor.porcentaje,
+          coeficiente: proveedor.coeficiente,
+          codigoScian: proveedor.codigo,
+          esReal: true,
+          empresaId: empresa.id,
+          empresaData: empresa,
+        });
+      });
+    } else {
+      empresas.push({
+        id: `TP-${proveedor.codigo}`,
+        tipo: "Proveedor",
+        nombre: proveedor.sector.split(" - ")[1] || proveedor.sector,
+        productos: `SCIAN ${proveedor.codigo}`,
+        servicios: proveedor.categoria,
+        ciudad: "México",
+        estado: "Nacional (sector recomendado)",
+        ...generarCoordenadas(),
+        categoria: proveedor.categoria,
+        porcentaje: proveedor.porcentaje,
+        coeficiente: proveedor.coeficiente,
+        codigoScian: proveedor.codigo,
+        esReal: false,
+      });
+    }
+  });
+
+  // ordenar: empresas reales primero
+  empresas.sort((a, b) => {
+    if (a.esReal && !b.esReal) return -1;
+    if (!a.esReal && b.esReal) return 1;
+    return b.porcentaje - a.porcentaje;
   });
 
   return empresas;
@@ -276,7 +370,8 @@ export default function MapaPage() {
       // ============================================
       // 4. TRANSFORMAR Y GUARDAR
       // ============================================
-      const empresasTransformadas = transformarDatosPython(datosPython);
+      // es async y recibe el apiClient
+      const empresasTransformadas = await transformarDatosPython(datosPython, api);
 
       setEmpresasReales(empresasTransformadas);
       setSectorInfo({
@@ -657,6 +752,17 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-muted">ID: {e.id}</span>
                 <span className={tipoPill(theme, e.tipo)}>{e.tipo}</span>
+
+                {/* Badge real vs teorico */}
+                {e.esReal ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold">
+                    Empresa registrada
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/25">
+                    Sector recomendado
+                  </span>
+                )}
 
                 {/* Badge de categoría estratégica */}
                 {e.categoria && (
