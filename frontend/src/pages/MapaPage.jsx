@@ -1,6 +1,6 @@
 // src/pages/MapaPage.jsx
 /**
- * MAPA / POSICIÓN EN EL SISTEMA (ECOSYSVAL)
+ * mapa / posicion en el sistema (ECOSYSVAL)
  * --------------------------------------------------------------------
  * Objetivo:
  * - Visualizar socios potenciales recomendados por el Sistema Inteligente
@@ -20,7 +20,7 @@ import {
   Handshake,
   Search,
   Loader2, 
-  AlertCircle, // para errores
+  AlertCircle,
 } from "lucide-react";
 
 import Mapa from "../components/Mapa";
@@ -30,6 +30,44 @@ import { useTheme } from "../components/ThemeProvider";
 // Imports para conectar con API Python + axios
 import { obtenerRecomendaciones } from "../api/pythonAPI";
 import { api } from "../api/axiosClient";
+
+// ==========================================================
+// DICCIONARIO DE COORDENADAS POR ESTADO (MÉXICO)
+// ==========================================================
+const COORDENADAS_ESTADOS = {
+  "Aguascalientes": { lat: 21.8818, lng: -102.2915 },
+  "Baja California": { lat: 30.8406, lng: -115.2838 },
+  "Baja California Sur": { lat: 26.0444, lng: -111.1666 },
+  "Campeche": { lat: 19.8301, lng: -90.5349 },
+  "Coahuila de Zaragoza": { lat: 27.0587, lng: -101.7068 },
+  "Colima": { lat: 19.2452, lng: -103.7241 },
+  "Chiapas": { lat: 16.7569, lng: -93.1292 },
+  "Chihuahua": { lat: 28.6320, lng: -106.0691 },
+  "Ciudad de México": { lat: 19.4326, lng: -99.1332 },
+  "Durango": { lat: 24.0277, lng: -104.6532 },
+  "Guanajuato": { lat: 21.0190, lng: -101.2574 },
+  "Guerrero": { lat: 17.5516, lng: -99.5010 },
+  "Hidalgo": { lat: 20.0911, lng: -98.7624 },
+  "Jalisco": { lat: 20.6597, lng: -103.3496 },
+  "México": { lat: 19.3235, lng: -99.5694 },
+  "Michoacán de Ocampo": { lat: 19.1687, lng: -101.8996 },
+  "Morelos": { lat: 18.7305, lng: -99.0660 },
+  "Nayarit": { lat: 21.7514, lng: -104.8455 },
+  "Nuevo León": { lat: 25.5922, lng: -99.9962 },
+  "Oaxaca": { lat: 17.0732, lng: -96.7266 },
+  "Puebla": { lat: 19.0414, lng: -98.2063 },
+  "Querétaro": { lat: 20.5881, lng: -100.3899 },
+  "Quintana Roo": { lat: 19.1817, lng: -88.4791 },
+  "San Luis Potosí": { lat: 22.1565, lng: -100.9855 },
+  "Sinaloa": { lat: 25.1721, lng: -107.4795 },
+  "Sonora": { lat: 29.2972, lng: -110.3309 },
+  "Tabasco": { lat: 17.9869, lng: -92.9303 },
+  "Tamaulipas": { lat: 24.2669, lng: -98.8363 },
+  "Tlaxcala": { lat: 19.3139, lng: -98.2404 },
+  "Veracruz de Ignacio de la Llave": { lat: 19.1738, lng: -96.1342 },
+  "Yucatán": { lat: 20.7099, lng: -89.0943 },
+  "Zacatecas": { lat: 22.7709, lng: -102.5832 },
+};
 
 // ==========================================================
 // FALLBACK: Datos mock si la API falla
@@ -42,9 +80,8 @@ const empresasMock = [
     productos: "Madera",
     servicios: null,
     ciudad: "Ciudad de México",
-    estado: "CDMX",
-    lat: 19.4326,
-    lng: -99.1332,
+    estado: "Ciudad de México",
+    ...COORDENADAS_ESTADOS["Ciudad de México"],
   },
   {
     id: "0000124",
@@ -54,36 +91,10 @@ const empresasMock = [
     servicios: "Transporte",
     ciudad: "Chiapas",
     estado: "Chiapas",
-    lat: 16.751,
-    lng: -93.1169,
-  },
-  {
-    id: "0000125",
-    tipo: "Proveedor",
-    nombre: "Textiles Hidalgo",
-    productos: "Textilería",
-    servicios: null,
-    ciudad: "Pachuca",
-    estado: "Hidalgo",
-    lat: 20.0911,
-    lng: -98.7624,
-  },
-  {
-    id: "0000126",
-    tipo: "Cliente",
-    nombre: "Acero del Pacífico",
-    productos: "Acero",
-    servicios: null,
-    ciudad: "Guadalajara",
-    estado: "Jalisco",
-    lat: 20.6597,
-    lng: -103.3496,
+    ...COORDENADAS_ESTADOS["Chiapas"],
   },
 ];
 
-// ==========================================================
-// Beneficios (sin cambios)
-// ==========================================================
 const beneficiosNiveles = [
   { title: "Perfil empresarial descargable", tier: "standard", detail: "Descarga un PDF con datos clave, actividad y capacidades." },
   { title: "Identificación de socios comerciales", tier: "standard", detail: "Encuentra aliados por sector, ubicación y capacidad." },
@@ -98,54 +109,43 @@ const beneficiosNiveles = [
   { title: "Desarrollo Organizacional Sustentable", tier: "black", detail: "Programas para sostenibilidad, cultura y desempeño." },
 ];
 
-// ==========================================================
-// Transformar respuesta de Python API al formato del diseño
-// ==========================================================
 /**
- * Convierte la respuesta de la API Python en el formato que
- * espera el diseño actual (compatible con empresasMock).
- *
- * @param {Object} datosPython - Respuesta de obtenerRecomendaciones
- * @returns {Array} Lista de empresas en formato del diseño
+ * Obtiene coordenadas basadas en el estado, aplicando una micro-dispersion
+ * para que los pines no queden unos exactamente encima de otros.
  */
+function obtenerCoordenadasPorEstado(estadoNombre) {
+  const baseCoords = COORDENADAS_ESTADOS[estadoNombre] || COORDENADAS_ESTADOS["Ciudad de México"];
+  // Variación aleatoria de aprox. 2-5 km a la redonda
+  const offsetLat = (Math.random() - 0.5) * 0.05;
+  const offsetLng = (Math.random() - 0.5) * 0.05;
+  
+  return {
+    lat: baseCoords.lat + offsetLat,
+    lng: baseCoords.lng + offsetLng,
+  };
+}
 
-/**
- * Transforma sectores en empresas (optimizado)
- * Ahora hace 1 sola petición para todos los SCIANs.
- */
 async function transformarDatosPython(datosPython, apiClient) {
   if (!datosPython) return [];
 
   const empresas = [];
-
-  // Coordenadas por defecto para México
-  const generarCoordenadas = () => ({
-    lat: 19.4326 + (Math.random() - 0.5) * 8,
-    lng: -99.1332 + (Math.random() - 0.5) * 15,
-  });
-
-  // optimizacion: Recolectar todos los SCIANs primero
   const todosLosCodigos = [
     ...(datosPython.top_clientes || []).map(c => c.codigo),
     ...(datosPython.top_proveedores || []).map(p => p.codigo),
   ];
 
-  // una sola petición para TODOS los SCIANs
   let empresasReales = [];
   if (todosLosCodigos.length > 0) {
     try {
       const codigosUnicos = [...new Set(todosLosCodigos)];
       const codigosString = codigosUnicos.join(',');
-      const response = await apiClient.get(
-        `/empresas?sectorScian=${codigosString}`
-      );
+      const response = await apiClient.get(`/empresas?sectorScian=${codigosString}`);
       empresasReales = response.data || [];
     } catch (error) {
       console.warn('Error obteniendo empresas reales:', error);
     }
   }
 
-  // agrupar empresas reales por SCIAN (para búsqueda rápida)
   const empresasPorScian = {};
   empresasReales.forEach(emp => {
     if (!empresasPorScian[emp.sectorScian]) {
@@ -166,9 +166,9 @@ async function transformarDatosPython(datosPython, apiClient) {
           nombre: empresa.razonSocial || "Sin nombre",
           productos: `SCIAN ${empresa.sectorScian}`,
           servicios: cliente.categoria,
-          ciudad: empresa.estado || "México",
-          estado: empresa.estado || "Nacional",
-          ...generarCoordenadas(),
+          ciudad: empresa.estado || "Ciudad de México",
+          estado: empresa.estado || "Ciudad de México",
+          ...obtenerCoordenadasPorEstado(empresa.estado), // <- ubicacion real
           categoria: cliente.categoria,
           porcentaje: cliente.porcentaje,
           coeficiente: cliente.coeficiente,
@@ -179,6 +179,7 @@ async function transformarDatosPython(datosPython, apiClient) {
         });
       });
     } else {
+      // Sector teórico (no hay empresa real)
       empresas.push({
         id: `TC-${cliente.codigo}`,
         tipo: "Cliente",
@@ -186,8 +187,8 @@ async function transformarDatosPython(datosPython, apiClient) {
         productos: `SCIAN ${cliente.codigo}`,
         servicios: cliente.categoria,
         ciudad: "México",
-        estado: "Nacional (sector recomendado)",
-        ...generarCoordenadas(),
+        estado: "Sector Recomendado",
+        ...obtenerCoordenadasPorEstado("Ciudad de México"), // Los teoricos van al centro
         categoria: cliente.categoria,
         porcentaje: cliente.porcentaje,
         coeficiente: cliente.coeficiente,
@@ -197,7 +198,7 @@ async function transformarDatosPython(datosPython, apiClient) {
     }
   });
 
-  // procesar proveedores (misma logica)
+  // Procesar proveedores
   (datosPython.top_proveedores || []).forEach((proveedor) => {
     const empresasDelSector = empresasPorScian[proveedor.codigo] || [];
 
@@ -209,9 +210,9 @@ async function transformarDatosPython(datosPython, apiClient) {
           nombre: empresa.razonSocial || "Sin nombre",
           productos: `SCIAN ${empresa.sectorScian}`,
           servicios: proveedor.categoria,
-          ciudad: empresa.estado || "México",
-          estado: empresa.estado || "Nacional",
-          ...generarCoordenadas(),
+          ciudad: empresa.estado || "Ciudad de México",
+          estado: empresa.estado || "Ciudad de México",
+          ...obtenerCoordenadasPorEstado(empresa.estado), // <- ubicacion real
           categoria: proveedor.categoria,
           porcentaje: proveedor.porcentaje,
           coeficiente: proveedor.coeficiente,
@@ -229,8 +230,8 @@ async function transformarDatosPython(datosPython, apiClient) {
         productos: `SCIAN ${proveedor.codigo}`,
         servicios: proveedor.categoria,
         ciudad: "México",
-        estado: "Nacional (sector recomendado)",
-        ...generarCoordenadas(),
+        estado: "Sector Recomendado",
+        ...obtenerCoordenadasPorEstado("Ciudad de México"),
         categoria: proveedor.categoria,
         porcentaje: proveedor.porcentaje,
         coeficiente: proveedor.coeficiente,
@@ -240,7 +241,6 @@ async function transformarDatosPython(datosPython, apiClient) {
     }
   });
 
-  // ordenar: empresas reales primero
   empresas.sort((a, b) => {
     if (a.esReal && !b.esReal) return -1;
     if (!a.esReal && b.esReal) return 1;
