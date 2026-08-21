@@ -6,13 +6,11 @@ import {
   UserCircle,
   ChevronDown,
   LogOut,
-  Menu as MenuIcon, // NUEVO: Icono hamburguesa
+  Menu as MenuIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-// import { notificacionesMock } from "../data/notificacionesMock"; // OBSOLETO
-import { mensajesMock } from "../data/mensajesMock";
 
-// REFRESH TOKENS
+// REFRESH TOKENS Y API CLIENT
 import { api, logout as apiLogout } from "../api/axiosClient";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
@@ -25,16 +23,10 @@ function getImageUrl(path) {
   return `${API_URL}${normalized}`;
 }
 
-/**
- * MainHeader
- * @param {boolean} showSearch - Si mostrar el buscador (default true)
- * @param {boolean} showBack - Si mostrar botón "volver" (default false)
- * @param {function} onMenuClick - NUEVO: callback al hacer click en hamburguesa
- */
 export default function MainHeader({
   showSearch = true,
   showBack = false,
-  onMenuClick, // NUEVO
+  onMenuClick,
 }) {
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
@@ -44,13 +36,14 @@ export default function MainHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
 
-  // NUEVO: Contador de notificaciones no leídas
-  const [unreadCount, setUnreadCount] = useState(0);
+  // Contadores reales desde el Backend
+  const [unreadCount, setUnreadCount] = useState(0);       // Notificaciones
+  const [unreadChatCount, setUnreadChatCount] = useState(0); // Mensajes de Chat
 
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  // Cargar usuario y logo de empresa
+  // Cargar usuario y datos iniciales
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) return;
@@ -60,71 +53,65 @@ export default function MainHeader({
       setUser(parsed);
 
       if (parsed.id) {
-        // axios: token y refresh automáticos
         cargarLogoUsuario(parsed.id);
-        cargarContadorNotificaciones(); // NUEVO: Cargar al inicio
+        cargarContadores();
       }
     } catch (e) {
       console.error("Error leyendo usuario:", e);
     }
   }, []);
 
-  // NUEVO: Polling cada 30 segundos para actualizar el contador
+  // Polling cada 30 segundos para actualizar contadores de notificaciones y chats
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) return;
 
     const interval = setInterval(() => {
-      cargarContadorNotificaciones();
-    }, 30000); // 30 segundos
+      cargarContadores();
+    }, 30000);
 
-    return () => clearInterval(interval); // Limpieza al desmontar
+    return () => clearInterval(interval);
   }, []);
 
-    // Función separada para claridad
-    const cargarLogoUsuario = async (userId) => {
-      try {
-        // 1. Intentar obtener el logo de la empresa
-        const empresaRes = await api.get("/empresas/mi-empresa");
-        if (empresaRes.data?.logo) {
-          setProfilePic(getImageUrl(empresaRes.data.logo));
-          return;
-        }
-
-        // 2. Fallback: obtener imagen de perfil del usuario
-        const userRes = await api.get(`/users/${userId}`);
-        if (userRes.data?.profile_image) {
-          setProfilePic(getImageUrl(userRes.data.profile_image));
-        }
-      } catch (error) {
-        // Silencioso: si no hay empresa o falla, se muestra el ícono por defecto
-        console.log("No hay logo/imagen disponible");
-      }
-    };
-
-  // NUEVO: Cargar contador de notificaciones no leídas
-  const cargarContadorNotificaciones = async () => {
+  const cargarLogoUsuario = async (userId) => {
     try {
-      const res = await api.get("/notificaciones/count");
-      setUnreadCount(res.data?.count || 0);
+      const empresaRes = await api.get("/empresas/mi-empresa");
+      if (empresaRes.data?.logo) {
+        setProfilePic(getImageUrl(empresaRes.data.logo));
+        return;
+      }
+
+      const userRes = await api.get(`/users/${userId}`);
+      if (userRes.data?.profile_image) {
+        setProfilePic(getImageUrl(userRes.data.profile_image));
+      }
     } catch (error) {
-      // Silencioso: si falla (no login, etc), no muestra nada
+      console.log("No hay logo/imagen disponible");
+    }
+  };
+
+  // Cargar contadores de notificaciones y mensajes
+  const cargarContadores = async () => {
+    try {
+      const [notifRes, chatRes] = await Promise.all([
+        api.get("/notificaciones/count"),
+        api.get("/mensajes/no-leidos"),
+      ]);
+      setUnreadCount(notifRes.data?.count || 0);
+      setUnreadChatCount(chatRes.data?.noLeidos || 0);
+    } catch (error) {
       setUnreadCount(0);
+      setUnreadChatCount(0);
     }
   };
 
   const handleLogout = async () => {
-    // Cerrar dropdowns primero
     setMenuOpen(false);
     setShowNotifications(false);
     setShowMessages(false);
-
-    // Invalidar refresh_token en backend + limpiar localStorage
-    // La función apiLogout ya redirige a /login automáticamente
     await apiLogout();
   };
 
-  // NUEVO: Buscar empresas desde el header
   const handleBuscarHeader = (e) => {
     e.preventDefault();
     const query = busquedaHeader.trim();
@@ -133,7 +120,7 @@ export default function MainHeader({
     } else {
       navigate(`/explorar`);
     }
-    setBusquedaHeader(""); // Limpiar el input después de buscar
+    setBusquedaHeader("");
   };
 
   useEffect(() => {
@@ -154,11 +141,6 @@ export default function MainHeader({
 
   const displayName = user?.name || user?.empresa || "Usuario";
 
-  // Ya no usamos el mock, el contador viene del backend (unreadCount)
-
-  const mensajes = mensajesMock;
-  const unreadMessages = mensajes.filter((m) => !m.leido).length;
-
   const closeAllMenus = () => {
     setMenuOpen(false);
     setShowMessages(false);
@@ -167,21 +149,16 @@ export default function MainHeader({
 
   return (
     <header className="relative z-[2500]">
-      {/* Fondo premium */}
       <div className="absolute inset-0 bg-gradient-to-r from-[#071326] via-[#071a33] to-[#050b18]" />
       <div className="absolute inset-0 bg-white/5 backdrop-blur-md" />
 
-      {/* Efectos decorativos */}
       <div className="pointer-events-none absolute -top-10 -left-10 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
       <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-blue-400/10 blur-3xl" />
 
-      {/* CAMBIO: Padding responsivo */}
       <div className="relative flex items-center justify-between px-3 sm:px-5 md:px-6 py-2.5 md:py-3 border-b border-white/10 shadow-[0_12px_30px_-20px_rgba(0,0,0,0.8)]">
         
-        {/* ===== IZQUIERDA: Hamburguesa + Logo ===== */}
+        {/* IZQUIERDA */}
         <div className="flex items-center gap-2 md:gap-3">
-          
-          {/* NUEVO: Botón hamburguesa (solo móvil, hasta lg) */}
           <button
             type="button"
             onClick={onMenuClick}
@@ -192,7 +169,6 @@ export default function MainHeader({
             <MenuIcon className="w-5 h-5 text-white/90" />
           </button>
 
-          {/* Botón volver (opcional) */}
           {showBack && (
             <button
               type="button"
@@ -204,7 +180,6 @@ export default function MainHeader({
             </button>
           )}
 
-          {/* Logo */}
           <button
             type="button"
             onClick={() => {
@@ -222,7 +197,7 @@ export default function MainHeader({
           </button>
         </div>
 
-        {/* ===== CENTRO: Buscador (oculto en móvil) ===== */}
+        {/* CENTRO */}
         {showSearch && (
           <div className="hidden lg:flex flex-1 mx-6">
             <form 
@@ -239,7 +214,6 @@ export default function MainHeader({
               />
               <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5" />
               
-              {/* Botón de búsqueda dentro del input */}
               <button
                 type="submit"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-slate-900 transition"
@@ -254,33 +228,35 @@ export default function MainHeader({
           </div>
         )}
 
-        {/* ===== DERECHA: Notificaciones + Mensajes + Usuario ===== */}
+        {/* DERECHA */}
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 relative" ref={menuRef}>
           
-          {/* Mensajes */}
+          {/* BOTÓN MENSAJES (con contador dinámico real) */}
           <button
             type="button"
             onClick={() => {
               closeAllMenus();
               navigate("/mensajes");
+              setTimeout(cargarContadores, 1000);
             }}
             className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
             title="Mensajes"
           >
             <MessageSquare className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
-            {unreadMessages > 0 && (
-              <span className="absolute top-1.5 right-1.5 block h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#071a33]" />
+            {unreadChatCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-slate-900 text-[10px] font-bold flex items-center justify-center ring-2 ring-[#071a33]">
+                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+              </span>
             )}
           </button>
 
-          {/* Notificaciones */}
+          {/* BOTÓN NOTIFICACIONES */}
           <button
             type="button"
             onClick={() => {
               closeAllMenus();
               navigate("/notificaciones");
-              // Refrescar contador después de 1 segundo (dar tiempo a que el usuario interactúe)
-              setTimeout(cargarContadorNotificaciones, 1000);
+              setTimeout(cargarContadores, 1000);
             }}
             className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
             title="Notificaciones"
@@ -293,7 +269,7 @@ export default function MainHeader({
             )}
           </button>
 
-          {/* Usuario */}
+          {/* MENÚ USUARIO */}
           <button
             type="button"
             onClick={() => {
@@ -319,7 +295,6 @@ export default function MainHeader({
               <UserCircle className="w-7 h-7 md:w-8 md:h-8 text-white/70" />
             )}
 
-            {/* Nombre: solo en desktop */}
             <span className="hidden xl:block font-semibold text-white/90 max-w-[140px] truncate text-sm">
               {displayName}
             </span>
@@ -331,7 +306,6 @@ export default function MainHeader({
             />
           </button>
 
-          {/* Dropdown usuario */}
           {menuOpen && (
             <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1630]/95 backdrop-blur-xl shadow-2xl z-[2600]">
               <div className="px-4 py-3 border-b border-white/10">

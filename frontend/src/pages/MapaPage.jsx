@@ -425,6 +425,18 @@ export default function MapaPage() {
   // ACCIÓN: Conectar
   // ==========================================================
   const handleConectar = (empresa) => {
+    // Si es una empresa real con dueño en el sistema, abrir mensajería
+    const ownerId =
+      empresa?.empresaData?.userId ||
+      empresa?.empresaData?.usuarioId ||
+      null;
+
+    if (empresa.esReal && ownerId) {
+      navigate(`/mensajes?userId=${ownerId}`);
+      return;
+    }
+
+    // Fallback a formulario de comercio
     navigate(`/formulario-comercio/`, {
       state: {
         empresaId: empresa.id,

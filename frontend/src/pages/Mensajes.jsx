@@ -1,33 +1,29 @@
 // src/pages/Mensajes.jsx
-/**
- * MENSAJES (Ecosysval)
- * -------------------------------------------------------
- * ✅ Objetivo:
- * - Bandeja de entrada con búsqueda.
- * - Lista de mensajes + panel de detalle.
- * - Chips (UI) para filtros visuales (MVP).
- *
- * ✅ IMPORTANTE (THEME + FONDO):
- * - ❌ NO usar backgroundImage en la página (NO fondo.png encima).
- * - ✅ El fondo vive globalmente por tema (claro/oscuro) en CSS.
- * - ✅ Aquí solo agregamos overlay "glow" suave para contraste.
- *
- * ✅ UI:
- * - Tokens Tailwind: bg-surface, text-text, border-border, ring, etc.
- * - Chips/badges theme-aware (light/dark).
- */
-
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
-import { mensajesMock } from "../data/mensajesMock";
-import { Search, Mail, MailOpen, ArrowLeft, X } from "lucide-react";
 import { useTheme } from "../components/ThemeProvider";
+import { useChat } from "../hooks/useChat";
+import { api } from "../api/axiosClient";
+import {
+  Search,
+  Mail,
+  MailOpen,
+  Send,
+  Loader2,
+  MessageCircle,
+  Circle,
+  ArrowLeft,
+  X,
+  Plus,
+  Building2,
+} from "lucide-react";
+import { toast } from "sonner";
 
-/** Badge helper (theme-aware) */
 function badgeColor({ theme, color }) {
   const isLight = theme === "light";
-  const base = "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold";
-
+  const base =
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold";
   const map = {
     amber: isLight
       ? "bg-amber-500/10 text-amber-800 border-amber-400/25"
@@ -39,259 +35,601 @@ function badgeColor({ theme, color }) {
       ? "bg-slate-500/10 text-slate-800 border-slate-400/25"
       : "bg-slate-500/15 text-slate-200 border-slate-300/25",
   };
-
   return `${base} ${map[color] || map.slate}`;
 }
 
-/** Chip (theme-aware) */
-function chipClass(active, theme) {
-  const isLight = theme === "light";
-  if (active) return badgeColor({ theme, color: "amber" });
-
-  // chip inactivo suave
-  return [
-    "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold",
-    isLight ? "border-border bg-surface/60 text-muted" : "border-border bg-surface/40 text-muted",
-  ].join(" ");
+function formatearTiempo(fecha) {
+  if (!fecha) return "";
+  const ahora = new Date();
+  const f = new Date(fecha);
+  const diffMs = ahora - f;
+  if (diffMs < 0) return "Ahora";
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHoras = Math.floor(diffMs / 3600000);
+  const diffDias = Math.floor(diffMs / 86400000);
+  if (diffMin < 1) return "Ahora";
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  if (diffHoras < 24) return `Hace ${diffHoras} h`;
+  if (diffDias === 1) return "Ayer";
+  if (diffDias < 7) return `Hace ${diffDias} días`;
+  return f.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
 }
 
 export default function Mensajes() {
   const { theme } = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    conversaciones,
+    mensajes,
+    selectedId,
+    loadingConv,
+    loadingMsg,
+    sending,
+    noLeidosTotal,
+    typingUserId,
+    connected,
+    seleccionarConversacion,
+    enviarMensaje,
+    iniciarConversacion,
+    emitTyping,
+    setSelectedId,
+  } = useChat();
+
   const [q, setQ] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false); // NUEVO
-  const [selected, setSelected] = useState(null);
+  const [filtro, setFiltro] = useState("todas");
+  const [texto, setTexto] = useState("");
+  const bottomRef = useRef(null);
 
-  /** Filtrado por búsqueda (asunto / remitente / preview) */
-  const mensajes = useMemo(() => {
+  // Estados para Modal de Nueva Conversación / Buscador de Empresas
+  const [showModalNuevoChat, setShowModalNuevoChat] = useState(false);
+  const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
+  const [empresasEncontradas, setEmpresasEncontradas] = useState([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+
+  const me = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
+  // Soporta links directo: /mensajes?c=12  o  /mensajes?userId=5
+  useEffect(() => {
+    const c = searchParams.get("c");
+    const userId = searchParams.get("userId");
+
+    if (c) {
+      const id = parseInt(c, 10);
+      if (!Number.isNaN(id)) seleccionarConversacion(id);
+      return;
+    }
+
+    if (userId) {
+      const id = parseInt(userId, 10);
+      if (!Number.isNaN(id)) {
+        iniciarConversacion(id).catch(() => {
+          toast.error("No se pudo iniciar la conversación con ese socio");
+        });
+        setSearchParams({}, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensajes, typingUserId]);
+
+  // Filtrar chats locales existentes
+  const convFiltradas = useMemo(() => {
+    let list = [...conversaciones];
+    if (filtro === "no_leidas") list = list.filter((c) => (c.noLeidos || 0) > 0);
     const term = q.trim().toLowerCase();
-    if (!term) return mensajesMock;
+    if (term) {
+      list = list.filter((c) => {
+        const n = (c.otroUsuario?.name || "").toLowerCase();
+        const m = (c.ultimoMensaje || "").toLowerCase();
+        return n.includes(term) || m.includes(term);
+      });
+    }
+    return list;
+  }, [conversaciones, q, filtro]);
 
-    return mensajesMock.filter((m) => {
-      const a = (m.asunto || "").toLowerCase();
-      const r = (m.remitente || "").toLowerCase();
-      const p = (m.preview || "").toLowerCase();
-      return a.includes(term) || r.includes(term) || p.includes(term);
-    });
-  }, [q]);
+  const selected = useMemo(
+    () => conversaciones.find((c) => c.id === selectedId) || null,
+    [conversaciones, selectedId]
+  );
 
-  /** Conteo de no leídos (mvp) */
-  const unreadCount = useMemo(() => (mensajesMock || []).filter((m) => !m.leido).length, []);
+  async function handleSend(e) {
+    e?.preventDefault?.();
+    if (!texto.trim() || sending) return;
+    const value = texto;
+    setTexto("");
+    emitTyping(false);
+    try {
+      await enviarMensaje(value);
+    } catch (err) {
+      setTexto(value);
+      toast.error("Error al enviar el mensaje");
+    }
+  }
+
+  function onChangeTexto(v) {
+    setTexto(v);
+    emitTyping(true);
+  }
+
+  // Buscar empresas registradas en el directorio global
+  async function buscarEmpresasDirectorio(term) {
+    setBusquedaEmpresa(term);
+    if (!term.trim()) {
+      setEmpresasEncontradas([]);
+      return;
+    }
+
+    setLoadingEmpresas(true);
+    try {
+      const res = await api.get("/empresas");
+      const todas = res.data || [];
+      const query = term.toLowerCase();
+
+      // Filtrar por nombre, correo o representante
+      const filtradas = todas.filter((e) => {
+        const rSocial = (e.razonSocial || "").toLowerCase();
+        const rep = (e.representante || "").toLowerCase();
+        const mail = (e.correo || "").toLowerCase();
+        return rSocial.includes(query) || rep.includes(query) || mail.includes(query);
+      });
+
+      setEmpresasEncontradas(filtradas);
+    } catch (err) {
+      console.error("Error buscando empresas:", err);
+    } finally {
+      setLoadingEmpresas(false);
+    }
+  }
+
+  // Iniciar chat con una empresa encontrada (apertura limpia sin mensaje automático)
+  async function handleIniciarChatConEmpresa(empresa) {
+    if (!empresa.userId) {
+      toast.error("Esta empresa no tiene un usuario de contacto asociado.");
+      return;
+    }
+
+    try {
+      toast.loading("Abriendo conversación...");
+      await iniciarConversacion(empresa.userId);
+      toast.dismiss();
+      toast.success(`Chat abierto con ${empresa.razonSocial}`);
+      setShowModalNuevoChat(false);
+      setBusquedaEmpresa("");
+      setEmpresasEncontradas([]);
+    } catch (err) {
+      toast.dismiss();
+      toast.error("No se pudo iniciar el chat con este usuario.");
+    }
+  }
 
   return (
     <Layout mainClassName="!p-6">
-            <div className="mx-auto w-full max-w-7xl space-y-6">
-              {/* Header de página */}
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-6 py-5">
-                  <div className={badgeColor({ theme, color: "slate" })}>
-                    <span className="h-2 w-2 rounded-full bg-accent" />
-                    <span className="ml-2">Bandeja de entrada</span>
-                  </div>
+      <div className="mx-auto w-full max-w-7xl space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-6 py-5">
+            <div className={badgeColor({ theme, color: "slate" })}>
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  connected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
+                }`}
+              />
+              <span className="ml-2">
+                {connected ? "En tiempo real" : "Conectando al servidor…"}
+              </span>
+            </div>
 
-                  <h1 className="mt-3 text-2xl md:text-3xl font-extrabold text-text">
-                    Mensajes <span className="text-accent">de socios y contactos</span>
-                  </h1>
+            <h1 className="mt-3 text-2xl md:text-3xl font-extrabold text-text">
+              Mensajes <span className="text-accent">de socios y contactos</span>
+            </h1>
+            <p className="mt-2 text-sm text-muted max-w-2xl">
+              Conversaciones instantáneas con empresas del ecosistema Ecosysval.
+            </p>
+            <div className="mt-4 h-1 w-56 rounded bg-accent" />
+          </div>
 
-                  <p className="mt-2 text-sm text-muted max-w-2xl">
-                    Revisa, filtra y gestiona conversaciones dentro del ecosistema.
-                  </p>
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            <button
+              onClick={() => {
+                setShowModalNuevoChat(true);
+                buscarEmpresasDirectorio("");
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo Chat
+            </button>
 
-                  <div className="mt-4 h-1 w-56 rounded bg-accent" />
-                </div>
+            <span className="rounded-full bg-surface/60 text-text px-4 py-2 border border-border text-xs shadow-pro">
+              Sin leer: <strong>{noLeidosTotal}</strong>
+            </span>
+          </div>
+        </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <span className="rounded-full bg-surface/60 text-text px-4 py-2 border border-border text-xs shadow-pro">
-                    No leídos: <strong className="text-text">{unreadCount}</strong>
-                  </span>
-                </div>
+        <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+          {/* LISTA DE CONVERSACIONES */}
+          <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-border">
+              <div className="relative">
+                <Search className="w-4 h-4 text-muted absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar en mis chats activos..."
+                  className="w-full rounded-2xl border border-border bg-surface/60 pl-11 pr-3 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40"
+                />
               </div>
 
-              {/* Grid: lista + detalle */}
-              <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-                {/* LISTA */}
-                <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
-                  <div className="p-5 border-b border-border">
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-muted absolute left-4 top-1/2 -translate-y-1/2" />
-                      <input
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        placeholder="Buscar mensajes..."
-                        className="w-full rounded-2xl border border-border bg-surface/60 pl-11 pr-3 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40"
-                      />
-                    </div>
-
-                    {/* Chips (MVP visual) */}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Chip text="Todos" active theme={theme} />
-                      <Chip text="No leídos" theme={theme} />
-                      <Chip text="Socios" theme={theme} />
-                      <Chip text="Proveedores" theme={theme} />
-                    </div>
-                  </div>
-
-                  <div className="max-h-[650px] overflow-y-auto">
-                    {mensajes.length === 0 ? (
-                      <div className="p-10 text-center text-muted">
-                        <div className="mx-auto mb-3 h-12 w-12 rounded-2xl border border-border bg-surface/40 flex items-center justify-center">
-                          <Mail className="w-6 h-6 text-muted" />
-                        </div>
-                        No hay mensajes que coincidan con tu búsqueda.
-                      </div>
-                    ) : (
-                      mensajes.map((msg, idx) => {
-                        const isSelected = selected?.id === msg.id;
-                        const unread = !msg.leido;
-
-                        return (
-                          <button
-                            key={msg.id}
-                            type="button"
-                            onClick={() => setSelected(msg)}
-                            className={[
-                              "w-full text-left px-5 py-4 flex gap-4 transition",
-                              idx !== mensajes.length - 1 ? "border-b border-border" : "",
-                              unread ? "bg-surface/40" : "bg-transparent",
-                              isSelected ? "ring-1 ring-yellow-400/25 bg-accent/10" : "hover:bg-surface",
-                            ].join(" ")}
-                          >
-                            <div className="mt-0.5">
-                              <div
-                                className={[
-                                  "h-10 w-10 rounded-2xl border flex items-center justify-center",
-                                  unread ? "border-yellow-400/25 bg-accent/10" : "border-border bg-surface/40",
-                                ].join(" ")}
-                              >
-                                {unread ? (
-                                  <Mail className="w-5 h-5 text-accent" />
-                                ) : (
-                                  <MailOpen className="w-5 h-5 text-muted" />
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-3">
-                                <p className="text-sm font-extrabold text-text truncate">{msg.remitente}</p>
-                                <p className="text-[11px] text-muted shrink-0">{msg.tiempo}</p>
-                              </div>
-
-                              <p className="mt-1 text-xs font-semibold text-accent truncate">{msg.asunto}</p>
-
-                              <p className="mt-1 text-xs text-muted line-clamp-2">{msg.preview}</p>
-
-                              <div className="mt-2 flex items-center gap-2">
-                                {unread && (
-                                  <span className={badgeColor({ theme, color: "emerald" })}>
-                                    Nuevo
-                                  </span>
-                                )}
-
-                                <span className={badgeColor({ theme, color: "slate" })}>
-                                  Conversación
-                                </span>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </section>
-
-                {/* DETALLE */}
-                <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
-                  <div className="p-5 border-b border-border flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-2xl border border-border bg-surface/40 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-muted" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-extrabold text-text">Detalle del mensaje</div>
-                        <div className="text-xs text-muted">Selecciona un mensaje para ver el contenido.</div>
-                      </div>
-                    </div>
-
-                    {selected && (
-                      <button
-                        type="button"
-                        onClick={() => setSelected(null)}
-                        className="h-10 w-10 rounded-2xl border border-border bg-surface/60 hover:bg-surface flex items-center justify-center"
-                        title="Cerrar"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {!selected ? (
-                    <div className="p-10 text-center text-muted">
-                      <div className="mx-auto mb-4 h-14 w-14 rounded-3xl border border-border bg-surface/40 flex items-center justify-center">
-                        <MailOpen className="w-7 h-7 text-muted" />
-                      </div>
-                      <p className="text-text font-semibold">Aún no has seleccionado un mensaje</p>
-                      <p className="text-sm text-muted mt-2 max-w-md mx-auto">
-                        Usa la lista de la izquierda para abrir una conversación y revisar la información.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-6">
-                      {/* Header del mensaje */}
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <div className="text-xs text-muted">Remitente</div>
-                          <div className="text-lg font-extrabold text-text">{selected.remitente}</div>
-
-                          <div className="mt-2 text-xs text-muted">Asunto</div>
-                          <div className="text-sm font-semibold text-accent">{selected.asunto}</div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className={badgeColor({ theme, color: "slate" })}>{selected.tiempo}</span>
-                          {!selected.leido && <span className={badgeColor({ theme, color: "emerald" })}>Nuevo</span>}
-                        </div>
-                      </div>
-
-                      {/* Cuerpo */}
-                      <div className="mt-6 rounded-2xl border border-border bg-surface/40 p-5">
-                        <div className="text-xs font-semibold text-muted mb-2">Mensaje</div>
-                        <p className="text-sm text-text/90 whitespace-pre-wrap leading-relaxed">
-                          {/* Si luego agregas msg.body lo muestras aquí.
-                              Por ahora usamos preview como contenido */}
-                          {selected.preview}
-                        </p>
-                      </div>
-
-                      {/* Acciones (placeholder) */}
-                      <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setSelected(null)}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/50 px-4 py-2 text-sm font-semibold text-text hover:bg-surface transition"
-                        >
-                          <ArrowLeft className="w-4 h-4" />
-                          Volver
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => alert("Luego conectamos respuesta real 😉")}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition"
-                        >
-                          Responder
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </section>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex gap-2">
+                  <Chip
+                    text="Todos"
+                    active={filtro === "todas"}
+                    theme={theme}
+                    onClick={() => setFiltro("todas")}
+                  />
+                  <Chip
+                    text="No leídos"
+                    active={filtro === "no_leidas"}
+                    theme={theme}
+                    onClick={() => setFiltro("no_leidas")}
+                  />
+                </div>
               </div>
             </div>
-          </Layout>
+
+            <div className="max-h-[650px] overflow-y-auto flex-1">
+              {loadingConv ? (
+                <div className="p-10 flex justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                </div>
+              ) : convFiltradas.length === 0 ? (
+                <div className="p-8 text-center text-muted flex flex-col items-center justify-center">
+                  <div className="mb-3 h-12 w-12 rounded-2xl border border-border bg-surface/40 flex items-center justify-center">
+                    <Mail className="w-6 h-6 text-muted" />
+                  </div>
+                  <p className="text-sm font-semibold text-text">
+                    {q ? `No hay chats activos con "${q}"` : "Aún no tienes conversaciones activos"}
+                  </p>
+                  <p className="text-xs text-muted mt-1 max-w-xs">
+                    ¿Buscas una empresa registrada nueva?
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowModalNuevoChat(true);
+                      buscarEmpresasDirectorio(q);
+                    }}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent/10 border border-accent/30 text-accent px-3 py-2 text-xs font-bold hover:bg-accent/20 transition"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    Buscar "{q || "empresa"}" en el directorio
+                  </button>
+                </div>
+              ) : (
+                convFiltradas.map((c, idx) => {
+                  const isSelected = selectedId === c.id;
+                  const unread = (c.noLeidos || 0) > 0;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        seleccionarConversacion(c.id);
+                        setSearchParams({ c: String(c.id) }, { replace: true });
+                      }}
+                      className={[
+                        "w-full text-left px-5 py-4 flex gap-4 transition",
+                        idx !== convFiltradas.length - 1 ? "border-b border-border" : "",
+                        unread ? "bg-surface/40" : "bg-transparent",
+                        isSelected
+                          ? "ring-1 ring-yellow-400/25 bg-accent/10"
+                          : "hover:bg-surface",
+                      ].join(" ")}
+                    >
+                      <div className="mt-0.5">
+                        <div
+                          className={[
+                            "h-10 w-10 rounded-2xl border flex items-center justify-center overflow-hidden shrink-0",
+                            unread
+                              ? "border-yellow-400/25 bg-accent/10"
+                              : "border-border bg-surface/40",
+                          ].join(" ")}
+                        >
+                          {c.otroUsuario?.profile_image ? (
+                            <img
+                              src={c.otroUsuario.profile_image}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : unread ? (
+                            <Mail className="w-5 h-5 text-accent" />
+                          ) : (
+                            <MailOpen className="w-5 h-5 text-muted" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-extrabold text-text truncate">
+                            {c.otroUsuario?.name || "Socio Ecosysval"}
+                          </p>
+                          <p className="text-[11px] text-muted shrink-0">
+                            {formatearTiempo(c.ultimoMensajeAt || c.createdAt)}
+                          </p>
+                        </div>
+                        <p className="mt-1 text-xs text-muted line-clamp-2">
+                          {c.ultimoMensaje || "Sin mensajes aún"}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          {unread && (
+                            <span className={badgeColor({ theme, color: "emerald" })}>
+                              {c.noLeidos} nuevo{c.noLeidos > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* PANEL DETALLE DEL CHAT */}
+          <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col min-h-[650px]">
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-2xl border border-border bg-surface/40 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-5 h-5 text-muted" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold text-text truncate">
+                    {selected ? selected.otroUsuario?.name : "Conversación"}
+                  </div>
+                  <div className="text-xs text-muted">
+                    {selected
+                      ? typingUserId
+                        ? "Escribiendo…"
+                        : selected.otroUsuario?.email || "Contacto directo"
+                      : "Selecciona un chat o busca una empresa"}
+                  </div>
+                </div>
+              </div>
+
+              {selected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(null);
+                    setSearchParams({}, { replace: true });
+                  }}
+                  className="h-10 w-10 rounded-2xl border border-border bg-surface/60 hover:bg-surface flex items-center justify-center"
+                  title="Cerrar chat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {!selected ? (
+              <div className="p-10 text-center text-muted flex-1 flex flex-col items-center justify-center">
+                <div className="mx-auto mb-4 h-14 w-14 rounded-3xl border border-border bg-surface/40 flex items-center justify-center">
+                  <MailOpen className="w-7 h-7 text-muted" />
+                </div>
+                <p className="text-text font-semibold">
+                  Ningún mensaje seleccionado
+                </p>
+                <p className="text-sm text-muted mt-2 max-w-md">
+                  Selecciona una conversación o busca socios empresariales para negociar.
+                </p>
+                <button
+                  onClick={() => {
+                    setShowModalNuevoChat(true);
+                    buscarEmpresasDirectorio("");
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-pro hover:brightness-95 transition"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Buscar empresa registrada
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Mensajes */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]">
+                  {loadingMsg ? (
+                    <div className="p-10 flex justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                    </div>
+                  ) : mensajes.length === 0 ? (
+                    <div className="text-center text-muted text-sm py-10">
+                      No hay mensajes aún. ¡Envía el primer mensaje!
+                    </div>
+                  ) : (
+                    mensajes.map((m) => {
+                      const mine = m.senderId === me?.id;
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={[
+                              "max-w-[80%] rounded-2xl px-4 py-2.5 border text-sm whitespace-pre-wrap break-words shadow-sm",
+                              mine
+                                ? "bg-accent text-slate-900 border-accent/30 font-medium"
+                                : "bg-surface/50 text-text border-border",
+                            ].join(" ")}
+                          >
+                            <p>{m.contenido}</p>
+                            <div
+                              className={`mt-1 text-[10px] flex items-center gap-1 ${
+                                mine ? "text-slate-800/70 justify-end" : "text-muted"
+                              }`}
+                            >
+                              <span>{formatearTiempo(m.createdAt)}</span>
+                              {mine && (
+                                <span>{m.leido ? "· Leído" : "· Enviado"}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+
+                  {typingUserId && (
+                    <div className="text-xs text-muted flex items-center gap-2 italic">
+                      <Circle className="w-2 h-2 fill-current animate-pulse text-accent" />
+                      El socio está escribiendo…
+                    </div>
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+
+                {/* Input envío */}
+                <form
+                  onSubmit={handleSend}
+                  className="p-4 border-t border-border flex items-end gap-2 bg-surface/20"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(null);
+                      setSearchParams({}, { replace: true });
+                    }}
+                    className="hidden sm:inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface/50 shrink-0"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+
+                  <textarea
+                    value={texto}
+                    onChange={(e) => onChangeTexto(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    rows={1}
+                    placeholder="Escribe un mensaje... (Enter para enviar)"
+                    className="flex-1 resize-none rounded-2xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40 max-h-32"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={sending || !texto.trim()}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition disabled:opacity-50 shrink-0"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Enviar
+                  </button>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* MODAL: BUSCAR EMPRESAS Y ABRIR NUEVO CHAT */}
+      {showModalNuevoChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-accent" />
+                <h3 className="font-extrabold text-text text-lg">Directorio de Empresas</h3>
+              </div>
+              <button
+                onClick={() => setShowModalNuevoChat(false)}
+                className="rounded-full p-1 hover:bg-surface/80 text-muted"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted absolute left-3.5 top-3.5" />
+              <input
+                autoFocus
+                type="text"
+                value={busquedaEmpresa}
+                onChange={(e) => buscarEmpresasDirectorio(e.target.value)}
+                placeholder="Ej: Tereos SA, Afore, Constructora..."
+                className="w-full rounded-2xl border border-border bg-surface/80 pl-10 pr-4 py-2.5 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/40"
+              />
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+              {loadingEmpresas ? (
+                <div className="p-6 text-center text-muted flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  Buscando empresas...
+                </div>
+              ) : empresasEncontradas.length === 0 ? (
+                <div className="p-6 text-center text-muted text-xs">
+                  {busquedaEmpresa
+                    ? `No se encontraron empresas con "${busquedaEmpresa}"`
+                    : "Escribe el nombre de la empresa para buscar."}
+                </div>
+              ) : (
+                empresasEncontradas.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center justify-between p-3 rounded-2xl border border-border bg-surface/40 hover:bg-surface/80 transition"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-text">{emp.razonSocial}</p>
+                      <p className="text-xs text-muted">
+                        {emp.representante ? `Rep: ${emp.representante}` : emp.correo}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleIniciarChatConEmpresa(emp)}
+                      className="px-3 py-1.5 rounded-xl bg-accent text-slate-900 text-xs font-bold hover:brightness-95 transition"
+                    >
+                      Iniciar chat
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
   );
 }
 
-/* ---------- UI helpers ---------- */
+function Chip({ text, active = false, theme, onClick }) {
+  const isLight = theme === "light";
+  const cls = active
+    ? badgeColor({ theme, color: "amber" })
+    : [
+        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold cursor-pointer transition",
+        isLight
+          ? "border-border bg-surface/60 text-muted hover:bg-surface"
+          : "border-border bg-surface/40 text-muted hover:bg-surface",
+      ].join(" ");
 
-function Chip({ text, active = false, theme }) {
-  return <span className={chipClass(active, theme)}>{text}</span>;
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      {text}
+    </button>
+  );
 }
