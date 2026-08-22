@@ -32,42 +32,85 @@ import { obtenerRecomendaciones } from "../api/pythonAPI";
 import { api } from "../api/axiosClient";
 
 // ==========================================================
-// DICCIONARIO DE COORDENADAS POR ESTADO (MÉXICO)
+// DICCIONARIO DE COORDENADAS NORMALIZADO POR ESTADO (MÉXICO)
 // ==========================================================
 const COORDENADAS_ESTADOS = {
-  "Aguascalientes": { lat: 21.8818, lng: -102.2915 },
-  "Baja California": { lat: 30.8406, lng: -115.2838 },
-  "Baja California Sur": { lat: 26.0444, lng: -111.1666 },
-  "Campeche": { lat: 19.8301, lng: -90.5349 },
-  "Coahuila de Zaragoza": { lat: 27.0587, lng: -101.7068 },
-  "Colima": { lat: 19.2452, lng: -103.7241 },
-  "Chiapas": { lat: 16.7569, lng: -93.1292 },
-  "Chihuahua": { lat: 28.6320, lng: -106.0691 },
-  "Ciudad de México": { lat: 19.4326, lng: -99.1332 },
-  "Durango": { lat: 24.0277, lng: -104.6532 },
-  "Guanajuato": { lat: 21.0190, lng: -101.2574 },
-  "Guerrero": { lat: 17.5516, lng: -99.5010 },
-  "Hidalgo": { lat: 20.0911, lng: -98.7624 },
-  "Jalisco": { lat: 20.6597, lng: -103.3496 },
-  "México": { lat: 19.3235, lng: -99.5694 },
-  "Michoacán de Ocampo": { lat: 19.1687, lng: -101.8996 },
-  "Morelos": { lat: 18.7305, lng: -99.0660 },
-  "Nayarit": { lat: 21.7514, lng: -104.8455 },
-  "Nuevo León": { lat: 25.5922, lng: -99.9962 },
-  "Oaxaca": { lat: 17.0732, lng: -96.7266 },
-  "Puebla": { lat: 19.0414, lng: -98.2063 },
-  "Querétaro": { lat: 20.5881, lng: -100.3899 },
-  "Quintana Roo": { lat: 19.1817, lng: -88.4791 },
-  "San Luis Potosí": { lat: 22.1565, lng: -100.9855 },
-  "Sinaloa": { lat: 25.1721, lng: -107.4795 },
-  "Sonora": { lat: 29.2972, lng: -110.3309 },
-  "Tabasco": { lat: 17.9869, lng: -92.9303 },
-  "Tamaulipas": { lat: 24.2669, lng: -98.8363 },
-  "Tlaxcala": { lat: 19.3139, lng: -98.2404 },
-  "Veracruz de Ignacio de la Llave": { lat: 19.1738, lng: -96.1342 },
-  "Yucatán": { lat: 20.7099, lng: -89.0943 },
-  "Zacatecas": { lat: 22.7709, lng: -102.5832 },
+  "aguascalientes": { lat: 21.8818, lng: -102.2915 },
+  "baja california": { lat: 30.8406, lng: -115.2838 },
+  "baja california sur": { lat: 26.0444, lng: -111.1666 },
+  "campeche": { lat: 19.8301, lng: -90.5349 },
+  "chiapas": { lat: 16.7569, lng: -93.1292 },
+  "chihuahua": { lat: 28.6320, lng: -106.0691 },
+  "ciudad de mexico": { lat: 19.4326, lng: -99.1332 },
+  "cdmx": { lat: 19.4326, lng: -99.1332 },
+  "df": { lat: 19.4326, lng: -99.1332 },
+  "distrito federal": { lat: 19.4326, lng: -99.1332 },
+  "coahuila": { lat: 27.0587, lng: -101.7068 },
+  "coahuila de zaragoza": { lat: 27.0587, lng: -101.7068 },
+  "colima": { lat: 19.2452, lng: -103.7241 },
+  "durango": { lat: 24.0277, lng: -104.6532 },
+  "estado de mexico": { lat: 19.3235, lng: -99.5694 },
+  "mexico": { lat: 19.3235, lng: -99.5694 },
+  "edomex": { lat: 19.3235, lng: -99.5694 },
+  "guanajuato": { lat: 21.0190, lng: -101.2574 },
+  "guerrero": { lat: 17.5516, lng: -99.5010 },
+  "hidalgo": { lat: 20.0911, lng: -98.7624 },
+  "jalisco": { lat: 20.6597, lng: -103.3496 },
+  "michoacan": { lat: 19.1687, lng: -101.8996 },
+  "michoacan de ocampo": { lat: 19.1687, lng: -101.8996 },
+  "morelos": { lat: 18.7305, lng: -99.0660 },
+  "nayarit": { lat: 21.7514, lng: -104.8455 },
+  "nuevo leon": { lat: 25.5922, lng: -99.9962 },
+  "oaxaca": { lat: 17.0732, lng: -96.7266 },
+  "puebla": { lat: 19.0414, lng: -98.2063 },
+  "queretaro": { lat: 20.5881, lng: -100.3899 },
+  "quintana roo": { lat: 19.1817, lng: -88.4791 },
+  "san luis potosi": { lat: 22.1565, lng: -100.9855 },
+  "sinaloa": { lat: 25.1721, lng: -107.4795 },
+  "sonora": { lat: 29.2972, lng: -110.3309 },
+  "tabasco": { lat: 17.9869, lng: -92.9303 },
+  "tamaulipas": { lat: 24.2669, lng: -98.8363 },
+  "tlaxcala": { lat: 19.3139, lng: -98.2404 },
+  "veracruz": { lat: 19.1738, lng: -96.1342 },
+  "veracruz de ignacio de la llave": { lat: 19.1738, lng: -96.1342 },
+  "yucatan": { lat: 20.7099, lng: -89.0943 },
+  "zacatecas": { lat: 22.7709, lng: -102.5832 },
 };
+
+/** Helper para quitar acentos, espacios extra y mayúsculas */
+function normalizarTextoEstado(str) {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // quita tildes/acentos
+    .trim();
+}
+
+/**
+ * Obtiene coordenadas basadas en el estado.
+ * Usa un desplazamiento fijo basado en el ID de la empresa para que
+ * los pines del mismo estado no se encimen y NO se muevan al recargar.
+ */
+function obtenerCoordenadasPorEstado(estadoNombre, id = "1") {
+  const norm = normalizarTextoEstado(estadoNombre);
+  const baseCoords = COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
+  
+  // Hash fijo basado en el ID (sin Math.random)
+  let seed = 0;
+  const strId = String(id || "1");
+  for (let i = 0; i < strId.length; i++) {
+    seed += strId.charCodeAt(i);
+  }
+  
+  const offsetLat = ((seed % 20) - 10) * 0.003;
+  const offsetLng = (((seed * 3) % 20) - 10) * 0.003;
+  
+  return {
+    lat: baseCoords.lat + offsetLat,
+    lng: baseCoords.lng + offsetLng,
+  };
+}
 
 // ==========================================================
 // FALLBACK: Datos mock si la API falla
@@ -81,7 +124,7 @@ const empresasMock = [
     servicios: null,
     ciudad: "Ciudad de México",
     estado: "Ciudad de México",
-    ...COORDENADAS_ESTADOS["Ciudad de México"],
+    ...obtenerCoordenadasPorEstado("Ciudad de México", "0000123"),
   },
   {
     id: "0000124",
@@ -91,7 +134,7 @@ const empresasMock = [
     servicios: "Transporte",
     ciudad: "Chiapas",
     estado: "Chiapas",
-    ...COORDENADAS_ESTADOS["Chiapas"],
+    ...obtenerCoordenadasPorEstado("Chiapas", "0000124"),
   },
 ];
 
@@ -108,22 +151,6 @@ const beneficiosNiveles = [
   { title: "Financiamiento", tier: "black", detail: "Opciones de financiación e intermediación según perfil." },
   { title: "Desarrollo Organizacional Sustentable", tier: "black", detail: "Programas para sostenibilidad, cultura y desempeño." },
 ];
-
-/**
- * Obtiene coordenadas basadas en el estado, aplicando una micro-dispersion
- * para que los pines no queden unos exactamente encima de otros.
- */
-function obtenerCoordenadasPorEstado(estadoNombre) {
-  const baseCoords = COORDENADAS_ESTADOS[estadoNombre] || COORDENADAS_ESTADOS["Ciudad de México"];
-  // Variación aleatoria de aprox. 2-5 km a la redonda
-  const offsetLat = (Math.random() - 0.5) * 0.05;
-  const offsetLng = (Math.random() - 0.5) * 0.05;
-  
-  return {
-    lat: baseCoords.lat + offsetLat,
-    lng: baseCoords.lng + offsetLng,
-  };
-}
 
 async function transformarDatosPython(datosPython, apiClient) {
   if (!datosPython) return [];
@@ -168,7 +195,7 @@ async function transformarDatosPython(datosPython, apiClient) {
           servicios: cliente.categoria,
           ciudad: empresa.estado || "Ciudad de México",
           estado: empresa.estado || "Ciudad de México",
-          ...obtenerCoordenadasPorEstado(empresa.estado), // <- ubicacion real
+          ...obtenerCoordenadasPorEstado(empresa.estado, empresa.id), // <- ubicacion real
           categoria: cliente.categoria,
           porcentaje: cliente.porcentaje,
           coeficiente: cliente.coeficiente,
@@ -188,7 +215,7 @@ async function transformarDatosPython(datosPython, apiClient) {
         servicios: cliente.categoria,
         ciudad: "México",
         estado: "Sector Recomendado",
-        ...obtenerCoordenadasPorEstado("Ciudad de México"), // Los teoricos van al centro
+        ...obtenerCoordenadasPorEstado("Ciudad de México", cliente.codigo), // Los teoricos van al centro
         categoria: cliente.categoria,
         porcentaje: cliente.porcentaje,
         coeficiente: cliente.coeficiente,
@@ -212,7 +239,7 @@ async function transformarDatosPython(datosPython, apiClient) {
           servicios: proveedor.categoria,
           ciudad: empresa.estado || "Ciudad de México",
           estado: empresa.estado || "Ciudad de México",
-          ...obtenerCoordenadasPorEstado(empresa.estado), // <- ubicacion real
+          ...obtenerCoordenadasPorEstado(empresa.estado, empresa.id), // <- ubicacion real
           categoria: proveedor.categoria,
           porcentaje: proveedor.porcentaje,
           coeficiente: proveedor.coeficiente,
@@ -231,7 +258,7 @@ async function transformarDatosPython(datosPython, apiClient) {
         servicios: proveedor.categoria,
         ciudad: "México",
         estado: "Sector Recomendado",
-        ...obtenerCoordenadasPorEstado("Ciudad de México"),
+        ...obtenerCoordenadasPorEstado("Ciudad de México", proveedor.codigo),
         categoria: proveedor.categoria,
         porcentaje: proveedor.porcentaje,
         coeficiente: proveedor.coeficiente,
