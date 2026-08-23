@@ -26,8 +26,9 @@ import {
   Truck,
   Award,
 } from "lucide-react";
-import { toast } from "sonner"; // NUEVO
+import { toast } from "sonner";
 import ResenasSection from "../components/ResenasSection";
+import HistorialInteracciones from "../components/HistorialInteracciones";
 import SkeletonPerfilEmpresa from "../components/SkeletonPerfilEmpresa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
@@ -81,6 +82,7 @@ export default function Perfil() {
     vision: "",
   });
   const [guardando, setGuardando] = useState(false);
+  const [tab, setTab] = useState("perfil");
 
   // Cuando carga la empresa, llena el formulario temporal
   useEffect(() => {
@@ -265,31 +267,61 @@ export default function Perfil() {
                   </p>
                 </div>
 
-                {/* Botones: Editar + Descargar PDF */}
+                {/* Botones del header */}
                 <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => {
-                      setDatosForm({ ...empresa }); // Asegura datos frescos al abrir
-                      setModalAbierto(true);
-                    }}
-                    className="bg-accent hover:brightness-95 active:scale-95 text-slate-900 px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition"
+                    type="button"
+                    onClick={() => setTab("perfil")}
+                    className={`px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition border ${
+                      tab === "perfil"
+                        ? "bg-accent text-slate-900 border-accent shadow-pro"
+                        : "bg-white/5 text-white border-white/10 hover:bg-white/10"
+                    }`}
                   >
-                    <Pencil className="w-4 h-4" />
-                    Editar Perfil
+                    <Building2 className="w-4 h-4" />
+                    Mi Empresa
                   </button>
 
                   <button
-                    onClick={descargarPDF}
-                    disabled={downloading || !empresa?.id}
-                    className="bg-yellow-400 hover:bg-yellow-300 disabled:opacity-60 text-slate-900 px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition"
+                    type="button"
+                    onClick={() => setTab("historial")}
+                    className={`px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition border ${
+                      tab === "historial"
+                        ? "bg-accent text-slate-900 border-accent shadow-pro"
+                        : "bg-white/5 text-white border-white/10 hover:bg-white/10"
+                    }`}
                   >
-                    {downloading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FileDown className="w-4 h-4" />
-                    )}
-                    Descargar PDF
+                    <Award className="w-4 h-4" />
+                    Historial
                   </button>
+
+                  {tab === "perfil" && (
+                    <button
+                      onClick={() => {
+                        setDatosForm({ ...empresa });
+                        setModalAbierto(true);
+                      }}
+                      className="bg-white/10 hover:bg-white/15 active:scale-95 text-white px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition border border-white/10"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Editar Perfil
+                    </button>
+                  )}
+
+                  {tab === "perfil" && (
+                    <button
+                      onClick={descargarPDF}
+                      disabled={downloading}
+                      className="bg-white/10 hover:bg-white/15 active:scale-95 text-white px-4 py-2 rounded-2xl inline-flex items-center gap-2 font-semibold transition border border-white/10 disabled:opacity-50"
+                    >
+                      {downloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileDown className="w-4 h-4" />
+                      )}
+                      Descargar PDF
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -310,6 +342,11 @@ export default function Perfil() {
               </div>
             )}
 
+            {/* ===== CONTENIDO SEGÚN PESTAÑA ===== */}
+            {tab === "historial" ? (
+              <HistorialInteracciones />
+            ) : (
+              <>
             {/* SECCIÓN 1: Datos generales */}
             <SectionCard icon={<Building2 />} title="Datos generales de la empresa">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -467,8 +504,10 @@ export default function Perfil() {
 
             {/* SECCIÓN 8: Reseñas y calificaciones */}
             <ResenasSection empresaId={empresa.id} esOwner={true} />
+              </>
+            )}
 
-</div>
+        </div>
       </Layout>
 
 
