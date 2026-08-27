@@ -37,17 +37,17 @@ import { ResenaModule } from './resena/resena.module';
       {
         name: 'short',
         ttl: 1000, // 1 segundo
-        limit: 3, // 3 peticiones por segundo
+        limit: 15, // 3 peticiones por segundo
       },
       {
         name: 'medium',
         ttl: 10000, // 10 segundos
-        limit: 20, // 20 peticiones por 10 segundos
+        limit: 40, // 20 peticiones por 10 segundos
       },
       {
         name: 'long',
         ttl: 60000, // 1 minuto
-        limit: 100, // 100 peticiones por minuto
+        limit: 150, // 100 peticiones por minuto
       },
     ]),
 

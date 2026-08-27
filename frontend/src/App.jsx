@@ -57,6 +57,9 @@ import Explorar from "./pages/Explorar"; // NUEVO
 // NUEVA PÁGINA: Panel de Administrador
 import Admin from "./pages/Admin";
 
+import AdminReportes from "./pages/AdminReportes";
+import AdminConfiguracion from "./pages/AdminConfiguracion";
+
 function AppContent() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -167,6 +170,8 @@ function AppContent() {
           <Route path="usuarios" element={<AdminUsuarios />} />
           <Route path="empresas" element={<AdminEmpresas />} />
           <Route path="empleos" element={<AdminEmpleos />} />
+          <Route path="reportes" element={<AdminReportes />} />
+          <Route path="configuracion" element={<AdminConfiguracion />} />
           
         </Route>
         </Routes>

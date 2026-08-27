@@ -1,6 +1,7 @@
 // src/pages/Mensajes.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 import { useChat } from "../hooks/useChat";
@@ -12,13 +13,20 @@ import {
   Send,
   Loader2,
   MessageCircle,
-  Circle,
   ArrowLeft,
   X,
   Plus,
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  fadeIn,
+  slideUp,
+  scaleIn,
+  staggerContainer,
+  staggerItem,
+  pageTransition,
+} from "../utils/animations";
 
 function badgeColor({ theme, color }) {
   const isLight = theme === "light";
@@ -55,6 +63,35 @@ function formatearTiempo(fecha) {
   return f.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
 }
 
+// Indicador de "escribiendo" animado con puntos
+function TypingIndicator() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -5 }}
+      className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface/50 border border-border w-fit"
+    >
+      <span className="text-xs text-muted italic">Escribiendo</span>
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <motion.span
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-accent"
+            animate={{ y: [0, -4, 0] }}
+            transition={{
+              duration: 0.6,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.15,
+            }}
+          />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Mensajes() {
   const { theme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,7 +117,6 @@ export default function Mensajes() {
   const [texto, setTexto] = useState("");
   const bottomRef = useRef(null);
 
-  // Estados para Modal de Nueva Conversación / Buscador de Empresas
   const [showModalNuevoChat, setShowModalNuevoChat] = useState(false);
   const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
   const [empresasEncontradas, setEmpresasEncontradas] = useState([]);
@@ -94,7 +130,6 @@ export default function Mensajes() {
     }
   }, []);
 
-  // Soporta links directo: /mensajes?c=12  o  /mensajes?userId=5
   useEffect(() => {
     const c = searchParams.get("c");
     const userId = searchParams.get("userId");
@@ -121,7 +156,6 @@ export default function Mensajes() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensajes, typingUserId]);
 
-  // Filtrar chats locales existentes
   const convFiltradas = useMemo(() => {
     let list = [...conversaciones];
     if (filtro === "no_leidas") list = list.filter((c) => (c.noLeidos || 0) > 0);
@@ -160,7 +194,6 @@ export default function Mensajes() {
     emitTyping(true);
   }
 
-  // Buscar empresas registradas en el directorio global
   async function buscarEmpresasDirectorio(term) {
     setBusquedaEmpresa(term);
     if (!term.trim()) {
@@ -174,7 +207,6 @@ export default function Mensajes() {
       const todas = res.data || [];
       const query = term.toLowerCase();
 
-      // Filtrar por nombre, correo o representante
       const filtradas = todas.filter((e) => {
         const rSocial = (e.razonSocial || "").toLowerCase();
         const rep = (e.representante || "").toLowerCase();
@@ -190,7 +222,6 @@ export default function Mensajes() {
     }
   }
 
-  // Iniciar chat con una empresa encontrada (apertura limpia sin mensaje automático)
   async function handleIniciarChatConEmpresa(empresa) {
     if (!empresa.userId) {
       toast.error("Esta empresa no tiene un usuario de contacto asociado.");
@@ -213,12 +244,20 @@ export default function Mensajes() {
 
   return (
     <Layout mainClassName="!p-6">
-      <div className="mx-auto w-full max-w-7xl space-y-6">
+      <motion.div
+        {...pageTransition}
+        className="mx-auto w-full max-w-7xl space-y-6"
+      >
         {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <motion.div
+          {...fadeIn}
+          className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+        >
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-6 py-5">
             <div className={badgeColor({ theme, color: "slate" })}>
-              <span
+              <motion.span
+                animate={{ scale: connected ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 1.5, repeat: Infinity }}
                 className={`h-2 w-2 rounded-full ${
                   connected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
                 }`}
@@ -238,7 +277,9 @@ export default function Mensajes() {
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-auto">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setShowModalNuevoChat(true);
                 buscarEmpresasDirectorio("");
@@ -247,17 +288,21 @@ export default function Mensajes() {
             >
               <Plus className="w-4 h-4" />
               Nuevo Chat
-            </button>
+            </motion.button>
 
             <span className="rounded-full bg-surface/60 text-text px-4 py-2 border border-border text-xs shadow-pro">
               Sin leer: <strong>{noLeidosTotal}</strong>
             </span>
           </div>
-        </div>
+        </motion.div>
 
         <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
           {/* LISTA DE CONVERSACIONES */}
-          <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col">
+          <motion.section
+            {...fadeIn}
+            transition={{ delay: 0.1 }}
+            className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col"
+          >
             <div className="p-5 border-b border-border">
               <div className="relative">
                 <Search className="w-4 h-4 text-muted absolute left-4 top-1/2 -translate-y-1/2" />
@@ -293,7 +338,10 @@ export default function Mensajes() {
                   <Loader2 className="w-6 h-6 animate-spin text-accent" />
                 </div>
               ) : convFiltradas.length === 0 ? (
-                <div className="p-8 text-center text-muted flex flex-col items-center justify-center">
+                <motion.div
+                  {...scaleIn}
+                  className="p-8 text-center text-muted flex flex-col items-center justify-center"
+                >
                   <div className="mb-3 h-12 w-12 rounded-2xl border border-border bg-surface/40 flex items-center justify-center">
                     <Mail className="w-6 h-6 text-muted" />
                   </div>
@@ -303,7 +351,9 @@ export default function Mensajes() {
                   <p className="text-xs text-muted mt-1 max-w-xs">
                     ¿Buscas una empresa registrada nueva?
                   </p>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => {
                       setShowModalNuevoChat(true);
                       buscarEmpresasDirectorio(q);
@@ -312,81 +362,103 @@ export default function Mensajes() {
                   >
                     <Search className="w-3.5 h-3.5" />
                     Buscar "{q || "empresa"}" en el directorio
-                  </button>
-                </div>
+                  </motion.button>
+                </motion.div>
               ) : (
-                convFiltradas.map((c, idx) => {
-                  const isSelected = selectedId === c.id;
-                  const unread = (c.noLeidos || 0) > 0;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        seleccionarConversacion(c.id);
-                        setSearchParams({ c: String(c.id) }, { replace: true });
-                      }}
-                      className={[
-                        "w-full text-left px-5 py-4 flex gap-4 transition",
-                        idx !== convFiltradas.length - 1 ? "border-b border-border" : "",
-                        unread ? "bg-surface/40" : "bg-transparent",
-                        isSelected
-                          ? "ring-1 ring-yellow-400/25 bg-accent/10"
-                          : "hover:bg-surface",
-                      ].join(" ")}
-                    >
-                      <div className="mt-0.5">
-                        <div
+                <motion.div
+                  variants={staggerContainer}
+                  initial="initial"
+                  animate="animate"
+                >
+                  <AnimatePresence>
+                    {convFiltradas.map((c, idx) => {
+                      const isSelected = selectedId === c.id;
+                      const unread = (c.noLeidos || 0) > 0;
+                      return (
+                        <motion.button
+                          key={c.id}
+                          variants={staggerItem}
+                          layout
+                          whileHover={{ x: 3 }}
+                          type="button"
+                          onClick={() => {
+                            seleccionarConversacion(c.id);
+                            setSearchParams({ c: String(c.id) }, { replace: true });
+                          }}
                           className={[
-                            "h-10 w-10 rounded-2xl border flex items-center justify-center overflow-hidden shrink-0",
-                            unread
-                              ? "border-yellow-400/25 bg-accent/10"
-                              : "border-border bg-surface/40",
+                            "w-full text-left px-5 py-4 flex gap-4 transition",
+                            idx !== convFiltradas.length - 1 ? "border-b border-border" : "",
+                            unread ? "bg-surface/40" : "bg-transparent",
+                            isSelected
+                              ? "ring-1 ring-yellow-400/25 bg-accent/10"
+                              : "hover:bg-surface",
                           ].join(" ")}
                         >
-                          {c.otroUsuario?.profile_image ? (
-                            <img
-                              src={c.otroUsuario.profile_image}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : unread ? (
-                            <Mail className="w-5 h-5 text-accent" />
-                          ) : (
-                            <MailOpen className="w-5 h-5 text-muted" />
-                          )}
-                        </div>
-                      </div>
+                          <div className="mt-0.5">
+                            <div
+                              className={[
+                                "h-10 w-10 rounded-2xl border flex items-center justify-center overflow-hidden shrink-0",
+                                unread
+                                  ? "border-yellow-400/25 bg-accent/10"
+                                  : "border-border bg-surface/40",
+                              ].join(" ")}
+                            >
+                              {c.otroUsuario?.profile_image ? (
+                                <img
+                                  src={c.otroUsuario.profile_image}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : unread ? (
+                                <Mail className="w-5 h-5 text-accent" />
+                              ) : (
+                                <MailOpen className="w-5 h-5 text-muted" />
+                              )}
+                            </div>
+                          </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-extrabold text-text truncate">
-                            {c.otroUsuario?.name || "Socio Ecosysval"}
-                          </p>
-                          <p className="text-[11px] text-muted shrink-0">
-                            {formatearTiempo(c.ultimoMensajeAt || c.createdAt)}
-                          </p>
-                        </div>
-                        <p className="mt-1 text-xs text-muted line-clamp-2">
-                          {c.ultimoMensaje || "Sin mensajes aún"}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          {unread && (
-                            <span className={badgeColor({ theme, color: "emerald" })}>
-                              {c.noLeidos} nuevo{c.noLeidos > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-sm font-extrabold text-text truncate">
+                                {c.otroUsuario?.name || "Socio Ecosysval"}
+                              </p>
+                              <p className="text-[11px] text-muted shrink-0">
+                                {formatearTiempo(c.ultimoMensajeAt || c.createdAt)}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-xs text-muted line-clamp-2">
+                              {c.ultimoMensaje || "Sin mensajes aún"}
+                            </p>
+                            <AnimatePresence>
+                              {unread && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.8 }}
+                                  className="mt-2 flex items-center gap-2"
+                                >
+                                  <span className={badgeColor({ theme, color: "emerald" })}>
+                                    {c.noLeidos} nuevo{c.noLeidos > 1 ? "s" : ""}
+                                  </span>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </AnimatePresence>
+                </motion.div>
               )}
             </div>
-          </section>
+          </motion.section>
 
           {/* PANEL DETALLE DEL CHAT */}
-          <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col min-h-[650px]">
+          <motion.section
+            {...fadeIn}
+            transition={{ delay: 0.2 }}
+            className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden flex flex-col min-h-[650px]"
+          >
             <div className="p-5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="h-10 w-10 rounded-2xl border border-border bg-surface/40 flex items-center justify-center shrink-0">
@@ -407,7 +479,9 @@ export default function Mensajes() {
               </div>
 
               {selected && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05, rotate: 90 }}
+                  whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={() => {
                     setSelectedId(null);
@@ -417,201 +491,241 @@ export default function Mensajes() {
                   title="Cerrar chat"
                 >
                   <X className="w-5 h-5" />
-                </button>
+                </motion.button>
               )}
             </div>
 
-            {!selected ? (
-              <div className="p-10 text-center text-muted flex-1 flex flex-col items-center justify-center">
-                <div className="mx-auto mb-4 h-14 w-14 rounded-3xl border border-border bg-surface/40 flex items-center justify-center">
-                  <MailOpen className="w-7 h-7 text-muted" />
-                </div>
-                <p className="text-text font-semibold">
-                  Ningún mensaje seleccionado
-                </p>
-                <p className="text-sm text-muted mt-2 max-w-md">
-                  Selecciona una conversación o busca socios empresariales para negociar.
-                </p>
-                <button
-                  onClick={() => {
-                    setShowModalNuevoChat(true);
-                    buscarEmpresasDirectorio("");
-                  }}
-                  className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-pro hover:brightness-95 transition"
+            <AnimatePresence mode="wait">
+              {!selected ? (
+                <motion.div
+                  key="empty"
+                  {...fadeIn}
+                  className="p-10 text-center text-muted flex-1 flex flex-col items-center justify-center"
                 >
-                  <Building2 className="w-4 h-4" />
-                  Buscar empresa registrada
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Mensajes */}
-                <div className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]">
-                  {loadingMsg ? (
-                    <div className="p-10 flex justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-accent" />
-                    </div>
-                  ) : mensajes.length === 0 ? (
-                    <div className="text-center text-muted text-sm py-10">
-                      No hay mensajes aún. ¡Envía el primer mensaje!
-                    </div>
-                  ) : (
-                    mensajes.map((m) => {
-                      const mine = m.senderId === me?.id;
-                      return (
-                        <div
-                          key={m.id}
-                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={[
-                              "max-w-[80%] rounded-2xl px-4 py-2.5 border text-sm whitespace-pre-wrap break-words shadow-sm",
-                              mine
-                                ? "bg-accent text-slate-900 border-accent/30 font-medium"
-                                : "bg-surface/50 text-text border-border",
-                            ].join(" ")}
-                          >
-                            <p>{m.contenido}</p>
-                            <div
-                              className={`mt-1 text-[10px] flex items-center gap-1 ${
-                                mine ? "text-slate-800/70 justify-end" : "text-muted"
-                              }`}
-                            >
-                              <span>{formatearTiempo(m.createdAt)}</span>
-                              {mine && (
-                                <span>{m.leido ? "· Leído" : "· Enviado"}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-
-                  {typingUserId && (
-                    <div className="text-xs text-muted flex items-center gap-2 italic">
-                      <Circle className="w-2 h-2 fill-current animate-pulse text-accent" />
-                      El socio está escribiendo…
-                    </div>
-                  )}
-                  <div ref={bottomRef} />
-                </div>
-
-                {/* Input envío */}
-                <form
-                  onSubmit={handleSend}
-                  className="p-4 border-t border-border flex items-end gap-2 bg-surface/20"
-                >
-                  <button
-                    type="button"
+                  <div className="mx-auto mb-4 h-14 w-14 rounded-3xl border border-border bg-surface/40 flex items-center justify-center">
+                    <MailOpen className="w-7 h-7 text-muted" />
+                  </div>
+                  <p className="text-text font-semibold">
+                    Ningún mensaje seleccionado
+                  </p>
+                  <p className="text-sm text-muted mt-2 max-w-md">
+                    Selecciona una conversación o busca socios empresariales para negociar.
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      setSelectedId(null);
-                      setSearchParams({}, { replace: true });
+                      setShowModalNuevoChat(true);
+                      buscarEmpresasDirectorio("");
                     }}
-                    className="hidden sm:inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface/50 shrink-0"
+                    className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-pro hover:brightness-95 transition"
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-
-                  <textarea
-                    value={texto}
-                    onChange={(e) => onChangeTexto(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    rows={1}
-                    placeholder="Escribe un mensaje... (Enter para enviar)"
-                    className="flex-1 resize-none rounded-2xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40 max-h-32"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={sending || !texto.trim()}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition disabled:opacity-50 shrink-0"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <Building2 className="w-4 h-4" />
+                    Buscar empresa registrada
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="chat"
+                  {...fadeIn}
+                  className="flex-1 flex flex-col"
+                >
+                  {/* Mensajes */}
+                  <div className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]">
+                    {loadingMsg ? (
+                      <div className="p-10 flex justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                      </div>
+                    ) : mensajes.length === 0 ? (
+                      <div className="text-center text-muted text-sm py-10">
+                        No hay mensajes aún. ¡Envía el primer mensaje!
+                      </div>
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <AnimatePresence initial={false}>
+                        {mensajes.map((m) => {
+                          const mine = m.senderId === me?.id;
+                          return (
+                            <motion.div
+                              key={m.id}
+                              {...slideUp}
+                              layout
+                              className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                            >
+                              <div
+                                className={[
+                                  "max-w-[80%] rounded-2xl px-4 py-2.5 border text-sm whitespace-pre-wrap break-words shadow-sm",
+                                  mine
+                                    ? "bg-accent text-slate-900 border-accent/30 font-medium"
+                                    : "bg-surface/50 text-text border-border",
+                                ].join(" ")}
+                              >
+                                <p>{m.contenido}</p>
+                                <div
+                                  className={`mt-1 text-[10px] flex items-center gap-1 ${
+                                    mine ? "text-slate-800/70 justify-end" : "text-muted"
+                                  }`}
+                                >
+                                  <span>{formatearTiempo(m.createdAt)}</span>
+                                  {mine && (
+                                    <span>{m.leido ? "· Leído" : "· Enviado"}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
                     )}
-                    Enviar
-                  </button>
-                </form>
-              </>
-            )}
-          </section>
+
+                    <AnimatePresence>
+                      {typingUserId && <TypingIndicator />}
+                    </AnimatePresence>
+                    <div ref={bottomRef} />
+                  </div>
+
+                  {/* Input envío */}
+                  <form
+                    onSubmit={handleSend}
+                    className="p-4 border-t border-border flex items-end gap-2 bg-surface/20"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(null);
+                        setSearchParams({}, { replace: true });
+                      }}
+                      className="hidden sm:inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface/50 shrink-0"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+
+                    <textarea
+                      value={texto}
+                      onChange={(e) => onChangeTexto(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      rows={1}
+                      placeholder="Escribe un mensaje... (Enter para enviar)"
+                      className="flex-1 resize-none rounded-2xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40 max-h-32"
+                    />
+
+                    <motion.button
+                      whileHover={!sending && texto.trim() ? { scale: 1.05 } : {}}
+                      whileTap={!sending && texto.trim() ? { scale: 0.95 } : {}}
+                      type="submit"
+                      disabled={sending || !texto.trim()}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition disabled:opacity-50 shrink-0"
+                    >
+                      {sending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      Enviar
+                    </motion.button>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
         </div>
-      </div>
+      </motion.div>
 
       {/* MODAL: BUSCAR EMPRESAS Y ABRIR NUEVO CHAT */}
-      {showModalNuevoChat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-accent" />
-                <h3 className="font-extrabold text-text text-lg">Directorio de Empresas</h3>
+      <AnimatePresence>
+        {showModalNuevoChat && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowModalNuevoChat(false);
+            }}
+          >
+            <motion.div
+              {...scaleIn}
+              className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-accent" />
+                  <h3 className="font-extrabold text-text text-lg">Directorio de Empresas</h3>
+                </div>
+                <motion.button
+                  whileHover={{ rotate: 90 }}
+                  onClick={() => setShowModalNuevoChat(false)}
+                  className="rounded-full p-1 hover:bg-surface/80 text-muted"
+                >
+                  <X className="w-5 h-5" />
+                </motion.button>
               </div>
-              <button
-                onClick={() => setShowModalNuevoChat(false)}
-                className="rounded-full p-1 hover:bg-surface/80 text-muted"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="relative">
-              <Search className="w-4 h-4 text-muted absolute left-3.5 top-3.5" />
-              <input
-                autoFocus
-                type="text"
-                value={busquedaEmpresa}
-                onChange={(e) => buscarEmpresasDirectorio(e.target.value)}
-                placeholder="Ej: Tereos SA, Afore, Constructora..."
-                className="w-full rounded-2xl border border-border bg-surface/80 pl-10 pr-4 py-2.5 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/40"
-              />
-            </div>
+              <div className="relative">
+                <Search className="w-4 h-4 text-muted absolute left-3.5 top-3.5" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={busquedaEmpresa}
+                  onChange={(e) => buscarEmpresasDirectorio(e.target.value)}
+                  placeholder="Ej: Tereos SA, Afore, Constructora..."
+                  className="w-full rounded-2xl border border-border bg-surface/80 pl-10 pr-4 py-2.5 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/40"
+                />
+              </div>
 
-            <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-              {loadingEmpresas ? (
-                <div className="p-6 text-center text-muted flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
-                  Buscando empresas...
-                </div>
-              ) : empresasEncontradas.length === 0 ? (
-                <div className="p-6 text-center text-muted text-xs">
-                  {busquedaEmpresa
-                    ? `No se encontraron empresas con "${busquedaEmpresa}"`
-                    : "Escribe el nombre de la empresa para buscar."}
-                </div>
-              ) : (
-                empresasEncontradas.map((emp) => (
-                  <div
-                    key={emp.id}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-border bg-surface/40 hover:bg-surface/80 transition"
-                  >
-                    <div>
-                      <p className="text-sm font-bold text-text">{emp.razonSocial}</p>
-                      <p className="text-xs text-muted">
-                        {emp.representante ? `Rep: ${emp.representante}` : emp.correo}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleIniciarChatConEmpresa(emp)}
-                      className="px-3 py-1.5 rounded-xl bg-accent text-slate-900 text-xs font-bold hover:brightness-95 transition"
-                    >
-                      Iniciar chat
-                    </button>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {loadingEmpresas ? (
+                  <div className="p-6 text-center text-muted flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                    Buscando empresas...
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                ) : empresasEncontradas.length === 0 ? (
+                  <div className="p-6 text-center text-muted text-xs">
+                    {busquedaEmpresa
+                      ? `No se encontraron empresas con "${busquedaEmpresa}"`
+                      : "Escribe el nombre de la empresa para buscar."}
+                  </div>
+                ) : (
+                  <motion.div
+                    variants={staggerContainer}
+                    initial="initial"
+                    animate="animate"
+                    className="space-y-2"
+                  >
+                    {empresasEncontradas.map((emp) => (
+                      <motion.div
+                        key={emp.id}
+                        variants={staggerItem}
+                        whileHover={{ x: 3 }}
+                        className="flex items-center justify-between p-3 rounded-2xl border border-border bg-surface/40 hover:bg-surface/80 transition"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-text">{emp.razonSocial}</p>
+                          <p className="text-xs text-muted">
+                            {emp.representante ? `Rep: ${emp.representante}` : emp.correo}
+                          </p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleIniciarChatConEmpresa(emp)}
+                          className="px-3 py-1.5 rounded-xl bg-accent text-slate-900 text-xs font-bold hover:brightness-95 transition"
+                        >
+                          Iniciar chat
+                        </motion.button>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Layout>
   );
 }
@@ -628,8 +742,14 @@ function Chip({ text, active = false, theme, onClick }) {
       ].join(" ");
 
   return (
-    <button type="button" onClick={onClick} className={cls}>
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      type="button"
+      onClick={onClick}
+      className={cls}
+    >
       {text}
-    </button>
+    </motion.button>
   );
 }
