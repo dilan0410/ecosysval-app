@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Conversacion } from './conversacion.entity';
 import { Mensaje } from './mensaje.entity';
 import { User } from '../user/user.entity';
+import { Empresa } from '../empresa/empresa.entity';
 import { MensajeService } from './mensaje.service';
 import { MensajeController } from './mensaje.controller';
 import { MensajeGateway } from './mensaje.gateway';
@@ -13,7 +14,7 @@ import { NotificacionModule } from '../notificacion/notificacion.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Conversacion, Mensaje, User]),
+    TypeOrmModule.forFeature([Conversacion, Mensaje, User, Empresa]),
     NotificacionModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

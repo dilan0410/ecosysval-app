@@ -21,7 +21,6 @@ export function useChat() {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
-  // Cargar lista de conversaciones
   const cargarConversaciones = useCallback(async () => {
     setLoadingConv(true);
     try {
@@ -39,7 +38,6 @@ export function useChat() {
     }
   }, []);
 
-  // Cargar mensajes de una conversación
   const cargarMensajes = useCallback(async (convId) => {
     if (!convId) return;
     setLoadingMsg(true);
@@ -47,12 +45,11 @@ export function useChat() {
       const res = await api.get(`/mensajes/conversaciones/${convId}/mensajes?limit=100`);
       setMensajes(res.data?.mensajes || []);
 
-      // Marcar como leídos
       await api.patch(`/mensajes/conversaciones/${convId}/leer`);
       setConversaciones((prev) =>
         prev.map((c) => (c.id === convId ? { ...c, noLeidos: 0 } : c))
       );
-      
+
       const countRes = await api.get("/mensajes/no-leidos");
       setNoLeidosTotal(countRes.data?.noLeidos || 0);
     } catch (e) {
@@ -63,7 +60,6 @@ export function useChat() {
     }
   }, []);
 
-  // Seleccionar chat
   const seleccionarConversacion = useCallback(
     async (convId) => {
       const socket = getChatSocket();
@@ -79,7 +75,7 @@ export function useChat() {
     [cargarMensajes]
   );
 
-  // Enviar mensaje
+  // enviar mensaje (con actualizacion instantanea local)
   const enviarMensaje = useCallback(async (contenido) => {
     const texto = (contenido || "").trim();
     if (!texto || !selectedIdRef.current) return null;
@@ -87,6 +83,8 @@ export function useChat() {
     setSending(true);
     try {
       const socket = getChatSocket();
+      let nuevoMensaje = null;
+
       if (socket?.connected) {
         const resp = await new Promise((resolve) => {
           socket.emit(
@@ -96,21 +94,69 @@ export function useChat() {
           );
         });
         if (!resp?.ok) throw new Error(resp?.error || "Error al enviar");
-        return resp.mensaje;
+        nuevoMensaje = resp.mensaje;
+      } else {
+        const res = await api.post(
+          `/mensajes/conversaciones/${selectedIdRef.current}/mensajes`,
+          { contenido: texto }
+        );
+        nuevoMensaje = res.data;
       }
 
-      // Fallback rest si el socket no está conectado
-      const res = await api.post(
-        `/mensajes/conversaciones/${selectedIdRef.current}/mensajes`,
-        { contenido: texto }
-      );
-      return res.data;
+      // Actualizar mensajes e interfaz localmente de inmediato
+      if (nuevoMensaje) {
+        setMensajes((prev) => {
+          if (prev.some((m) => m.id === nuevoMensaje.id)) return prev;
+          return [...prev, nuevoMensaje];
+        });
+
+        setConversaciones((prev) =>
+          prev.map((c) =>
+            c.id === selectedIdRef.current
+              ? {
+                  ...c,
+                  ultimoMensaje: nuevoMensaje.contenido,
+                  ultimoMensajeAt: nuevoMensaje.createdAt,
+                }
+              : c
+          )
+        );
+      }
+
+      return nuevoMensaje;
     } finally {
       setSending(false);
     }
   }, []);
 
-  // Abrir o crear chat con un usuario
+  // eliminar mensaje (con actualizacion instantanea local)
+  const eliminarMensaje = useCallback(async (mensajeId) => {
+    if (!mensajeId || !selectedIdRef.current) return false;
+
+    // Borrado optimista local
+    setMensajes((prev) => prev.filter((m) => m.id !== mensajeId));
+
+    try {
+      const socket = getChatSocket();
+      if (socket?.connected) {
+        socket.emit("delete_message", {
+          conversacionId: selectedIdRef.current,
+          mensajeId,
+        });
+      } else {
+        await api.delete(
+          `/mensajes/conversaciones/${selectedIdRef.current}/mensajes/${mensajeId}`
+        );
+      }
+      cargarConversaciones();
+      return true;
+    } catch (err) {
+      console.error("Error eliminando mensaje:", err);
+      cargarMensajes(selectedIdRef.current); // Revertir en caso de fallo
+      throw err;
+    }
+  }, [cargarConversaciones, cargarMensajes]);
+
   const iniciarConversacion = useCallback(
     async (participanteId, mensajeInicial) => {
       const res = await api.post("/mensajes/conversaciones", {
@@ -126,7 +172,6 @@ export function useChat() {
     [cargarConversaciones, seleccionarConversacion]
   );
 
-  // Notificar que está escribiendo
   const emitTyping = useCallback((isTyping) => {
     const socket = getChatSocket();
     if (!socket || !selectedIdRef.current) return;
@@ -136,7 +181,6 @@ export function useChat() {
     });
   }, []);
 
-  // Suscripción a eventos del WebSocket
   useEffect(() => {
     const socket = getChatSocket();
     if (!socket) return;
@@ -189,6 +233,13 @@ export function useChat() {
       }).catch(() => {});
     };
 
+    const onMessageDeleted = ({ conversacionId, mensajeId }) => {
+      if (selectedIdRef.current === conversacionId) {
+        setMensajes((prev) => prev.filter((m) => m.id !== mensajeId));
+      }
+      cargarConversaciones();
+    };
+
     const onMessagesRead = ({ conversacionId }) => {
       const me = JSON.parse(localStorage.getItem("user") || "{}")?.id;
       if (selectedIdRef.current === conversacionId) {
@@ -212,6 +263,7 @@ export function useChat() {
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("new_message", onNewMessage);
+    socket.on("message_deleted", onMessageDeleted);
     socket.on("messages_read", onMessagesRead);
     socket.on("user_typing", onTyping);
 
@@ -223,6 +275,7 @@ export function useChat() {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("new_message", onNewMessage);
+      socket.off("message_deleted", onMessageDeleted);
       socket.off("messages_read", onMessagesRead);
       socket.off("user_typing", onTyping);
     };
@@ -241,6 +294,7 @@ export function useChat() {
     cargarConversaciones,
     seleccionarConversacion,
     enviarMensaje,
+    eliminarMensaje,
     iniciarConversacion,
     emitTyping,
     setSelectedId,

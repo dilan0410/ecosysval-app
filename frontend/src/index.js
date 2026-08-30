@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 
 // SENTRY: debe ir ANTES de App
 import * as Sentry from "@sentry/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from "./App";
 
@@ -28,13 +29,28 @@ if (process.env.REACT_APP_SENTRY_DSN) {
     replaysOnErrorSampleRate: 1.0, // Grabar SOLO sesiones con error
   });
 
-  console.log("Sentry inicializado (frontend)");
 }
+
+// React Query - para caché global
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,      // 5 min: datos “frescos” sin refetch
+      gcTime: 1000 * 60 * 30,        // 30 min en memoria (antes cacheTime)
+      retry: 1,
+      refetchOnWindowFocus: false,   // no spamear al cambiar de pestaña
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );

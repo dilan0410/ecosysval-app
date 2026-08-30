@@ -63,9 +63,8 @@ export class MensajeGateway implements OnGatewayConnection, OnGatewayDisconnect 
       }
       this.onlineUsers.get(client.userId)!.add(client.id);
 
-      // Room personal del usuario para pushes directos
       client.join(`user:${client.userId}`);
-    } catch (e) {
+    } catch {
       client.disconnect();
     }
   }
@@ -127,6 +126,31 @@ export class MensajeGateway implements OnGatewayConnection, OnGatewayDisconnect 
     }
   }
 
+  // nuevo: eliminar por WebSocket
+
+  @SubscribeMessage('delete_message')
+  async deleteMessage(
+    @ConnectedSocket() client: AuthedSocket,
+    @MessageBody() data: { conversacionId: number; mensajeId: number },
+  ) {
+    if (!client.userId) return { ok: false, error: 'No autenticado' };
+    if (!data?.conversacionId || !data?.mensajeId) {
+      return { ok: false, error: 'Datos inválidos' };
+    }
+
+    try {
+      await this.mensajeService.eliminarMensaje(
+        data.conversacionId,
+        data.mensajeId,
+        client.userId,
+      );
+      this.emitirMensajeEliminado(data.conversacionId, data.mensajeId);
+      return { ok: true, mensajeId: data.mensajeId };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'No se pudo eliminar' };
+    }
+  }
+
   @SubscribeMessage('typing')
   async typing(
     @ConnectedSocket() client: AuthedSocket,
@@ -154,7 +178,6 @@ export class MensajeGateway implements OnGatewayConnection, OnGatewayDisconnect 
     return result;
   }
 
-  // Métodos auxiliares para emitir eventos
   emitirNuevoMensaje(mensaje: any, conversacionId: number) {
     this.server.to(`conv:${conversacionId}`).emit('new_message', {
       conversacionId,
@@ -169,5 +192,16 @@ export class MensajeGateway implements OnGatewayConnection, OnGatewayDisconnect 
       readerId,
       marcados,
     });
+  }
+
+  // neuvo: avisar a todos en la sala que se borró
+
+  emitirMensajeEliminado(conversacionId: number, mensajeId: number) {
+    this.server.to(`conv:${conversacionId}`).emit('message_deleted', {
+      conversacionId,
+      mensajeId,
+    });
+    // refresca previews de la bandeja
+    this.server.emit('inbox_updated', { conversacionId, deleted: true, mensajeId });
   }
 }

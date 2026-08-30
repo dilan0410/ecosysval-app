@@ -27,6 +27,8 @@ import Mapa from "../components/Mapa";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
+import { useMapaRecomendaciones } from "../hooks/useMapaRecomendaciones";
+
 // Imports para conectar con API Python + axios
 import { obtenerRecomendaciones } from "../api/pythonAPI";
 import { api } from "../api/axiosClient";
@@ -292,147 +294,42 @@ export default function MapaPage() {
   const [search, setSearch] = useState("");
   const [openBenefitIndex, setOpenBenefitIndex] = useState(null);
 
-  // ==========================================================
-  // State para datos de la API Python
-  // ==========================================================
-  const [empresasReales, setEmpresasReales] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [sectorInfo, setSectorInfo] = useState(null);
-  const [infoMensaje, setInfoMensaje] = useState(null);
+  const {
+    data,
+    isLoading: loading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useMapaRecomendaciones();
 
-  // ==========================================================
-  // Cargar recomendaciones al montar el componente
-  // ==========================================================
-  useEffect(() => {
-    cargarRecomendaciones();
-  }, []);
+  const empresasReales = data?.empresas || [];
+  const sectorInfo = data?.sectorInfo || null;
+  const infoMensaje = data?.infoMensaje || null;
+  const error = queryError
+    ? queryError.message || "No se pudieron cargar las recomendaciones"
+    : null;
 
-  async function cargarRecomendaciones() {
-    setLoading(true);
-    setError(null);
-    setInfoMensaje(null); // limpiar mensaje info
+  // Fallback mock solo si falló y no hay caché
+  const listaBase =
+    empresasReales.length > 0
+      ? empresasReales
+      : error
+      ? empresasMock
+      : [];
 
-    try {
-      // ============================================
-      // 1. OBTENER EMPRESA DEL USUARIO
-      // ============================================
-      let sectorScian = null;
-      let empresaExiste = true;
-
-      try {
-        const empresaRes = await api.get("/empresas/mi-empresa");
-        sectorScian = empresaRes.data?.sectorScian;
-      } catch (err) {
-        // El usuario NO tiene empresa registrada
-        empresaExiste = false;
-        console.warn("Usuario sin empresa registrada");
-      }
-
-      // ============================================
-      // 2. VALIDAR SECTOR SCIAN
-      // ============================================
-      // Reglas del SCIAN válido:
-      // - Debe existir (no null, no undefined, no vacío)
-      // - Debe ser numérico
-      // - Debe tener entre 2 y 6 dígitos (SCIAN oficial)
-      const esScianValido = (codigo) => {
-        if (!codigo) return false;
-        const str = String(codigo).trim();
-        return /^\d{2,6}$/.test(str);
-      };
-
-      let sectorAUsar = sectorScian;
-      let mensajeInfo = null;
-
-      // Caso 1: No tiene empresa
-      if (!empresaExiste) {
-        sectorAUsar = "3111";
-        mensajeInfo = {
-          tipo: "info",
-          texto: "Aún no tienes empresa registrada. Mostrando ejemplo con sector 3111 (Alimentos para animales)."
-        };
-      }
-      // Caso 2: Empresa sin SCIAN
-      else if (!sectorScian) {
-        sectorAUsar = "3111";
-        mensajeInfo = {
-          tipo: "warning",
-          texto: "Tu empresa no tiene un código SCIAN asignado. Mostrando ejemplo con sector 3111."
-        };
-      }
-      // Caso 3: SCIAN inválido (no numérico o formato incorrecto)
-      else if (!esScianValido(sectorScian)) {
-        sectorAUsar = "3111";
-        mensajeInfo = {
-          tipo: "warning",
-          texto: `El código SCIAN "${sectorScian}" no es válido. Mostrando ejemplo con sector 3111. Por favor actualiza tu perfil.`
-        };
-      }
-      // Caso 4: SCIAN válido pero podría no existir en la MIP
-
-      // ============================================
-      // 3. LLAMAR A LA API PYTHON
-      // ============================================
-      let datosPython;
-      try {
-        datosPython = await obtenerRecomendaciones(sectorAUsar, 10);
-      } catch (err) {
-        // El sector NO existe en la MIP
-        if (err.message.includes("no encontrado")) {
-          // Intentar con fallback "3111"
-          console.warn(`Sector ${sectorAUsar} no existe en MIP. Usando fallback 3111.`);
-          mensajeInfo = {
-            tipo: "warning",
-            texto: `El sector "${sectorAUsar}" no está registrado en el sistema. Mostrando ejemplo con sector 3111.`
-          };
-          sectorAUsar = "3111";
-          datosPython = await obtenerRecomendaciones("3111", 10);
-        } else {
-          // Otro tipo de error (red, servidor caído, etc.)
-          throw err;
-        }
-      }
-
-      // ============================================
-      // 4. TRANSFORMAR Y GUARDAR
-      // ============================================
-      // es async y recibe el apiClient
-      const empresasTransformadas = await transformarDatosPython(datosPython, api);
-
-      setEmpresasReales(empresasTransformadas);
-      setSectorInfo({
-        codigo: datosPython.codigo,
-        nombre: datosPython.sector,
-        categoria: datosPython.categoria,
-      });
-      setInfoMensaje(mensajeInfo);
-    } catch (err) {
-      // Error grave: API caída, sin conexión, etc.
-      console.error("Error crítico cargando recomendaciones:", err);
-      setError(err.message || "No se pudieron cargar las recomendaciones");
-      setEmpresasReales(empresasMock); // Fallback a mock
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // ==========================================================
   // STATS
-  // ==========================================================
+
   const comprasRealizadas = 1;
   const ventasRealizadas = 2;
   const restantesPlatino = 2;
 
-  // ==========================================================
-  // FILTRO + SEARCH (ahora usa empresasReales en vez de empresasMock)
-  // ==========================================================
+  // FILTRO + SEARCH
+ 
   const empresasFiltradas = useMemo(() => {
     const term = search.trim().toLowerCase();
-
-    return empresasReales.filter((e) => {
-      const coincideTipo = filterTipo === "Ambos" ? true : e.tipo === filterTipo;
-
+    return listaBase.filter((e) => {
+      const coincideTipo =
+        filterTipo === "Ambos" ? true : e.tipo === filterTipo;
       const coincideSearch =
         !term ||
         (e.nombre || "").toLowerCase().includes(term) ||
@@ -441,10 +338,9 @@ export default function MapaPage() {
         (e.ciudad || "").toLowerCase().includes(term) ||
         (e.estado || "").toLowerCase().includes(term) ||
         (e.categoria || "").toLowerCase().includes(term);
-
       return coincideTipo && coincideSearch;
     });
-  }, [filterTipo, search, empresasReales]);
+  }, [filterTipo, search, listaBase]);
 
   const sociosPotenciales = empresasFiltradas.length;
 
@@ -553,7 +449,7 @@ export default function MapaPage() {
                 No se pudo conectar con el Sistema Inteligente Económico. {error}
               </p>
               <button
-                onClick={cargarRecomendaciones}
+                onClick={() => refetch()}
                 className="mt-2 text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition"
               >
                 Reintentar
@@ -622,8 +518,15 @@ export default function MapaPage() {
           </div>
         </div>
 
-        {/* Loading state */}
-        {loading ? (
+        {/* Badge opcional: refetch en segundo plano con datos ya en caché */}
+        {isFetching && data && (
+          <div className="mb-3 text-[11px] text-muted">
+            Actualizando en segundo plano…
+          </div>
+        )}
+
+        {/* Loading solo en la primera carga (sin caché) */}
+        {loading && !data ? (
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-12 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-accent animate-spin" />
             <p className="text-text font-semibold">Analizando cadena de valor...</p>

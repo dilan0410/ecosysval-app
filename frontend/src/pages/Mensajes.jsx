@@ -1,4 +1,4 @@
-// src/pages/Mensajes.jsx
+// frontend/src/pages/Mensajes.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +17,7 @@ import {
   X,
   Plus,
   Building2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -107,6 +108,7 @@ export default function Mensajes() {
     connected,
     seleccionarConversacion,
     enviarMensaje,
+    eliminarMensaje,
     iniciarConversacion,
     emitTyping,
     setSelectedId,
@@ -116,6 +118,8 @@ export default function Mensajes() {
   const [filtro, setFiltro] = useState("todas");
   const [texto, setTexto] = useState("");
   const bottomRef = useRef(null);
+
+  const chatContainerRef = useRef(null);
 
   const [showModalNuevoChat, setShowModalNuevoChat] = useState(false);
   const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
@@ -153,7 +157,9 @@ export default function Mensajes() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [mensajes, typingUserId]);
 
   const convFiltradas = useMemo(() => {
@@ -531,7 +537,10 @@ export default function Mensajes() {
                   className="flex-1 flex flex-col"
                 >
                   {/* Mensajes */}
-                  <div className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]">
+                  <div 
+                    ref={chatContainerRef}
+                    className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]"
+                  >
                     {loadingMsg ? (
                       <div className="p-10 flex justify-center">
                         <Loader2 className="w-6 h-6 animate-spin text-accent" />
@@ -549,26 +558,56 @@ export default function Mensajes() {
                               key={m.id}
                               {...slideUp}
                               layout
-                              className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                              className={`flex group ${mine ? "justify-end" : "justify-start"}`}
                             >
-                              <div
-                                className={[
-                                  "max-w-[80%] rounded-2xl px-4 py-2.5 border text-sm whitespace-pre-wrap break-words shadow-sm",
-                                  mine
-                                    ? "bg-accent text-slate-900 border-accent/30 font-medium"
-                                    : "bg-surface/50 text-text border-border",
-                                ].join(" ")}
-                              >
-                                <p>{m.contenido}</p>
+                              <div className="relative flex items-center gap-2 max-w-[80%]">
+                                {/* boton eliminar (solo en tus mensajes) */}
+                                {mine && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.2 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => {
+                                      toast("¿Eliminar mensaje para todos?", {
+                                        action: {
+                                          label: "Eliminar",
+                                          onClick: async () => {
+                                            try {
+                                              await eliminarMensaje(m.id);
+                                              toast.success("Mensaje eliminado");
+                                            } catch {
+                                              toast.error("No se pudo eliminar el mensaje");
+                                            }
+                                          },
+                                        },
+                                        cancel: { label: "Cancelar" },
+                                      });
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition"
+                                    title="Eliminar mensaje"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </motion.button>
+                                )}
+
                                 <div
-                                  className={`mt-1 text-[10px] flex items-center gap-1 ${
-                                    mine ? "text-slate-800/70 justify-end" : "text-muted"
-                                  }`}
+                                  className={[
+                                    "rounded-2xl px-4 py-2.5 border text-sm whitespace-pre-wrap break-words shadow-sm flex-1",
+                                    mine
+                                      ? "bg-accent text-slate-900 border-accent/30 font-medium"
+                                      : "bg-surface/50 text-text border-border",
+                                  ].join(" ")}
                                 >
-                                  <span>{formatearTiempo(m.createdAt)}</span>
-                                  {mine && (
-                                    <span>{m.leido ? "· Leído" : "· Enviado"}</span>
-                                  )}
+                                  <p>{m.contenido}</p>
+                                  <div
+                                    className={`mt-1 text-[10px] flex items-center gap-1 ${
+                                      mine ? "text-slate-800/70 justify-end" : "text-muted"
+                                    }`}
+                                  >
+                                    <span>{formatearTiempo(m.createdAt)}</span>
+                                    {mine && (
+                                      <span>{m.leido ? "· Leído" : "· Enviado"}</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </motion.div>

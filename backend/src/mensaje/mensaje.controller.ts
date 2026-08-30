@@ -2,6 +2,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -85,6 +86,25 @@ export class MensajeController {
     const mensaje = await this.mensajeService.enviarMensaje(id, req.user.id, dto.contenido);
     this.mensajeGateway.emitirNuevoMensaje(mensaje, id);
     return mensaje;
+  }
+
+  // nuevo: Eliminar mensaje (para todos, sin rastro)
+  // delete /mensajes/conversaciones/:id/mensajes/:msgId
+
+  @Delete('conversaciones/:id/mensajes/:msgId')
+  @ApiOperation({
+    summary: 'Eliminar mensaje para todos',
+    description:
+      'Solo el autor puede borrar. Se elimina de BD sin dejar placeholder tipo "mensaje eliminado".',
+  })
+  async eliminarMensaje(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('msgId', ParseIntPipe) msgId: number,
+    @Req() req: any,
+  ) {
+    const result = await this.mensajeService.eliminarMensaje(id, msgId, req.user.id);
+    this.mensajeGateway.emitirMensajeEliminado(id, msgId);
+    return result;
   }
 
   @Patch('conversaciones/:id/leer')

@@ -5,6 +5,7 @@
   "dependencies": {
     "@react-google-maps/api": "^2.20.7",
     "@sentry/react": "^10.66.0",
+    "@tanstack/react-query": "^5.102.8",
     "@testing-library/jest-dom": "^6.1.6",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.4.3",
