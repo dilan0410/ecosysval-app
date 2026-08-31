@@ -1,15 +1,17 @@
 // src/pages/MapaPage.jsx
 /**
- * mapa / posicion en el sistema (ECOSYSVAL)
+ * MAPA / POSICIÓN EN EL SISTEMA (ECOSYSVAL)
  * --------------------------------------------------------------------
  * Objetivo:
  * - Visualizar socios potenciales recomendados por el Sistema Inteligente
  * - Datos reales desde API Python (MIP 2013 + Clasificación 2024)
- * - Fallback a mock si la API está caída
+ * - Soporte Multi-idioma con i18next
+ * - Caché ultra-rápida con React Query
  */
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Lock,
   ChevronDown,
@@ -28,10 +30,6 @@ import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 
 import { useMapaRecomendaciones } from "../hooks/useMapaRecomendaciones";
-
-// Imports para conectar con API Python + axios
-import { obtenerRecomendaciones } from "../api/pythonAPI";
-import { api } from "../api/axiosClient";
 
 // ==========================================================
 // DICCIONARIO DE COORDENADAS NORMALIZADO POR ESTADO (MÉXICO)
@@ -79,26 +77,19 @@ const COORDENADAS_ESTADOS = {
   "zacatecas": { lat: 22.7709, lng: -102.5832 },
 };
 
-/** Helper para quitar acentos, espacios extra y mayúsculas */
 function normalizarTextoEstado(str) {
   if (!str) return "";
   return String(str)
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quita tildes/acentos
+    .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
 
-/**
- * Obtiene coordenadas basadas en el estado.
- * Usa un desplazamiento fijo basado en el ID de la empresa para que
- * los pines del mismo estado no se encimen y NO se muevan al recargar.
- */
 function obtenerCoordenadasPorEstado(estadoNombre, id = "1") {
   const norm = normalizarTextoEstado(estadoNombre);
   const baseCoords = COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
   
-  // Hash fijo basado en el ID (sin Math.random)
   let seed = 0;
   const strId = String(id || "1");
   for (let i = 0; i < strId.length; i++) {
@@ -154,137 +145,13 @@ const beneficiosNiveles = [
   { title: "Desarrollo Organizacional Sustentable", tier: "black", detail: "Programas para sostenibilidad, cultura y desempeño." },
 ];
 
-async function transformarDatosPython(datosPython, apiClient) {
-  if (!datosPython) return [];
-
-  const empresas = [];
-  const todosLosCodigos = [
-    ...(datosPython.top_clientes || []).map(c => c.codigo),
-    ...(datosPython.top_proveedores || []).map(p => p.codigo),
-  ];
-
-  let empresasReales = [];
-  if (todosLosCodigos.length > 0) {
-    try {
-      const codigosUnicos = [...new Set(todosLosCodigos)];
-      const codigosString = codigosUnicos.join(',');
-      const response = await apiClient.get(`/empresas?sectorScian=${codigosString}`);
-      empresasReales = response.data || [];
-    } catch (error) {
-      console.warn('Error obteniendo empresas reales:', error);
-    }
-  }
-
-  const empresasPorScian = {};
-  empresasReales.forEach(emp => {
-    if (!empresasPorScian[emp.sectorScian]) {
-      empresasPorScian[emp.sectorScian] = [];
-    }
-    empresasPorScian[emp.sectorScian].push(emp);
-  });
-
-  // Procesar clientes
-  (datosPython.top_clientes || []).forEach((cliente) => {
-    const empresasDelSector = empresasPorScian[cliente.codigo] || [];
-
-    if (empresasDelSector.length > 0) {
-      empresasDelSector.forEach((empresa) => {
-        empresas.push({
-          id: `RC-${empresa.id}`,
-          tipo: "Cliente",
-          nombre: empresa.razonSocial || "Sin nombre",
-          productos: `SCIAN ${empresa.sectorScian}`,
-          servicios: cliente.categoria,
-          ciudad: empresa.estado || "Ciudad de México",
-          estado: empresa.estado || "Ciudad de México",
-          ...obtenerCoordenadasPorEstado(empresa.estado, empresa.id), // <- ubicacion real
-          categoria: cliente.categoria,
-          porcentaje: cliente.porcentaje,
-          coeficiente: cliente.coeficiente,
-          codigoScian: cliente.codigo,
-          esReal: true,
-          empresaId: empresa.id,
-          empresaData: empresa,
-        });
-      });
-    } else {
-      // Sector teórico (no hay empresa real)
-      empresas.push({
-        id: `TC-${cliente.codigo}`,
-        tipo: "Cliente",
-        nombre: cliente.sector.split(" - ")[1] || cliente.sector,
-        productos: `SCIAN ${cliente.codigo}`,
-        servicios: cliente.categoria,
-        ciudad: "México",
-        estado: "Sector Recomendado",
-        ...obtenerCoordenadasPorEstado("Ciudad de México", cliente.codigo), // Los teoricos van al centro
-        categoria: cliente.categoria,
-        porcentaje: cliente.porcentaje,
-        coeficiente: cliente.coeficiente,
-        codigoScian: cliente.codigo,
-        esReal: false,
-      });
-    }
-  });
-
-  // Procesar proveedores
-  (datosPython.top_proveedores || []).forEach((proveedor) => {
-    const empresasDelSector = empresasPorScian[proveedor.codigo] || [];
-
-    if (empresasDelSector.length > 0) {
-      empresasDelSector.forEach((empresa) => {
-        empresas.push({
-          id: `RP-${empresa.id}`,
-          tipo: "Proveedor",
-          nombre: empresa.razonSocial || "Sin nombre",
-          productos: `SCIAN ${empresa.sectorScian}`,
-          servicios: proveedor.categoria,
-          ciudad: empresa.estado || "Ciudad de México",
-          estado: empresa.estado || "Ciudad de México",
-          ...obtenerCoordenadasPorEstado(empresa.estado, empresa.id), // <- ubicacion real
-          categoria: proveedor.categoria,
-          porcentaje: proveedor.porcentaje,
-          coeficiente: proveedor.coeficiente,
-          codigoScian: proveedor.codigo,
-          esReal: true,
-          empresaId: empresa.id,
-          empresaData: empresa,
-        });
-      });
-    } else {
-      empresas.push({
-        id: `TP-${proveedor.codigo}`,
-        tipo: "Proveedor",
-        nombre: proveedor.sector.split(" - ")[1] || proveedor.sector,
-        productos: `SCIAN ${proveedor.codigo}`,
-        servicios: proveedor.categoria,
-        ciudad: "México",
-        estado: "Sector Recomendado",
-        ...obtenerCoordenadasPorEstado("Ciudad de México", proveedor.codigo),
-        categoria: proveedor.categoria,
-        porcentaje: proveedor.porcentaje,
-        coeficiente: proveedor.coeficiente,
-        codigoScian: proveedor.codigo,
-        esReal: false,
-      });
-    }
-  });
-
-  empresas.sort((a, b) => {
-    if (a.esReal && !b.esReal) return -1;
-    if (!a.esReal && b.esReal) return 1;
-    return b.porcentaje - a.porcentaje;
-  });
-
-  return empresas;
-}
-
 // ==========================================================
 // MapaPage - Componente principal
 // ==========================================================
 export default function MapaPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   // ==========================================================
   // STATE UI
@@ -306,7 +173,7 @@ export default function MapaPage() {
   const sectorInfo = data?.sectorInfo || null;
   const infoMensaje = data?.infoMensaje || null;
   const error = queryError
-    ? queryError.message || "No se pudieron cargar las recomendaciones"
+    ? queryError.message || t("map.demoBody")
     : null;
 
   // Fallback mock solo si falló y no hay caché
@@ -318,13 +185,11 @@ export default function MapaPage() {
       : [];
 
   // STATS
-
   const comprasRealizadas = 1;
   const ventasRealizadas = 2;
   const restantesPlatino = 2;
 
   // FILTRO + SEARCH
- 
   const empresasFiltradas = useMemo(() => {
     const term = search.trim().toLowerCase();
     return listaBase.filter((e) => {
@@ -348,7 +213,6 @@ export default function MapaPage() {
   // ACCIÓN: Conectar
   // ==========================================================
   const handleConectar = (empresa) => {
-    // Si es una empresa real con dueño en el sistema, abrir mensajería
     const ownerId =
       empresa?.empresaData?.userId ||
       empresa?.empresaData?.usuarioId ||
@@ -359,7 +223,6 @@ export default function MapaPage() {
       return;
     }
 
-    // Fallback a formulario de comercio
     navigate(`/formulario-comercio/`, {
       state: {
         empresaId: empresa.id,
@@ -382,16 +245,16 @@ export default function MapaPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-5 py-4">
             <h1 className="text-text font-extrabold text-lg md:text-xl">
-              Posición en el sistema
+              {t("map.title")}
             </h1>
             <p className="text-muted text-sm mt-1 max-w-2xl">
-              Visualiza socios potenciales en mapa o lista. Filtra por tipo, sector y ubicación.
+              {t("map.subtitle")}
             </p>
 
             {/* Info del sector analizado */}
             {sectorInfo && !loading && (
               <div className="mt-3 flex items-center gap-2 text-xs">
-                <span className="text-muted">Analizando sector:</span>
+                <span className="text-muted">{t("map.analyzing")}</span>
                 <span className="font-semibold text-accent">{sectorInfo.nombre}</span>
                 <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/25">
                   {sectorInfo.categoria}
@@ -403,7 +266,7 @@ export default function MapaPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-4 py-2">
               <Users className="w-4 h-4 text-muted" />
-              <span className="text-sm text-muted">Resultados:</span>
+              <span className="text-sm text-muted">{t("map.results")}:</span>
               <span className="text-sm font-extrabold text-accent">{sociosPotenciales}</span>
             </div>
 
@@ -419,7 +282,7 @@ export default function MapaPage() {
                 }`}
               >
                 <MapIcon className="w-4 h-4" />
-                Mapa
+                {t("map.viewMap")}
               </button>
               <button
                 onClick={() => setViewMode("list")}
@@ -431,7 +294,7 @@ export default function MapaPage() {
                 }`}
               >
                 <ListIcon className="w-4 h-4" />
-                Lista
+                {t("map.viewList")}
               </button>
             </div>
           </div>
@@ -443,16 +306,16 @@ export default function MapaPage() {
             <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-300">
-                Usando datos de demostración
+                {t("map.demoTitle")}
               </p>
               <p className="text-xs text-amber-200/80 mt-1">
-                No se pudo conectar con el Sistema Inteligente Económico. {error}
+                {t("map.demoBody")} {error}
               </p>
               <button
                 onClick={() => refetch()}
                 className="mt-2 text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition"
               >
-                Reintentar
+                {t("common.retry")}
               </button>
             </div>
           </div>
@@ -485,10 +348,10 @@ export default function MapaPage() {
 
         {/* STATS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-          <StatCard icon={ShoppingCart} value={comprasRealizadas} label="Compras realizadas" />
-          <StatCard icon={Handshake} value={ventasRealizadas} label="Ventas realizadas" />
-          <StatCard icon={Lock} value={restantesPlatino} label="Restantes para rango Platino" compact />
-          <StatCard icon={Users} value={sociosPotenciales} label="Socios potenciales (filtrados)" highlight />
+          <StatCard icon={ShoppingCart} value={comprasRealizadas} label={t("map.purchases")} />
+          <StatCard icon={Handshake} value={ventasRealizadas} label={t("map.sales")} />
+          <StatCard icon={Lock} value={restantesPlatino} label={t("map.platinumLeft")} compact />
+          <StatCard icon={Users} value={sociosPotenciales} label={t("map.potentialPartners")} highlight />
         </div>
 
         {/* BUSCADOR + CHIPS FILTRO */}
@@ -498,7 +361,7 @@ export default function MapaPage() {
               <Search className="w-4 h-4 text-muted absolute left-4 top-3.5" />
               <input
                 type="text"
-                placeholder="Buscar por nombre, productos, servicios, ciudad, estado..."
+                placeholder={t("map.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className={[
@@ -511,9 +374,9 @@ export default function MapaPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Chip label="Cliente" active={filterTipo === "Cliente"} onClick={() => setFilterTipo("Cliente")} />
-              <Chip label="Proveedor" active={filterTipo === "Proveedor"} onClick={() => setFilterTipo("Proveedor")} />
-              <Chip label="Ambos" active={filterTipo === "Ambos"} onClick={() => setFilterTipo("Ambos")} />
+              <Chip label={t("map.client")} active={filterTipo === "Cliente"} onClick={() => setFilterTipo("Cliente")} />
+              <Chip label={t("map.provider")} active={filterTipo === "Proveedor"} onClick={() => setFilterTipo("Proveedor")} />
+              <Chip label={t("map.both")} active={filterTipo === "Ambos"} onClick={() => setFilterTipo("Ambos")} />
             </div>
           </div>
         </div>
@@ -521,7 +384,7 @@ export default function MapaPage() {
         {/* Badge opcional: refetch en segundo plano con datos ya en caché */}
         {isFetching && data && (
           <div className="mb-3 text-[11px] text-muted">
-            Actualizando en segundo plano…
+            {t("map.updating")}
           </div>
         )}
 
@@ -529,8 +392,8 @@ export default function MapaPage() {
         {loading && !data ? (
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-12 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-accent animate-spin" />
-            <p className="text-text font-semibold">Analizando cadena de valor...</p>
-            <p className="text-muted text-sm">Consultando MIP 2013 + Clasificación 2024</p>
+            <p className="text-text font-semibold">{t("map.loadingTitle")}</p>
+            <p className="text-muted text-sm">{t("map.loadingSub")}</p>
           </div>
         ) : (
           /* LAYOUT PRINCIPAL (Mapa + Lista) */
@@ -539,14 +402,11 @@ export default function MapaPage() {
               <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <h2 className="text-text font-bold">Mapa de socios</h2>
+                    <h2 className="text-text font-bold">{t("map.mapTitle")}</h2>
                     <p className="text-muted text-xs">
-                      Usa el zoom y selecciona empresas para ver ubicación.
+                      {t("map.mapHint")}
                     </p>
                   </div>
-                  <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-                    Vista interactiva
-                  </span>
                 </div>
 
                 <div className="p-4">
@@ -565,30 +425,30 @@ export default function MapaPage() {
               >
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <h2 className="text-text font-bold">Socios potenciales</h2>
+                    <h2 className="text-text font-bold">{t("map.listTitle")}</h2>
                     <p className="text-muted text-xs">
-                      Filtrados por tu búsqueda y tipo seleccionado.
+                      {t("map.listHint")}
                     </p>
                   </div>
                   <span className="text-[11px] text-accent border border-accent/25 bg-accent/10 rounded-full px-3 py-1">
-                    {sociosPotenciales} resultados
+                    {sociosPotenciales} {t("map.results").toLowerCase()}
                   </span>
                 </div>
 
                 <div className="p-4 pr-2 max-h-[560px] overflow-y-auto">
-                  <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} />
+                  <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} t={t} />
                 </div>
               </section>
             )}
           </div>
         )}
 
-        {/* BENEFICIOS (Accordion) - sin cambios */}
+        {/* BENEFICIOS (Accordion) */}
         <section className="mt-8">
           <div className="flex items-end justify-between gap-4 mb-4">
             <div>
               <h2 className="text-text font-extrabold text-lg md:text-xl">
-                Beneficios del Ecosistema
+                {t("map.benefits")}
               </h2>
               <p className="text-muted text-sm">
                 Despliega cada beneficio para ver qué incluye y el nivel requerido.
@@ -674,10 +534,7 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
   );
 }
 
-/**
- *  ListaEmpresas ahora muestra categoría y porcentaje
- */
-function ListaEmpresas({ empresas, onConectar, theme }) {
+function ListaEmpresas({ empresas, onConectar, theme, t }) {
   if (!empresas.length) {
     return <div className="p-10 text-center text-muted">No hay resultados con esos filtros.</div>;
   }
@@ -693,16 +550,18 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-muted">ID: {e.id}</span>
-                <span className={tipoPill(theme, e.tipo)}>{e.tipo}</span>
+                <span className={tipoPill(theme, e.tipo)}>
+                  {e.tipo === "Cliente" ? t("map.client") : t("map.provider")}
+                </span>
 
                 {/* Badge real vs teorico */}
                 {e.esReal ? (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold">
-                    Empresa registrada
+                    {t("map.registered")}
                   </span>
                 ) : (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/25">
-                    Sector recomendado
+                    {t("map.recommended")}
                   </span>
                 )}
 
@@ -716,7 +575,7 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
                 {/* Porcentaje de relación */}
                 {e.porcentaje !== undefined && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
-                    {e.porcentaje}% relación
+                    {e.porcentaje}% {t("map.relation")}
                   </span>
                 )}
               </div>
@@ -743,7 +602,7 @@ function ListaEmpresas({ empresas, onConectar, theme }) {
               type="button"
               className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-900 shadow-pro hover:brightness-95 transition"
             >
-              Conectar
+              {t("map.connect")}
             </button>
           </div>
         </div>

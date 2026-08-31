@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import Layout from "../components/Layout";
 import { api } from "../api/axiosClient";
 import {
@@ -19,7 +20,6 @@ import { toast } from "sonner";
 import { SkeletonNotificacionList } from "../components/SkeletonNotificacion";
 import {
   fadeIn,
-  slideFromLeft,
   staggerContainer,
   staggerItem,
   pageTransition,
@@ -27,6 +27,8 @@ import {
 
 export default function Notificaciones() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
 
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
@@ -75,10 +77,10 @@ export default function Notificaciones() {
       await api.patch("/notificaciones/leer-todas");
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
       setNoLeidas(0);
-      toast.success(`${noLeidas} notificaciones marcadas como leídas ✓`);
+      toast.success(`${noLeidas} ${t("notifications.markAll")} ✓`);
     } catch (error) {
       console.error("Error marcando todas:", error);
-      toast.error("Error al marcar todas como leídas");
+      toast.error(t("common.retry"));
     } finally {
       setMarcando(false);
     }
@@ -87,10 +89,10 @@ export default function Notificaciones() {
   async function eliminarNotificacion(id, event) {
     event.stopPropagation();
 
-    toast("¿Eliminar esta notificación?", {
-      description: "Esta acción no se puede deshacer",
+    toast(t("common.delete") + "?", {
+      description: t("messages.deleteError"),
       action: {
-        label: "Eliminar",
+        label: t("common.delete"),
         onClick: async () => {
           try {
             await api.delete(`/notificaciones/${id}`);
@@ -100,15 +102,15 @@ export default function Notificaciones() {
             if (notif && !notif.leida) {
               setNoLeidas((prev) => Math.max(0, prev - 1));
             }
-            toast.success("Notificación eliminada");
+            toast.success(t("messages.deleted"));
           } catch (error) {
             console.error("Error eliminando:", error);
-            toast.error("Error al eliminar la notificación");
+            toast.error(t("messages.deleteError"));
           }
         },
       },
       cancel: {
-        label: "Cancelar",
+        label: t("common.cancel"),
       },
     });
   }
@@ -134,33 +136,34 @@ export default function Notificaciones() {
     const term = q.trim().toLowerCase();
     if (term) {
       resultado = resultado.filter((n) => {
-        const t = (n.titulo || "").toLowerCase();
-        const m = (n.mensaje || "").toLowerCase();
-        return t.includes(term) || m.includes(term);
+        const tStr = (n.titulo || "").toLowerCase();
+        const mStr = (n.mensaje || "").toLowerCase();
+        return tStr.includes(term) || mStr.includes(term);
       });
     }
 
     return resultado;
   }, [notificaciones, filtroActivo, q]);
 
-  function formatearTiempo(fecha) {
+  function formatearTiempo(fecha, langStr) {
     const ahora = new Date();
     const f = new Date(fecha);
     const diffMs = ahora - f;
-    if (diffMs < 0) return "Hace un momento";
+    const isEn = (langStr || "").startsWith("en");
+    if (diffMs < 0) return isEn ? "Just now" : "Hace un momento";
 
     const diffMin = Math.floor(diffMs / (1000 * 60));
     const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMin < 1) return "Hace un momento";
-    if (diffMin < 60) return `Hace ${diffMin} min`;
-    if (diffHoras < 24) return `Hace ${diffHoras} h`;
-    if (diffDias === 1) return "Ayer";
-    if (diffDias < 7) return `Hace ${diffDias} días`;
-    if (diffDias < 30) return `Hace ${Math.floor(diffDias / 7)} sem`;
-    if (diffDias < 365) return `Hace ${Math.floor(diffDias / 30)} meses`;
-    return `Hace ${Math.floor(diffDias / 365)} años`;
+    if (diffMin < 1) return isEn ? "Just now" : "Hace un momento";
+    if (diffMin < 60) return isEn ? `${diffMin}m ago` : `Hace ${diffMin} min`;
+    if (diffHoras < 24) return isEn ? `${diffHoras}h ago` : `Hace ${diffHoras} h`;
+    if (diffDias === 1) return isEn ? "Yesterday" : "Ayer";
+    if (diffDias < 7) return isEn ? `${diffDias}d ago` : `Hace ${diffDias} días`;
+    if (diffDias < 30) return isEn ? `${Math.floor(diffDias / 7)}w ago` : `Hace ${Math.floor(diffDias / 7)} sem`;
+    if (diffDias < 365) return isEn ? `${Math.floor(diffDias / 30)}mo ago` : `Hace ${Math.floor(diffDias / 30)} meses`;
+    return isEn ? `${Math.floor(diffDias / 365)}y ago` : `Hace ${Math.floor(diffDias / 365)} años`;
   }
 
   return (
@@ -181,16 +184,16 @@ export default function Notificaciones() {
                 transition={{ duration: 2, repeat: Infinity }}
                 className="h-2 w-2 rounded-full bg-[#ffd166]"
               />
-              Centro de notificaciones
+              {t("notifications.badge")}
             </div>
 
             <h1 className="mt-3 text-3xl md:text-4xl font-extrabold text-white drop-shadow">
-              Notificaciones{" "}
-              <span className="text-[#ffd166]">del ecosistema</span>
+              {t("notifications.title")}{" "}
+              <span className="text-[#ffd166]">{t("notifications.titleAccent")}</span>
             </h1>
 
             <p className="mt-2 text-sm text-white/75 max-w-2xl">
-              Mantente al día con eventos, novedades y actividad relevante.
+              {t("notifications.subtitle")}
             </p>
 
             <div className="mt-4 h-1 w-56 rounded bg-[#ffd166]" />
@@ -203,7 +206,7 @@ export default function Notificaciones() {
               animate={{ scale: 1 }}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs text-white/90 backdrop-blur"
             >
-              No leídas: <strong className="text-white">{noLeidas}</strong>
+              {t("notifications.unread")}: <strong className="text-white">{noLeidas}</strong>
             </motion.span>
 
             <motion.button
@@ -213,10 +216,10 @@ export default function Notificaciones() {
               onClick={cargarNotificaciones}
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-medium text-white transition disabled:opacity-60"
-              title="Refrescar"
+              title={t("notifications.refresh")}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("notifications.refresh")}
             </motion.button>
 
             <motion.button
@@ -232,7 +235,7 @@ export default function Notificaciones() {
               ) : (
                 <CheckCheck className="w-4 h-4" />
               )}
-              Marcar todo como leído
+              {t("notifications.markAll")}
             </motion.button>
           </div>
         </motion.div>
@@ -249,26 +252,26 @@ export default function Notificaciones() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar notificaciones..."
+                placeholder={t("notifications.search")}
                 className="w-full rounded-2xl border border-white/10 bg-black/20 pl-9 pr-3 py-2.5 text-sm text-white/90 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#ffd166]/40"
               />
             </div>
 
             <div className="flex flex-wrap gap-2">
               <Chip
-                text="Todas"
+                text={t("notifications.all")}
                 count={notificaciones.length}
                 active={filtroActivo === "todas"}
                 onClick={() => setFiltroActivo("todas")}
               />
               <Chip
-                text="No leídas"
+                text={t("notifications.unread")}
                 count={noLeidas}
                 active={filtroActivo === "no_leidas"}
                 onClick={() => setFiltroActivo("no_leidas")}
               />
               <Chip
-                text="Reseñas"
+                text={t("notifications.reviews")}
                 count={notificaciones.filter((n) => n.tipo?.startsWith("resena_")).length}
                 active={filtroActivo === "resenas"}
                 onClick={() => setFiltroActivo("resenas")}
@@ -289,8 +292,8 @@ export default function Notificaciones() {
                   <Bell className="w-6 h-6 text-white/70" />
                 </div>
                 {notificaciones.length === 0
-                  ? "No tienes notificaciones por el momento."
-                  : "No hay notificaciones que coincidan con los filtros."}
+                  ? t("notifications.empty")
+                  : t("notifications.emptyFilter")}
               </motion.div>
             ) : (
               <motion.div
@@ -306,7 +309,8 @@ export default function Notificaciones() {
                       notif={notif}
                       onClick={() => handleClickNotif(notif)}
                       onDelete={(e) => eliminarNotificacion(notif.id, e)}
-                      formatearTiempo={formatearTiempo}
+                      formatearTiempo={(fecha) => formatearTiempo(fecha, lang)}
+                      t={t}
                     />
                   ))}
                 </AnimatePresence>
@@ -322,9 +326,9 @@ export default function Notificaciones() {
 // ==========================================
 // Componente: Tarjeta de notificación animada
 // ==========================================
-function NotificacionCard({ notif, onClick, onDelete, formatearTiempo }) {
+function NotificacionCard({ notif, onClick, onDelete, formatearTiempo, t }) {
   const unread = !notif.leida;
-  const config = configPorTipo(notif.tipo);
+  const config = configPorTipo(notif.tipo, t);
 
   return (
     <motion.article
@@ -381,7 +385,7 @@ function NotificacionCard({ notif, onClick, onDelete, formatearTiempo }) {
                   exit={{ opacity: 0, scale: 0.8 }}
                   className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-200"
                 >
-                  Nuevo
+                  {t("notifications.new")}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -397,7 +401,7 @@ function NotificacionCard({ notif, onClick, onDelete, formatearTiempo }) {
 
           {notif.enlace && (
             <p className="mt-2 text-[11px] text-[#ffd166] opacity-70 group-hover:opacity-100 transition">
-              Click para ver →
+              {t("notifications.clickToView")}
             </p>
           )}
         </div>
@@ -412,7 +416,7 @@ function NotificacionCard({ notif, onClick, onDelete, formatearTiempo }) {
           whileTap={{ scale: 0.9 }}
           onClick={onDelete}
           className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition"
-          title="Eliminar"
+          title={t("common.delete")}
         >
           <Trash2 className="w-3.5 h-3.5" />
         </motion.button>
@@ -457,30 +461,30 @@ function Chip({ text, count = 0, active = false, onClick }) {
   );
 }
 
-function configPorTipo(tipo) {
+function configPorTipo(tipo, t) {
   switch (tipo) {
     case "resena_nueva":
       return {
         Icon: Star,
-        label: "Nueva reseña",
+        label: t ? t("notifications.reviews") : "Nueva reseña",
         badge: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
       };
     case "resena_editada":
       return {
         Icon: Edit3,
-        label: "Reseña editada",
+        label: t ? t("notifications.reviews") : "Reseña editada",
         badge: "border-sky-400/20 bg-sky-500/10 text-sky-200",
       };
     case "resena_eliminada":
       return {
         Icon: X,
-        label: "Reseña eliminada",
+        label: t ? t("notifications.reviews") : "Reseña eliminada",
         badge: "border-red-400/20 bg-red-500/10 text-red-200",
       };
     default:
       return {
         Icon: Bell,
-        label: tipo || "Notificación",
+        label: tipo || (t ? t("notifications.badge") : "Notificación"),
         badge: "border-white/10 bg-white/5 text-white/80",
       };
   }

@@ -1,5 +1,7 @@
 // src/components/MainHeader.jsx
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "./LanguageSwitcher";
 import {
   Bell,
   MessageSquare,
@@ -9,13 +11,10 @@ import {
   Menu as MenuIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-// REFRESH TOKENS Y API CLIENT
 import { api, logout as apiLogout } from "../api/axiosClient";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
-// Helper universal para URLs de imágenes
 function getImageUrl(path) {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -28,6 +27,7 @@ export default function MainHeader({
   showBack = false,
   onMenuClick,
 }) {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [busquedaHeader, setBusquedaHeader] = useState("");
@@ -36,14 +36,12 @@ export default function MainHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
 
-  // Contadores reales desde el Backend
-  const [unreadCount, setUnreadCount] = useState(0);       // Notificaciones
-  const [unreadChatCount, setUnreadChatCount] = useState(0); // Mensajes de Chat
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  // Cargar usuario y datos iniciales
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) return;
@@ -61,7 +59,6 @@ export default function MainHeader({
     }
   }, []);
 
-  // Polling cada 30 segundos para actualizar contadores de notificaciones y chats
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) return;
@@ -86,11 +83,10 @@ export default function MainHeader({
         setProfilePic(getImageUrl(userRes.data.profile_image));
       }
     } catch (error) {
-      console.log("No hay logo/imagen disponible");
+      // silencioso
     }
   };
 
-  // Cargar contadores de notificaciones y mensajes
   const cargarContadores = async () => {
     try {
       const [notifRes, chatRes] = await Promise.all([
@@ -139,7 +135,7 @@ export default function MainHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen, showNotifications, showMessages]);
 
-  const displayName = user?.name || user?.empresa || "Usuario";
+  const displayName = user?.name || user?.empresa || t("header.user");
 
   const closeAllMenus = () => {
     setMenuOpen(false);
@@ -163,8 +159,8 @@ export default function MainHeader({
             type="button"
             onClick={onMenuClick}
             className="lg:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 active:scale-95 transition"
-            title="Menú"
-            aria-label="Abrir menú"
+            title={t("header.menu")}
+            aria-label={t("header.openMenu")}
           >
             <MenuIcon className="w-5 h-5 text-white/90" />
           </button>
@@ -174,7 +170,7 @@ export default function MainHeader({
               type="button"
               onClick={() => navigate(-1)}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 active:scale-95 transition"
-              title="Volver"
+              title={t("header.back")}
             >
               ←
             </button>
@@ -187,7 +183,7 @@ export default function MainHeader({
               navigate("/inicio");
             }}
             className="group flex items-center gap-2"
-            title="Ir a Inicio"
+            title={t("header.goHome")}
           >
             <img
               src="/ecosysval.png"
@@ -200,7 +196,7 @@ export default function MainHeader({
         {/* CENTRO */}
         {showSearch && (
           <div className="hidden lg:flex flex-1 mx-6">
-            <form 
+            <form
               onSubmit={handleBuscarHeader}
               className="w-full max-w-2xl relative"
             >
@@ -208,16 +204,16 @@ export default function MainHeader({
                 type="text"
                 value={busquedaHeader}
                 onChange={(e) => setBusquedaHeader(e.target.value)}
-                placeholder="Buscar empresas por nombre, sector, productos..."
+                placeholder={t("header.searchPlaceholder")}
                 className="w-full px-4 py-2.5 rounded-2xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-yellow-300/70 transition shadow-sm"
                 maxLength={100}
               />
               <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5" />
-              
+
               <button
                 type="submit"
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-slate-900 transition"
-                title="Buscar"
+                title={t("header.search")}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/>
@@ -228,10 +224,13 @@ export default function MainHeader({
           </div>
         )}
 
+        {/* Idioma */}
+        <div className="hidden sm:flex">
+          <LanguageSwitcher />
+        </div>
+
         {/* DERECHA */}
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 relative" ref={menuRef}>
-          
-          {/* BOTÓN MENSAJES (con contador dinámico real) */}
           <button
             type="button"
             onClick={() => {
@@ -240,17 +239,16 @@ export default function MainHeader({
               setTimeout(cargarContadores, 1000);
             }}
             className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
-            title="Mensajes"
+            title={t("header.messages")}
           >
             <MessageSquare className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
             {unreadChatCount > 0 && (
               <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-slate-900 text-[10px] font-bold flex items-center justify-center ring-2 ring-[#071a33]">
-                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                {unreadChatCount > 9 ? "9+" : unreadChatCount}
               </span>
             )}
           </button>
 
-          {/* BOTÓN NOTIFICACIONES */}
           <button
             type="button"
             onClick={() => {
@@ -259,17 +257,16 @@ export default function MainHeader({
               setTimeout(cargarContadores, 1000);
             }}
             className="relative h-10 w-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition flex items-center justify-center"
-            title="Notificaciones"
+            title={t("header.notifications")}
           >
             <Bell className="w-5 h-5 text-white/85 hover:text-yellow-300 transition" />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#071a33]">
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
 
-          {/* MENÚ USUARIO */}
           <button
             type="button"
             onClick={() => {
@@ -278,7 +275,7 @@ export default function MainHeader({
               setShowNotifications(false);
             }}
             className="flex items-center gap-1.5 md:gap-2 pl-1.5 pr-2 md:pl-2 md:pr-3 h-10 rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-95 transition"
-            title="Menú de usuario"
+            title={t("header.userMenu")}
           >
             {profilePic ? (
               <img
@@ -323,7 +320,7 @@ export default function MainHeader({
                 className="flex items-center gap-2 w-full px-4 py-3 text-sm text-white/90 hover:bg-white/10 transition"
               >
                 <LogOut className="w-5 h-5 text-red-400" />
-                Cerrar sesión
+                {t("nav.logout")}
               </button>
             </div>
           )}

@@ -1,7 +1,8 @@
-// frontend/src/pages/Mensajes.jsx
+// src/pages/Mensajes.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next"; // i18n
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 import { useChat } from "../hooks/useChat";
@@ -47,25 +48,24 @@ function badgeColor({ theme, color }) {
   return `${base} ${map[color] || map.slate}`;
 }
 
-function formatearTiempo(fecha) {
+function formatearTiempo(fecha, lang) {
   if (!fecha) return "";
   const ahora = new Date();
   const f = new Date(fecha);
   const diffMs = ahora - f;
-  if (diffMs < 0) return "Ahora";
+  if (diffMs < 0) return lang === "en" ? "Now" : "Ahora";
   const diffMin = Math.floor(diffMs / 60000);
   const diffHoras = Math.floor(diffMs / 3600000);
   const diffDias = Math.floor(diffMs / 86400000);
-  if (diffMin < 1) return "Ahora";
-  if (diffMin < 60) return `Hace ${diffMin} min`;
-  if (diffHoras < 24) return `Hace ${diffHoras} h`;
-  if (diffDias === 1) return "Ayer";
-  if (diffDias < 7) return `Hace ${diffDias} días`;
-  return f.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+  if (diffMin < 1) return lang === "en" ? "Now" : "Ahora";
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHoras < 24) return `${diffHoras}h`;
+  if (diffDias === 1) return lang === "en" ? "Yesterday" : "Ayer";
+  if (diffDias < 7) return `${diffDias}d`;
+  return f.toLocaleDateString(lang === "en" ? "en-US" : "es-MX", { day: "2-digit", month: "short" });
 }
 
-// Indicador de "escribiendo" animado con puntos
-function TypingIndicator() {
+function TypingIndicator({ text }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -73,7 +73,7 @@ function TypingIndicator() {
       exit={{ opacity: 0, y: -5 }}
       className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface/50 border border-border w-fit"
     >
-      <span className="text-xs text-muted italic">Escribiendo</span>
+      <span className="text-xs text-muted italic">{text}</span>
       <div className="flex gap-1">
         {[0, 1, 2].map((i) => (
           <motion.span
@@ -94,6 +94,7 @@ function TypingIndicator() {
 }
 
 export default function Mensajes() {
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -117,8 +118,6 @@ export default function Mensajes() {
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState("todas");
   const [texto, setTexto] = useState("");
-  const bottomRef = useRef(null);
-
   const chatContainerRef = useRef(null);
 
   const [showModalNuevoChat, setShowModalNuevoChat] = useState(false);
@@ -148,7 +147,7 @@ export default function Mensajes() {
       const id = parseInt(userId, 10);
       if (!Number.isNaN(id)) {
         iniciarConversacion(id).catch(() => {
-          toast.error("No se pudo iniciar la conversación con ese socio");
+          toast.error(t("messages.deleteError"));
         });
         setSearchParams({}, { replace: true });
       }
@@ -191,7 +190,7 @@ export default function Mensajes() {
       await enviarMensaje(value);
     } catch (err) {
       setTexto(value);
-      toast.error("Error al enviar el mensaje");
+      toast.error(t("messages.deleteError"));
     }
   }
 
@@ -230,23 +229,25 @@ export default function Mensajes() {
 
   async function handleIniciarChatConEmpresa(empresa) {
     if (!empresa.userId) {
-      toast.error("Esta empresa no tiene un usuario de contacto asociado.");
+      toast.error(t("messages.deleteError"));
       return;
     }
 
     try {
-      toast.loading("Abriendo conversación...");
+      toast.loading(t("common.loading"));
       await iniciarConversacion(empresa.userId);
       toast.dismiss();
-      toast.success(`Chat abierto con ${empresa.razonSocial}`);
+      toast.success(t("messages.directoryTitle"));
       setShowModalNuevoChat(false);
       setBusquedaEmpresa("");
       setEmpresasEncontradas([]);
     } catch (err) {
       toast.dismiss();
-      toast.error("No se pudo iniciar el chat con este usuario.");
+      toast.error(t("messages.deleteError"));
     }
   }
+
+  const lang = i18n.language;
 
   return (
     <Layout mainClassName="!p-6">
@@ -269,15 +270,16 @@ export default function Mensajes() {
                 }`}
               />
               <span className="ml-2">
-                {connected ? "En tiempo real" : "Conectando al servidor…"}
+                {connected ? t("messages.realtime") : t("messages.connecting")}
               </span>
             </div>
 
             <h1 className="mt-3 text-2xl md:text-3xl font-extrabold text-text">
-              Mensajes <span className="text-accent">de socios y contactos</span>
+              {t("messages.title")}{" "}
+              <span className="text-accent">{t("messages.titleAccent")}</span>
             </h1>
             <p className="mt-2 text-sm text-muted max-w-2xl">
-              Conversaciones instantáneas con empresas del ecosistema Ecosysval.
+              {t("messages.subtitle")}
             </p>
             <div className="mt-4 h-1 w-56 rounded bg-accent" />
           </div>
@@ -293,11 +295,11 @@ export default function Mensajes() {
               className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition"
             >
               <Plus className="w-4 h-4" />
-              Nuevo Chat
+              {t("messages.newChat")}
             </motion.button>
 
             <span className="rounded-full bg-surface/60 text-text px-4 py-2 border border-border text-xs shadow-pro">
-              Sin leer: <strong>{noLeidosTotal}</strong>
+              {t("messages.unread")}: <strong>{noLeidosTotal}</strong>
             </span>
           </div>
         </motion.div>
@@ -315,7 +317,7 @@ export default function Mensajes() {
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Buscar en mis chats activos..."
+                  placeholder={t("messages.searchChats")}
                   className="w-full rounded-2xl border border-border bg-surface/60 pl-11 pr-3 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40"
                 />
               </div>
@@ -323,13 +325,13 @@ export default function Mensajes() {
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex gap-2">
                   <Chip
-                    text="Todos"
+                    text={t("messages.filterAll")}
                     active={filtro === "todas"}
                     theme={theme}
                     onClick={() => setFiltro("todas")}
                   />
                   <Chip
-                    text="No leídos"
+                    text={t("messages.filterUnread")}
                     active={filtro === "no_leidas"}
                     theme={theme}
                     onClick={() => setFiltro("no_leidas")}
@@ -352,10 +354,10 @@ export default function Mensajes() {
                     <Mail className="w-6 h-6 text-muted" />
                   </div>
                   <p className="text-sm font-semibold text-text">
-                    {q ? `No hay chats activos con "${q}"` : "Aún no tienes conversaciones activos"}
+                    {q ? t("messages.emptySearch", { query: q }) : t("messages.emptyTitle")}
                   </p>
                   <p className="text-xs text-muted mt-1 max-w-xs">
-                    ¿Buscas una empresa registrada nueva?
+                    {t("messages.emptyHint")}
                   </p>
                   <motion.button
                     whileHover={{ scale: 1.03 }}
@@ -367,7 +369,7 @@ export default function Mensajes() {
                     className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent/10 border border-accent/30 text-accent px-3 py-2 text-xs font-bold hover:bg-accent/20 transition"
                   >
                     <Search className="w-3.5 h-3.5" />
-                    Buscar "{q || "empresa"}" en el directorio
+                    {t("messages.searchDirectory")}
                   </motion.button>
                 </motion.div>
               ) : (
@@ -426,14 +428,14 @@ export default function Mensajes() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-sm font-extrabold text-text truncate">
-                                {c.otroUsuario?.name || "Socio Ecosysval"}
+                                {c.otroUsuario?.name || "Socio"}
                               </p>
                               <p className="text-[11px] text-muted shrink-0">
-                                {formatearTiempo(c.ultimoMensajeAt || c.createdAt)}
+                                {formatearTiempo(c.ultimoMensajeAt || c.createdAt, lang)}
                               </p>
                             </div>
                             <p className="mt-1 text-xs text-muted line-clamp-2">
-                              {c.ultimoMensaje || "Sin mensajes aún"}
+                              {c.ultimoMensaje || t("messages.noMessages")}
                             </p>
                             <AnimatePresence>
                               {unread && (
@@ -444,7 +446,7 @@ export default function Mensajes() {
                                   className="mt-2 flex items-center gap-2"
                                 >
                                   <span className={badgeColor({ theme, color: "emerald" })}>
-                                    {c.noLeidos} nuevo{c.noLeidos > 1 ? "s" : ""}
+                                    {c.noLeidos} {t("messages.filterUnread").toLowerCase()}
                                   </span>
                                 </motion.div>
                               )}
@@ -472,14 +474,14 @@ export default function Mensajes() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-extrabold text-text truncate">
-                    {selected ? selected.otroUsuario?.name : "Conversación"}
+                    {selected ? selected.otroUsuario?.name : t("messages.conversation")}
                   </div>
                   <div className="text-xs text-muted">
                     {selected
                       ? typingUserId
-                        ? "Escribiendo…"
-                        : selected.otroUsuario?.email || "Contacto directo"
-                      : "Selecciona un chat o busca una empresa"}
+                        ? t("messages.typing")
+                        : selected.otroUsuario?.email || ""
+                      : t("messages.noSelection")}
                   </div>
                 </div>
               </div>
@@ -494,7 +496,7 @@ export default function Mensajes() {
                     setSearchParams({}, { replace: true });
                   }}
                   className="h-10 w-10 rounded-2xl border border-border bg-surface/60 hover:bg-surface flex items-center justify-center"
-                  title="Cerrar chat"
+                  title={t("common.close")}
                 >
                   <X className="w-5 h-5" />
                 </motion.button>
@@ -512,10 +514,10 @@ export default function Mensajes() {
                     <MailOpen className="w-7 h-7 text-muted" />
                   </div>
                   <p className="text-text font-semibold">
-                    Ningún mensaje seleccionado
+                    {t("messages.noSelection")}
                   </p>
                   <p className="text-sm text-muted mt-2 max-w-md">
-                    Selecciona una conversación o busca socios empresariales para negociar.
+                    {t("messages.noSelectionHint")}
                   </p>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -527,7 +529,7 @@ export default function Mensajes() {
                     className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-pro hover:brightness-95 transition"
                   >
                     <Building2 className="w-4 h-4" />
-                    Buscar empresa registrada
+                    {t("messages.searchCompany")}
                   </motion.button>
                 </motion.div>
               ) : (
@@ -536,8 +538,8 @@ export default function Mensajes() {
                   {...fadeIn}
                   className="flex-1 flex flex-col"
                 >
-                  {/* Mensajes */}
-                  <div 
+                  {/* Mensajes con scroll container */}
+                  <div
                     ref={chatContainerRef}
                     className="flex-1 overflow-y-auto p-5 space-y-3 max-h-[520px]"
                   >
@@ -547,7 +549,7 @@ export default function Mensajes() {
                       </div>
                     ) : mensajes.length === 0 ? (
                       <div className="text-center text-muted text-sm py-10">
-                        No hay mensajes aún. ¡Envía el primer mensaje!
+                        {t("messages.noMessages")}
                       </div>
                     ) : (
                       <AnimatePresence initial={false}>
@@ -561,29 +563,29 @@ export default function Mensajes() {
                               className={`flex group ${mine ? "justify-end" : "justify-start"}`}
                             >
                               <div className="relative flex items-center gap-2 max-w-[80%]">
-                                {/* boton eliminar (solo en tus mensajes) */}
+                                {/* Botón eliminar traducido */}
                                 {mine && (
                                   <motion.button
                                     whileHover={{ scale: 1.2 }}
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => {
-                                      toast("¿Eliminar mensaje para todos?", {
+                                      toast(t("messages.deleteConfirm"), {
                                         action: {
-                                          label: "Eliminar",
+                                          label: t("common.delete"),
                                           onClick: async () => {
                                             try {
                                               await eliminarMensaje(m.id);
-                                              toast.success("Mensaje eliminado");
+                                              toast.success(t("messages.deleted"));
                                             } catch {
-                                              toast.error("No se pudo eliminar el mensaje");
+                                              toast.error(t("messages.deleteError"));
                                             }
                                           },
                                         },
-                                        cancel: { label: "Cancelar" },
+                                        cancel: { label: t("common.cancel") },
                                       });
                                     }}
                                     className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition"
-                                    title="Eliminar mensaje"
+                                    title={t("common.delete")}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </motion.button>
@@ -603,9 +605,11 @@ export default function Mensajes() {
                                       mine ? "text-slate-800/70 justify-end" : "text-muted"
                                     }`}
                                   >
-                                    <span>{formatearTiempo(m.createdAt)}</span>
+                                    <span>{formatearTiempo(m.createdAt, lang)}</span>
                                     {mine && (
-                                      <span>{m.leido ? "· Leído" : "· Enviado"}</span>
+                                      <span>
+                                        {m.leido ? `· ${t("messages.read")}` : `· ${t("messages.sent")}`}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -617,9 +621,8 @@ export default function Mensajes() {
                     )}
 
                     <AnimatePresence>
-                      {typingUserId && <TypingIndicator />}
+                      {typingUserId && <TypingIndicator text={t("messages.typing")} />}
                     </AnimatePresence>
-                    <div ref={bottomRef} />
                   </div>
 
                   {/* Input envío */}
@@ -648,7 +651,7 @@ export default function Mensajes() {
                         }
                       }}
                       rows={1}
-                      placeholder="Escribe un mensaje... (Enter para enviar)"
+                      placeholder={t("messages.placeholder")}
                       className="flex-1 resize-none rounded-2xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-ring/40 max-h-32"
                     />
 
@@ -664,7 +667,7 @@ export default function Mensajes() {
                       ) : (
                         <Send className="w-4 h-4" />
                       )}
-                      Enviar
+                      {t("common.send")}
                     </motion.button>
                   </form>
                 </motion.div>
@@ -674,7 +677,7 @@ export default function Mensajes() {
         </div>
       </motion.div>
 
-      {/* MODAL: BUSCAR EMPRESAS Y ABRIR NUEVO CHAT */}
+      {/* MODAL: BUSCAR EMPRESAS */}
       <AnimatePresence>
         {showModalNuevoChat && (
           <motion.div
@@ -693,7 +696,7 @@ export default function Mensajes() {
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-accent" />
-                  <h3 className="font-extrabold text-text text-lg">Directorio de Empresas</h3>
+                  <h3 className="font-extrabold text-text text-lg">{t("messages.directoryTitle")}</h3>
                 </div>
                 <motion.button
                   whileHover={{ rotate: 90 }}
@@ -711,7 +714,7 @@ export default function Mensajes() {
                   type="text"
                   value={busquedaEmpresa}
                   onChange={(e) => buscarEmpresasDirectorio(e.target.value)}
-                  placeholder="Ej: Tereos SA, Afore, Constructora..."
+                  placeholder={t("messages.directoryPlaceholder")}
                   className="w-full rounded-2xl border border-border bg-surface/80 pl-10 pr-4 py-2.5 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/40"
                 />
               </div>
@@ -720,13 +723,13 @@ export default function Mensajes() {
                 {loadingEmpresas ? (
                   <div className="p-6 text-center text-muted flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-accent" />
-                    Buscando empresas...
+                    {t("common.loading")}
                   </div>
                 ) : empresasEncontradas.length === 0 ? (
                   <div className="p-6 text-center text-muted text-xs">
                     {busquedaEmpresa
-                      ? `No se encontraron empresas con "${busquedaEmpresa}"`
-                      : "Escribe el nombre de la empresa para buscar."}
+                      ? t("messages.emptySearch", { query: busquedaEmpresa })
+                      : t("common.search")}
                   </div>
                 ) : (
                   <motion.div
@@ -754,7 +757,7 @@ export default function Mensajes() {
                           onClick={() => handleIniciarChatConEmpresa(emp)}
                           className="px-3 py-1.5 rounded-xl bg-accent text-slate-900 text-xs font-bold hover:brightness-95 transition"
                         >
-                          Iniciar chat
+                          {t("messages.startChat")}
                         </motion.button>
                       </motion.div>
                     ))}

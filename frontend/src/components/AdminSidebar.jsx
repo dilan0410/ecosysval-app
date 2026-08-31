@@ -1,5 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "./LanguageSwitcher";
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,37 +14,38 @@ import {
 
 function AdminSidebar({ onLogout, user, onNavigate }) {
   const location = useLocation();
+  const { t } = useTranslation();
 
-  // Lista de items del menú
+  // Lista de items del menú traducidos
   const menuItems = [
     { 
       path: "/admin", 
-      label: "Dashboard", 
+      label: t("admin.dashboard"), 
       icon: LayoutDashboard 
     },
     { 
       path: "/admin/usuarios", 
-      label: "Usuarios", 
+      label: t("admin.users"), 
       icon: Users 
     },
     { 
       path: "/admin/empresas", 
-      label: "Empresas", 
+      label: t("admin.companies"), 
       icon: Building2 
     },
     { 
       path: "/admin/empleos", 
-      label: "Empleos", 
+      label: t("admin.jobs"), 
       icon: Briefcase 
     },
     { 
       path: "/admin/reportes", 
-      label: "Reportes", 
+      label: t("admin.reports"), 
       icon: BarChart3 
     },
     { 
       path: "/admin/configuracion", 
-      label: "Configuración", 
+      label: t("admin.settings"), 
       icon: Settings 
     },
   ];
@@ -58,16 +61,16 @@ function AdminSidebar({ onLogout, user, onNavigate }) {
   return (
     <aside className="w-64 bg-black/40 backdrop-blur-sm border-r border-yellow-500/20 min-h-screen flex flex-col">
       {/* LOGO */}
-        <div className="p-4 border-b border-yellow-500/20">
+      <div className="p-4 border-b border-yellow-500/20">
         <div className="flex flex-col items-center">
-            <img
+          <img
             src="/ecosysval.png"
             alt="ECOSYSVAL"
             className="h-12 w-auto object-contain mb-2"
-            />
-            <p className="text-xs text-gray-400 font-semibold">Panel de Administración</p>
+          />
+          <p className="text-xs text-gray-400 font-semibold">{t("admin.panel")}</p>
         </div>
-        </div>
+      </div>
 
       {/* MENÚ */}
       <nav className="flex-1 p-4 space-y-1">
@@ -76,22 +79,27 @@ function AdminSidebar({ onLogout, user, onNavigate }) {
           const active = isActive(item.path);
           
           return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onNavigate}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  active
-                    ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
-                    : "text-gray-300 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Icon size={20} />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            );
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                active
+                  ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
+                  : "text-gray-300 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Icon size={20} />
+              <span className="font-medium">{item.label}</span>
+            </Link>
+          );
         })}
       </nav>
+
+      {/* SELECTOR DE IDIOMA ADMIN */}
+      <div className="px-4 mb-2">
+        <LanguageSwitcher variant="admin" />
+      </div>
 
       {/* USUARIO Y LOGOUT */}
       <div className="p-4 border-t border-yellow-500/20">
@@ -108,7 +116,7 @@ function AdminSidebar({ onLogout, user, onNavigate }) {
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white transition-all border border-red-500/30"
         >
           <LogOut size={20} />
-          <span className="font-medium">Cerrar Sesión</span>
+          <span className="font-medium">{t("admin.logout")}</span>
         </button>
       </div>
     </aside>
