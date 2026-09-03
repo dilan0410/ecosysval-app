@@ -1,14 +1,13 @@
 // frontend/src/pages/Explorar.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Layout from "../components/Layout";
 import EmpresaCard from "../components/EmpresaCard";
 import { SkeletonEmpresaGrid } from "../components/SkeletonEmpresaCard";
 import {
   Search,
-  Filter,
   X,
-  Loader2,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -17,21 +16,18 @@ import {
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
-const OPCIONES_ORDEN = [
-  { value: "recientes", label: "Más recientes" },
-  { value: "nombre", label: "Nombre (A-Z)" },
-  { value: "mejor-calificadas", label: "Mejor calificadas" },
-];
-
 export default function Explorar() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Estados del buscador (input local)
-  const [inputBusqueda, setInputBusqueda] = useState(
-    searchParams.get("q") || ""
-  );
+  const OPCIONES_ORDEN = [
+    { value: "recientes", label: t("explore.sortRecent") },
+    { value: "nombre", label: t("explore.sortName") },
+    { value: "mejor-calificadas", label: t("explore.sortRated") },
+  ];
 
-  // Estados de filtros aplicados (lo que va al backend)
+  const [inputBusqueda, setInputBusqueda] = useState(searchParams.get("q") || "");
+
   const [filtros, setFiltros] = useState({
     q: searchParams.get("q") || "",
     estado: searchParams.get("estado") || "",
@@ -40,7 +36,6 @@ export default function Explorar() {
     page: parseInt(searchParams.get("page") || "1"),
   });
 
-  // Datos
   const [resultado, setResultado] = useState({
     empresas: [],
     total: 0,
@@ -51,18 +46,13 @@ export default function Explorar() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Opciones para filtros
   const [opcionesFiltros, setOpcionesFiltros] = useState({
     estados: [],
     empleados: [],
   });
 
-  // Filtros móviles (colapsables)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
-  // ==========================================
-  // CARGAR FILTROS DISPONIBLES
-  // ==========================================
   useEffect(() => {
     async function cargarFiltros() {
       try {
@@ -78,9 +68,6 @@ export default function Explorar() {
     cargarFiltros();
   }, []);
 
-  // ==========================================
-  // CARGAR EMPRESAS (cuando cambian filtros)
-  // ==========================================
   const cargarEmpresas = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -93,27 +80,22 @@ export default function Explorar() {
       params.set("page", filtros.page.toString());
       params.set("limit", "12");
 
-      const res = await fetch(
-        `${API_URL}/empresas/explorar/buscar?${params.toString()}`
-      );
+      const res = await fetch(`${API_URL}/empresas/explorar/buscar?${params.toString()}`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       setResultado(data);
     } catch (e) {
       console.error(e);
-      setError("No se pudieron cargar las empresas.");
+      setError(t("explore.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [filtros]);
+  }, [filtros, t]);
 
   useEffect(() => {
     cargarEmpresas();
   }, [cargarEmpresas]);
 
-  // ==========================================
-  // SINCRONIZAR URL con filtros
-  // ==========================================
   useEffect(() => {
     const params = new URLSearchParams();
     if (filtros.q) params.set("q", filtros.q);
@@ -125,9 +107,6 @@ export default function Explorar() {
     // eslint-disable-next-line
   }, [filtros]);
 
-  // ==========================================
-  // Detectar si viene búsqueda desde el header
-  // ==========================================
   useEffect(() => {
     const qFromUrl = searchParams.get("q") || "";
     if (qFromUrl !== filtros.q) {
@@ -137,9 +116,6 @@ export default function Explorar() {
     // eslint-disable-next-line
   }, [searchParams.get("q")]);
 
-  // ==========================================
-  // HANDLERS
-  // ==========================================
   function buscar(e) {
     e?.preventDefault();
     setFiltros((f) => ({ ...f, q: inputBusqueda.trim(), page: 1 }));
@@ -159,7 +135,6 @@ export default function Explorar() {
   function cambiarPagina(nuevaPagina) {
     if (nuevaPagina < 1 || nuevaPagina > resultado.totalPages) return;
     setFiltros((f) => ({ ...f, page: nuevaPagina }));
-    // Scroll suave arriba
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -173,27 +148,24 @@ export default function Explorar() {
     !!filtros.empleados ||
     filtros.ordenar !== "recientes";
 
-  // ==========================================
-  // RENDER
-  // ==========================================
   return (
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-6 md:p-8 shadow-2xl">
           <div className="flex items-center gap-3 mb-4">
             <Building2 className="w-7 h-7 text-yellow-400" />
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-                Explorar Empresas
+                {t("explore.title")}
               </h1>
               <p className="text-white/60 text-sm">
-                Descubre y conecta con empresas del ecosistema
+                {t("explore.subtitle")}
               </p>
             </div>
           </div>
 
-          {/* ===== BUSCADOR ===== */}
+          {/* BUSCADOR */}
           <form onSubmit={buscar} className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
@@ -201,7 +173,7 @@ export default function Explorar() {
                 type="text"
                 value={inputBusqueda}
                 onChange={(e) => setInputBusqueda(e.target.value)}
-                placeholder="Buscar por nombre, sector, productos, servicios..."
+                placeholder={t("explore.searchPlaceholder")}
                 className="w-full pl-12 pr-4 py-3 rounded-2xl bg-[#1e293b] border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400 transition"
               />
             </div>
@@ -210,24 +182,23 @@ export default function Explorar() {
               className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-6 py-3 rounded-2xl font-bold inline-flex items-center justify-center gap-2 transition"
             >
               <Search className="w-4 h-4" />
-              Buscar
+              {t("common.search")}
             </button>
           </form>
         </div>
 
-        {/* ===== FILTROS ===== */}
+        {/* FILTROS */}
         <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-4 md:p-6 shadow-2xl">
-          {/* Header de filtros (móvil: toggle) */}
           <div className="flex items-center justify-between">
             <button
               onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}
               className="md:cursor-default inline-flex items-center gap-2 text-white font-semibold"
             >
               <SlidersHorizontal className="w-4 h-4 text-yellow-400" />
-              Filtros
+              {t("explore.filters")}
               {hayFiltrosActivos && (
                 <span className="ml-2 px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300 text-xs font-bold">
-                  Activos
+                  {t("explore.active")}
                 </span>
               )}
             </button>
@@ -238,33 +209,29 @@ export default function Explorar() {
                 className="text-white/60 hover:text-yellow-400 text-sm inline-flex items-center gap-1 transition"
               >
                 <X className="w-3 h-3" />
-                Limpiar filtros
+                {t("explore.clearFilters")}
               </button>
             )}
           </div>
 
-          {/* Cuerpo de filtros (siempre visible en desktop, toggle en móvil) */}
           <div
-            className={`
-              grid grid-cols-1 md:grid-cols-3 gap-3 mt-4
-              ${filtrosAbiertos ? "block" : "hidden md:grid"}
-            `}
+            className={`grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 ${
+              filtrosAbiertos ? "block" : "hidden md:grid"
+            }`}
           >
             {/* Estado */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                Estado
+                {t("explore.state")}
               </label>
               <select
                 value={filtros.estado}
                 onChange={(e) => actualizarFiltro("estado", e.target.value)}
                 className="w-full bg-[#1e293b] border border-slate-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-yellow-400 transition"
               >
-                <option value="">Todos los estados</option>
+                <option value="">{t("explore.allStates")}</option>
                 {opcionesFiltros.estados.map((est) => (
-                  <option key={est} value={est}>
-                    {est}
-                  </option>
+                  <option key={est} value={est}>{est}</option>
                 ))}
               </select>
             </div>
@@ -272,18 +239,16 @@ export default function Explorar() {
             {/* Empleados */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                Tamaño (empleados)
+                {t("explore.size")}
               </label>
               <select
                 value={filtros.empleados}
                 onChange={(e) => actualizarFiltro("empleados", e.target.value)}
                 className="w-full bg-[#1e293b] border border-slate-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-yellow-400 transition"
               >
-                <option value="">Cualquier tamaño</option>
+                <option value="">{t("explore.anySize")}</option>
                 {opcionesFiltros.empleados.map((emp) => (
-                  <option key={emp} value={emp}>
-                    {emp}
-                  </option>
+                  <option key={emp} value={emp}>{emp}</option>
                 ))}
               </select>
             </div>
@@ -291,7 +256,7 @@ export default function Explorar() {
             {/* Ordenar */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                Ordenar por
+                {t("explore.sortBy")}
               </label>
               <select
                 value={filtros.ordenar}
@@ -299,37 +264,30 @@ export default function Explorar() {
                 className="w-full bg-[#1e293b] border border-slate-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-yellow-400 transition"
               >
                 {OPCIONES_ORDEN.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
+                  <option key={op.value} value={op.value}>{op.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* ===== RESULTADOS ===== */}
+        {/* RESULTADOS */}
         <div>
-          {/* Contador */}
           {!loading && !error && (
             <div className="mb-4 text-white/70 text-sm">
               {resultado.total === 0 ? (
-                <span>No se encontraron empresas</span>
+                <span>{t("explore.noResults")}</span>
               ) : (
                 <span>
-                  Mostrando{" "}
-                  <strong className="text-yellow-400">
-                    {resultado.empresas.length}
-                  </strong>{" "}
-                  de{" "}
-                  <strong className="text-yellow-400">
-                    {resultado.total}
-                  </strong>{" "}
-                  {resultado.total === 1 ? "empresa" : "empresas"}
+                  {t("explore.showing")}{" "}
+                  <strong className="text-yellow-400">{resultado.empresas.length}</strong>{" "}
+                  {t("explore.of")}{" "}
+                  <strong className="text-yellow-400">{resultado.total}</strong>{" "}
+                  {resultado.total === 1 ? t("explore.companySingle") : t("explore.companyPlural")}
                   {filtros.q && (
                     <>
                       {" "}
-                      para "<span className="text-white">{filtros.q}</span>"
+                      {t("explore.for")} "<span className="text-white">{filtros.q}</span>"
                     </>
                   )}
                 </span>
@@ -337,7 +295,6 @@ export default function Explorar() {
             </div>
           )}
 
-          {/* Grid de empresas */}
           {loading ? (
             <SkeletonEmpresaGrid count={12} />
           ) : error ? (
@@ -348,10 +305,10 @@ export default function Explorar() {
             <div className="rounded-3xl border border-white/10 bg-[#071326]/85 backdrop-blur-xl p-12 text-center shadow-2xl">
               <Building2 className="w-16 h-16 mx-auto text-white/30 mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">
-                No se encontraron empresas
+                {t("explore.noResults")}
               </h3>
               <p className="text-white/50 text-sm mb-4">
-                Intenta ajustar los filtros o buscar con otras palabras.
+                {t("explore.noResultsHint")}
               </p>
               {hayFiltrosActivos && (
                 <button
@@ -359,7 +316,7 @@ export default function Explorar() {
                   className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-4 py-2 rounded-xl inline-flex items-center gap-2 font-semibold transition"
                 >
                   <X className="w-4 h-4" />
-                  Limpiar filtros
+                  {t("explore.clearFilters")}
                 </button>
               )}
             </div>
@@ -371,7 +328,7 @@ export default function Explorar() {
             </div>
           )}
 
-          {/* ===== PAGINACIÓN ===== */}
+          {/* PAGINACIÓN */}
           {!loading && resultado.totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-2">
               <button
@@ -380,16 +337,14 @@ export default function Explorar() {
                 className="p-2.5 rounded-xl bg-[#1e293b] border border-slate-600 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center gap-1"
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm">Anterior</span>
+                <span className="hidden sm:inline text-sm">{t("common.prev")}</span>
               </button>
 
               <div className="px-4 py-2 rounded-xl bg-[#1e293b] border border-slate-600">
                 <span className="text-white/70 text-sm">
-                  Página{" "}
-                  <strong className="text-yellow-400">{filtros.page}</strong> de{" "}
-                  <strong className="text-yellow-400">
-                    {resultado.totalPages}
-                  </strong>
+                  {t("common.page")}{" "}
+                  <strong className="text-yellow-400">{filtros.page}</strong> {t("explore.of")}{" "}
+                  <strong className="text-yellow-400">{resultado.totalPages}</strong>
                 </span>
               </div>
 
@@ -398,7 +353,7 @@ export default function Explorar() {
                 disabled={filtros.page === resultado.totalPages}
                 className="p-2.5 rounded-xl bg-[#1e293b] border border-slate-600 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center gap-1"
               >
-                <span className="hidden sm:inline text-sm">Siguiente</span>
+                <span className="hidden sm:inline text-sm">{t("common.next")}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

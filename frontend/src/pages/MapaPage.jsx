@@ -2,11 +2,7 @@
 /**
  * MAPA / POSICIÓN EN EL SISTEMA (ECOSYSVAL)
  * --------------------------------------------------------------------
- * Objetivo:
- * - Visualizar socios potenciales recomendados por el Sistema Inteligente
- * - Datos reales desde API Python (MIP 2013 + Clasificación 2024)
- * - Soporte Multi-idioma con i18next
- * - Caché ultra-rápida con React Query
+ * i18n al 100% + React Query + geolocalización 32 estados
  */
 
 import React, { useMemo, useState } from "react";
@@ -21,18 +17,17 @@ import {
   ShoppingCart,
   Handshake,
   Search,
-  Loader2, 
+  Loader2,
   AlertCircle,
 } from "lucide-react";
 
 import Mapa from "../components/Mapa";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
-
 import { useMapaRecomendaciones } from "../hooks/useMapaRecomendaciones";
 
 // ==========================================================
-// DICCIONARIO DE COORDENADAS NORMALIZADO POR ESTADO (MÉXICO)
+// COORDENADAS por estado
 // ==========================================================
 const COORDENADAS_ESTADOS = {
   "aguascalientes": { lat: 21.8818, lng: -102.2915 },
@@ -79,35 +74,21 @@ const COORDENADAS_ESTADOS = {
 
 function normalizarTextoEstado(str) {
   if (!str) return "";
-  return String(str)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+  return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
 function obtenerCoordenadasPorEstado(estadoNombre, id = "1") {
   const norm = normalizarTextoEstado(estadoNombre);
   const baseCoords = COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
-  
   let seed = 0;
   const strId = String(id || "1");
-  for (let i = 0; i < strId.length; i++) {
-    seed += strId.charCodeAt(i);
-  }
-  
+  for (let i = 0; i < strId.length; i++) seed += strId.charCodeAt(i);
   const offsetLat = ((seed % 20) - 10) * 0.003;
   const offsetLng = (((seed * 3) % 20) - 10) * 0.003;
-  
-  return {
-    lat: baseCoords.lat + offsetLat,
-    lng: baseCoords.lng + offsetLng,
-  };
+  return { lat: baseCoords.lat + offsetLat, lng: baseCoords.lng + offsetLng };
 }
 
-// ==========================================================
-// FALLBACK: Datos mock si la API falla
-// ==========================================================
+// Mock fallback
 const empresasMock = [
   {
     id: "0000123",
@@ -131,31 +112,29 @@ const empresasMock = [
   },
 ];
 
+// Beneficios con CLAVES i18n
 const beneficiosNiveles = [
-  { title: "Perfil empresarial descargable", tier: "standard", detail: "Descarga un PDF con datos clave, actividad y capacidades." },
-  { title: "Identificación de socios comerciales", tier: "standard", detail: "Encuentra aliados por sector, ubicación y capacidad." },
-  { title: "Integración a cadenas de valor", tier: "standard", detail: "Conecta roles cliente/proveedor para aumentar eficiencia." },
-  { title: "Propuestas comerciales con especificaciones técnicas", tier: "platinum", detail: "Genera propuestas formales con requerimientos técnicos." },
-  { title: "Transacciones de compra y venta", tier: "platinum", detail: "Compra/venta dentro del ecosistema con trazabilidad." },
-  { title: "Coaching", tier: "platinum", detail: "Acompañamiento para cierre comercial y crecimiento." },
-  { title: "Sistema de crecimiento", tier: "platinum", detail: "Seguimiento a metas, desempeño y escalamiento." },
-  { title: "Recompensas", tier: "black", detail: "Beneficios por actividad y desempeño dentro del sistema." },
-  { title: "Networking", tier: "black", detail: "Acceso a red premium y encuentros con tomadores de decisión." },
-  { title: "Financiamiento", tier: "black", detail: "Opciones de financiación e intermediación según perfil." },
-  { title: "Desarrollo Organizacional Sustentable", tier: "black", detail: "Programas para sostenibilidad, cultura y desempeño." },
+  { titleKey: "benefits.b1_title", tier: "standard", detailKey: "benefits.b1_detail" },
+  { titleKey: "benefits.b2_title", tier: "standard", detailKey: "benefits.b2_detail" },
+  { titleKey: "benefits.b3_title", tier: "standard", detailKey: "benefits.b3_detail" },
+  { titleKey: "benefits.b4_title", tier: "platinum", detailKey: "benefits.b4_detail" },
+  { titleKey: "benefits.b5_title", tier: "platinum", detailKey: "benefits.b5_detail" },
+  { titleKey: "benefits.b6_title", tier: "platinum", detailKey: "benefits.b6_detail" },
+  { titleKey: "benefits.b7_title", tier: "platinum", detailKey: "benefits.b7_detail" },
+  { titleKey: "benefits.b8_title", tier: "black", detailKey: "benefits.b8_detail" },
+  { titleKey: "benefits.b9_title", tier: "black", detailKey: "benefits.b9_detail" },
+  { titleKey: "benefits.b10_title", tier: "black", detailKey: "benefits.b10_detail" },
+  { titleKey: "benefits.b11_title", tier: "black", detailKey: "benefits.b11_detail" },
 ];
 
 // ==========================================================
-// MapaPage - Componente principal
+// MapaPage
 // ==========================================================
 export default function MapaPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { t } = useTranslation();
 
-  // ==========================================================
-  // STATE UI
-  // ==========================================================
   const [viewMode, setViewMode] = useState("map");
   const [filterTipo, setFilterTipo] = useState("Ambos");
   const [search, setSearch] = useState("");
@@ -172,29 +151,18 @@ export default function MapaPage() {
   const empresasReales = data?.empresas || [];
   const sectorInfo = data?.sectorInfo || null;
   const infoMensaje = data?.infoMensaje || null;
-  const error = queryError
-    ? queryError.message || t("map.demoBody")
-    : null;
+  const error = queryError ? queryError.message || t("map.demoBody") : null;
 
-  // Fallback mock solo si falló y no hay caché
-  const listaBase =
-    empresasReales.length > 0
-      ? empresasReales
-      : error
-      ? empresasMock
-      : [];
+  const listaBase = empresasReales.length > 0 ? empresasReales : error ? empresasMock : [];
 
-  // STATS
   const comprasRealizadas = 1;
   const ventasRealizadas = 2;
   const restantesPlatino = 2;
 
-  // FILTRO + SEARCH
   const empresasFiltradas = useMemo(() => {
     const term = search.trim().toLowerCase();
     return listaBase.filter((e) => {
-      const coincideTipo =
-        filterTipo === "Ambos" ? true : e.tipo === filterTipo;
+      const coincideTipo = filterTipo === "Ambos" ? true : e.tipo === filterTipo;
       const coincideSearch =
         !term ||
         (e.nombre || "").toLowerCase().includes(term) ||
@@ -209,20 +177,12 @@ export default function MapaPage() {
 
   const sociosPotenciales = empresasFiltradas.length;
 
-  // ==========================================================
-  // ACCIÓN: Conectar
-  // ==========================================================
   const handleConectar = (empresa) => {
-    const ownerId =
-      empresa?.empresaData?.userId ||
-      empresa?.empresaData?.usuarioId ||
-      null;
-
+    const ownerId = empresa?.empresaData?.userId || empresa?.empresaData?.usuarioId || null;
     if (empresa.esReal && ownerId) {
       navigate(`/mensajes?userId=${ownerId}`);
       return;
     }
-
     navigate(`/formulario-comercio/`, {
       state: {
         empresaId: empresa.id,
@@ -239,19 +199,11 @@ export default function MapaPage() {
   return (
     <Layout>
       <div>
-        {/* ==========================================================
-            HEADER DEL MÓDULO
-           ========================================================== */}
+        {/* HEADER */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-5 py-4">
-            <h1 className="text-text font-extrabold text-lg md:text-xl">
-              {t("map.title")}
-            </h1>
-            <p className="text-muted text-sm mt-1 max-w-2xl">
-              {t("map.subtitle")}
-            </p>
-
-            {/* Info del sector analizado */}
+            <h1 className="text-text font-extrabold text-lg md:text-xl">{t("map.title")}</h1>
+            <p className="text-muted text-sm mt-1 max-w-2xl">{t("map.subtitle")}</p>
             {sectorInfo && !loading && (
               <div className="mt-3 flex items-center gap-2 text-xs">
                 <span className="text-muted">{t("map.analyzing")}</span>
@@ -270,15 +222,12 @@ export default function MapaPage() {
               <span className="text-sm font-extrabold text-accent">{sociosPotenciales}</span>
             </div>
 
-            {/* Toggle modo vista */}
             <div className="inline-flex rounded-full border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-1">
               <button
                 onClick={() => setViewMode("map")}
                 type="button"
                 className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
-                  viewMode === "map"
-                    ? "bg-accent text-slate-900 font-semibold"
-                    : "text-text hover:bg-surface"
+                  viewMode === "map" ? "bg-accent text-slate-900 font-semibold" : "text-text hover:bg-surface"
                 }`}
               >
                 <MapIcon className="w-4 h-4" />
@@ -288,9 +237,7 @@ export default function MapaPage() {
                 onClick={() => setViewMode("list")}
                 type="button"
                 className={`px-4 py-2 text-sm rounded-full transition inline-flex items-center gap-2 ${
-                  viewMode === "list"
-                    ? "bg-accent text-slate-900 font-semibold"
-                    : "text-text hover:bg-surface"
+                  viewMode === "list" ? "bg-accent text-slate-900 font-semibold" : "text-text hover:bg-surface"
                 }`}
               >
                 <ListIcon className="w-4 h-4" />
@@ -300,17 +247,13 @@ export default function MapaPage() {
           </div>
         </div>
 
-        {/* Banner de error (si falla la API) */}
+        {/* Banner error */}
         {error && (
           <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-300">
-                {t("map.demoTitle")}
-              </p>
-              <p className="text-xs text-amber-200/80 mt-1">
-                {t("map.demoBody")} {error}
-              </p>
+              <p className="text-sm font-semibold text-amber-300">{t("map.demoTitle")}</p>
+              <p className="text-xs text-amber-200/80 mt-1">{t("map.demoBody")} {error}</p>
               <button
                 onClick={() => refetch()}
                 className="mt-2 text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition"
@@ -321,7 +264,7 @@ export default function MapaPage() {
           </div>
         )}
 
-        {/* Banner de info/warning para SCIAN inválido */}
+        {/* Banner info/warning */}
         {infoMensaje && !error && (
           <div className={`mb-4 rounded-2xl border p-4 flex items-start gap-3 ${
             infoMensaje.tipo === "warning"
@@ -335,7 +278,7 @@ export default function MapaPage() {
               <p className={`text-sm font-semibold ${
                 infoMensaje.tipo === "warning" ? "text-yellow-300" : "text-blue-300"
               }`}>
-                {infoMensaje.tipo === "warning" ? "Aviso" : "Información"}
+                {infoMensaje.tipo === "warning" ? t("map.warning") : t("map.info")}
               </p>
               <p className={`text-xs mt-1 ${
                 infoMensaje.tipo === "warning" ? "text-yellow-200/80" : "text-blue-200/80"
@@ -354,7 +297,7 @@ export default function MapaPage() {
           <StatCard icon={Users} value={sociosPotenciales} label={t("map.potentialPartners")} highlight />
         </div>
 
-        {/* BUSCADOR + CHIPS FILTRO */}
+        {/* BUSCADOR + CHIPS */}
         <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1 relative">
@@ -364,15 +307,9 @@ export default function MapaPage() {
                 placeholder={t("map.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={[
-                  "w-full rounded-full pl-11 pr-4 py-2.5 text-sm",
-                  "bg-surface/60 border border-border text-text placeholder:text-muted/70",
-                  "outline-none backdrop-blur-md appearance-none bg-clip-padding transition",
-                  "focus:ring-2 focus:ring-ring/40 focus:border-accent/30",
-                ].join(" ")}
+                className="w-full rounded-full pl-11 pr-4 py-2.5 text-sm bg-surface/60 border border-border text-text placeholder:text-muted/70 outline-none backdrop-blur-md appearance-none bg-clip-padding transition focus:ring-2 focus:ring-ring/40 focus:border-accent/30"
               />
             </div>
-
             <div className="flex flex-wrap gap-2">
               <Chip label={t("map.client")} active={filterTipo === "Cliente"} onClick={() => setFilterTipo("Cliente")} />
               <Chip label={t("map.provider")} active={filterTipo === "Proveedor"} onClick={() => setFilterTipo("Proveedor")} />
@@ -381,14 +318,11 @@ export default function MapaPage() {
           </div>
         </div>
 
-        {/* Badge opcional: refetch en segundo plano con datos ya en caché */}
         {isFetching && data && (
-          <div className="mb-3 text-[11px] text-muted">
-            {t("map.updating")}
-          </div>
+          <div className="mb-3 text-[11px] text-muted">{t("map.updating")}</div>
         )}
 
-        {/* Loading solo en la primera carga (sin caché) */}
+        {/* Loading state */}
         {loading && !data ? (
           <div className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-12 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-accent animate-spin" />
@@ -396,19 +330,15 @@ export default function MapaPage() {
             <p className="text-muted text-sm">{t("map.loadingSub")}</p>
           </div>
         ) : (
-          /* LAYOUT PRINCIPAL (Mapa + Lista) */
           <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
             {viewMode === "map" && (
               <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
                     <h2 className="text-text font-bold">{t("map.mapTitle")}</h2>
-                    <p className="text-muted text-xs">
-                      {t("map.mapHint")}
-                    </p>
+                    <p className="text-muted text-xs">{t("map.mapHint")}</p>
                   </div>
                 </div>
-
                 <div className="p-4">
                   <div className="rounded-2xl overflow-hidden border border-border bg-surface/50">
                     <Mapa empresas={empresasFiltradas} zoom={5} />
@@ -426,15 +356,12 @@ export default function MapaPage() {
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
                     <h2 className="text-text font-bold">{t("map.listTitle")}</h2>
-                    <p className="text-muted text-xs">
-                      {t("map.listHint")}
-                    </p>
+                    <p className="text-muted text-xs">{t("map.listHint")}</p>
                   </div>
                   <span className="text-[11px] text-accent border border-accent/25 bg-accent/10 rounded-full px-3 py-1">
                     {sociosPotenciales} {t("map.results").toLowerCase()}
                   </span>
                 </div>
-
                 <div className="p-4 pr-2 max-h-[560px] overflow-y-auto">
                   <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} t={t} />
                 </div>
@@ -443,19 +370,15 @@ export default function MapaPage() {
           </div>
         )}
 
-        {/* BENEFICIOS (Accordion) */}
+        {/* BENEFICIOS */}
         <section className="mt-8">
           <div className="flex items-end justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-text font-extrabold text-lg md:text-xl">
-                {t("map.benefits")}
-              </h2>
-              <p className="text-muted text-sm">
-                Despliega cada beneficio para ver qué incluye y el nivel requerido.
-              </p>
+              <h2 className="text-text font-extrabold text-lg md:text-xl">{t("map.benefits")}</h2>
+              <p className="text-muted text-sm">{t("benefits.subtitle")}</p>
             </div>
             <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-              Standard • Platinum • Black
+              {t("benefits.tiersLabel")}
             </span>
           </div>
 
@@ -465,12 +388,13 @@ export default function MapaPage() {
               return (
                 <AccordionItem
                   key={idx}
-                  title={b.title}
-                  detail={b.detail}
+                  title={t(b.titleKey)}
+                  detail={t(b.detailKey)}
                   tier={b.tier}
                   open={open}
                   onToggle={() => setOpenBenefitIndex(open ? null : idx)}
                   theme={theme}
+                  t={t}
                 />
               );
             })}
@@ -481,9 +405,9 @@ export default function MapaPage() {
   );
 }
 
-/* ====================================================================
+/* ==========================================
    UI COMPONENTS
-   ==================================================================== */
+   ========================================== */
 
 function Chip({ label, active, onClick }) {
   return (
@@ -517,18 +441,11 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
       >
         <Icon className="w-5 h-5" />
       </div>
-
       <div className="min-w-0 flex-1">
-        <div
-          className={`font-extrabold ${compact ? "text-2xl" : "text-3xl"} ${
-            highlight ? "text-accent" : "text-text"
-          }`}
-        >
+        <div className={`font-extrabold ${compact ? "text-2xl" : "text-3xl"} ${highlight ? "text-accent" : "text-text"}`}>
           {value}
         </div>
-        <div className={`text-xs sm:text-sm ${highlight ? "text-text/85" : "text-muted"} truncate`}>
-          {label}
-        </div>
+        <div className={`text-xs sm:text-sm ${highlight ? "text-text/85" : "text-muted"} truncate`}>{label}</div>
       </div>
     </div>
   );
@@ -536,16 +453,13 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
 
 function ListaEmpresas({ empresas, onConectar, theme, t }) {
   if (!empresas.length) {
-    return <div className="p-10 text-center text-muted">No hay resultados con esos filtros.</div>;
+    return <div className="p-10 text-center text-muted">{t("map.noResults")}</div>;
   }
 
   return (
     <div className="grid gap-4">
       {empresas.map((e) => (
-        <div
-          key={e.id}
-          className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4"
-        >
+        <div key={e.id} className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -554,7 +468,6 @@ function ListaEmpresas({ empresas, onConectar, theme, t }) {
                   {e.tipo === "Cliente" ? t("map.client") : t("map.provider")}
                 </span>
 
-                {/* Badge real vs teorico */}
                 {e.esReal ? (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold">
                     {t("map.registered")}
@@ -565,14 +478,12 @@ function ListaEmpresas({ empresas, onConectar, theme, t }) {
                   </span>
                 )}
 
-                {/* Badge de categoría estratégica */}
                 {e.categoria && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
                     {e.categoria}
                   </span>
                 )}
 
-                {/* Porcentaje de relación */}
                 {e.porcentaje !== undefined && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
                     {e.porcentaje}% {t("map.relation")}
@@ -583,18 +494,16 @@ function ListaEmpresas({ empresas, onConectar, theme, t }) {
               <h3 className="mt-1 font-semibold text-text truncate">{e.nombre}</h3>
 
               <p className="text-sm text-text/80 mt-1">
-                <span className="text-muted">Sector:</span> {e.productos}
+                <span className="text-muted">{t("map.sector")}:</span> {e.productos}
               </p>
 
               {e.servicios && (
                 <p className="text-sm text-text/80">
-                  <span className="text-muted">Categoría:</span> {e.servicios}
+                  <span className="text-muted">{t("map.category")}:</span> {e.servicios}
                 </p>
               )}
 
-              <p className="text-sm text-muted mt-1">
-                {e.ciudad} • {e.estado}
-              </p>
+              <p className="text-sm text-muted mt-1">{e.ciudad} • {e.estado}</p>
             </div>
 
             <button
@@ -614,24 +523,14 @@ function ListaEmpresas({ empresas, onConectar, theme, t }) {
 function tipoPill(theme, tipo) {
   const isLight = theme === "light";
   const base = "text-[11px] px-2 py-0.5 rounded-full border";
-
   if (tipo === "Cliente") {
-    return `${base} ${
-      isLight
-        ? "bg-emerald-500/10 text-emerald-800 border-emerald-400/25"
-        : "bg-emerald-500/10 text-emerald-200 border-emerald-400/20"
-    }`;
+    return `${base} ${isLight ? "bg-emerald-500/10 text-emerald-800 border-emerald-400/25" : "bg-emerald-500/10 text-emerald-200 border-emerald-400/20"}`;
   }
-  return `${base} ${
-    isLight
-      ? "bg-sky-500/10 text-sky-800 border-sky-400/25"
-      : "bg-sky-500/10 text-sky-200 border-sky-400/20"
-  }`;
+  return `${base} ${isLight ? "bg-sky-500/10 text-sky-800 border-sky-400/25" : "bg-sky-500/10 text-sky-200 border-sky-400/20"}`;
 }
 
-function AccordionItem({ title, detail, tier, open, onToggle, theme }) {
+function AccordionItem({ title, detail, tier, open, onToggle, theme, t }) {
   const styles = getTierStyles(tier, theme);
-
   return (
     <div className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden">
       <button
@@ -643,22 +542,20 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme }) {
           <div className={`h-9 w-9 rounded-xl border ${styles.bar} flex items-center justify-center`}>
             <Lock className="w-4 h-4 text-text" />
           </div>
-
           <div className="min-w-0 text-left">
             <div className="text-text font-semibold truncate">{title}</div>
             <div className={`mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] ${styles.pill}`}>
-              Nivel: {tierLabel(tier)}
+              {t("benefits.levelLabel")}: {tierLabel(tier, t)}
             </div>
           </div>
         </div>
-
         <ChevronDown className={`w-5 h-5 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
         <div className="px-4 pb-4 pt-1 text-sm text-text/80">
           <div className="rounded-xl border border-border bg-surface/50 p-3">
-            {detail || "Detalle no disponible."}
+            {detail || t("benefits.noDetail")}
           </div>
         </div>
       )}
@@ -666,35 +563,28 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme }) {
   );
 }
 
-function tierLabel(tier) {
-  if (tier === "standard") return "STANDARD";
-  if (tier === "platinum") return "PLATINO";
-  return "BLACK";
+function tierLabel(tier, t) {
+  if (tier === "standard") return t("benefits.tierStandard");
+  if (tier === "platinum") return t("benefits.tierPlatinum");
+  return t("benefits.tierBlack");
 }
 
 function getTierStyles(tier, theme) {
   const isLight = theme === "light";
-
   if (tier === "standard") {
     return {
-      pill: isLight
-        ? "bg-sky-500/10 text-sky-800 border-sky-400/25"
-        : "bg-sky-500/10 text-sky-200 border-sky-400/20",
+      pill: isLight ? "bg-sky-500/10 text-sky-800 border-sky-400/25" : "bg-sky-500/10 text-sky-200 border-sky-400/20",
       bar: "bg-surface/50 border-border",
     };
   }
   if (tier === "platinum") {
     return {
-      pill: isLight
-        ? "bg-amber-500/10 text-amber-900 border-amber-400/25"
-        : "bg-amber-500/10 text-amber-200 border-amber-400/20",
+      pill: isLight ? "bg-amber-500/10 text-amber-900 border-amber-400/25" : "bg-amber-500/10 text-amber-200 border-amber-400/20",
       bar: "bg-surface/50 border-border",
     };
   }
   return {
-    pill: isLight
-      ? "bg-slate-500/10 text-slate-800 border-slate-400/25"
-      : "bg-slate-500/10 text-slate-200 border-slate-300/25",
+    pill: isLight ? "bg-slate-500/10 text-slate-800 border-slate-400/25" : "bg-slate-500/10 text-slate-200 border-slate-300/25",
     bar: "bg-surface/50 border-border",
   };
 }

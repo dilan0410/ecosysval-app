@@ -1,8 +1,9 @@
 // src/pages/Inicio.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom"; // NUEVO
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Layout from "../components/Layout";
-import { Loader2, RefreshCcw, ExternalLink } from "lucide-react"; // AGREGADO ExternalLink
+import { Loader2, RefreshCcw, ExternalLink } from "lucide-react";
 import { SkeletonPostList } from "../components/SkeletonPost";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3000";
@@ -16,6 +17,7 @@ function getImageUrl(path) {
 }
 
 export default function Inicio() {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +47,11 @@ export default function Inicio() {
         <div className="flex items-center justify-between gap-3">
           <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro px-5 py-3">
             <h1 className="text-text font-extrabold text-lg md:text-xl">
-              Inicio
-              <span className="text-muted font-semibold"> • Feed de publicaciones</span>
+              {t("nav.home")}
+              <span className="text-muted font-semibold"> • {t("home.feedSubtitle")}</span>
             </h1>
             <p className="text-muted text-sm mt-1">
-              Publicaciones tuyas y de otras empresas (ordenadas por fecha).
+              {t("home.feedDesc")}
             </p>
           </div>
 
@@ -57,21 +59,21 @@ export default function Inicio() {
             type="button"
             onClick={cargarFeed}
             className="hidden md:inline-flex items-center gap-2 rounded-2xl border border-border bg-surface/50 hover:bg-surface/70 transition px-4 py-3 text-text shadow-pro"
-            title="Actualizar feed"
+            title={t("home.refresh")}
           >
             <RefreshCcw className="w-4 h-4" />
-            Actualizar
+            {t("home.refresh")}
           </button>
         </div>
 
         {loading ? (
-        <SkeletonPostList count={3} />
-      ) : posts.length === 0 ? (
+          <SkeletonPostList count={3} />
+        ) : posts.length === 0 ? (
           <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-12 text-center">
             <div className="text-4xl mb-3">📰</div>
-            <p className="text-text font-semibold">Aún no hay publicaciones</p>
+            <p className="text-text font-semibold">{t("home.emptyTitle")}</p>
             <p className="text-muted text-sm mt-1">
-              Cuando las empresas publiquen, aparecerán aquí.
+              {t("home.emptyDesc")}
             </p>
           </div>
         ) : (
@@ -88,19 +90,19 @@ export default function Inicio() {
 
 function PostCard({ post }) {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
 
-  // PRIORIDAD DE DATOS DE EMPRESA
   const userName =
     post?.user?.empresa?.razonSocial
     ?? post?.user?.name
-    ?? "Empresa";
+    ?? t("home.defaultCompany");
 
   const avatarUrl =
     post?.user?.empresa?.logo
     ?? post?.user?.profile_image
     ?? null;
 
-  // NUEVO: ID de la empresa para navegar al perfil público
   const empresaId = post?.user?.empresa?.id;
   const puedeVerPerfil = !!empresaId;
 
@@ -110,7 +112,6 @@ function PostCard({ post }) {
     return Number.isNaN(d.getTime()) ? null : d;
   }, [post?.createdAt]);
 
-  // NUEVO: Función para ir al perfil público
   const irAPerfilEmpresa = (e) => {
     e.stopPropagation();
     if (puedeVerPerfil) {
@@ -122,7 +123,6 @@ function PostCard({ post }) {
     <article className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* Avatar clickeable */}
           <button
             type="button"
             onClick={irAPerfilEmpresa}
@@ -130,7 +130,7 @@ function PostCard({ post }) {
             className={`h-11 w-11 rounded-2xl overflow-hidden border border-border bg-surface/50 flex items-center justify-center relative transition
               ${puedeVerPerfil ? "cursor-pointer hover:scale-105 hover:border-yellow-400" : "cursor-default"}
             `}
-            title={puedeVerPerfil ? `Ver perfil de ${userName}` : ""}
+            title={puedeVerPerfil ? `${t("home.viewProfile")} ${userName}` : ""}
           >
             {avatarUrl ? (
               <>
@@ -159,7 +159,6 @@ function PostCard({ post }) {
           </button>
 
           <div>
-            {/* Nombre clickeable */}
             <button
               type="button"
               onClick={irAPerfilEmpresa}
@@ -167,14 +166,14 @@ function PostCard({ post }) {
               className={`font-semibold text-text inline-flex items-center gap-1 transition
                 ${puedeVerPerfil ? "hover:text-yellow-400 cursor-pointer" : "cursor-default"}
               `}
-              title={puedeVerPerfil ? `Ver perfil de ${userName}` : ""}
+              title={puedeVerPerfil ? `${t("home.viewProfile")} ${userName}` : ""}
             >
               {userName}
               {puedeVerPerfil && <ExternalLink className="w-3 h-3 opacity-60" />}
             </button>
             <div className="text-xs text-muted">
               {createdAt
-                ? createdAt.toLocaleString("es-ES", {
+                ? createdAt.toLocaleString(lang === "en" ? "en-US" : "es-ES", {
                     year: "numeric",
                     month: "long",
                     day: "numeric",

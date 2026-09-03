@@ -1,5 +1,6 @@
 // src/pages/Profile.jsx
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   UserCircle,
   Camera,
@@ -11,8 +12,8 @@ import {
   Send,
   Building2,
 } from "lucide-react";
-import { toast } from "sonner"; // NUEVO
-import Layout from "../components/Layout"; // NUEVO
+import { toast } from "sonner";
+import Layout from "../components/Layout";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -21,12 +22,6 @@ function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function normalizePath(p) {
-  if (!p || typeof p !== "string") return null;
-  return p.startsWith("/") ? p : `/${p}`;
-}
-
-// Helper universal para URLs de imágenes (soporta local y Supabase)
 function getImageUrl(path) {
   if (!path) return null;
   if (path.startsWith('http')) return path;
@@ -48,14 +43,22 @@ const PLAN_NAMES = {
   platino: "PLATINO",
 };
 
+const PLAN_NAMES_EN = {
+  basico: "BASIC",
+  pro: "PRO",
+  premium: "PREMIUM",
+  platino: "PLATINUM",
+};
+
 export default function Profile() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+
   const [user, setUser] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [profileBanner, setProfileBanner] = useState(null);
-  // ❌ ELIMINADO: const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Estados para edición de empresa
   const [editando, setEditando] = useState(false);
   const [formEmpresa, setFormEmpresa] = useState(null);
 
@@ -83,7 +86,7 @@ export default function Profile() {
         cargarEmpresa();
       }
     } catch (e) {
-      console.error("Usuario en localStorage inválido:", e);
+      console.error("Usuario inválido:", e);
       setUser(null);
     }
   }, []);
@@ -130,15 +133,14 @@ export default function Profile() {
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !empresa?.id) {
-      toast.error("Debes tener una empresa registrada para subir el logo");
+      toast.error(t("publicProfile.needCompany"));
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
 
-    // Toast de loading
-    const loadingToast = toast.loading("Subiendo logo...");
+    const loadingToast = toast.loading(t("publicProfile.uploadingLogo"));
 
     try {
       const response = await fetch(
@@ -152,29 +154,27 @@ export default function Profile() {
       const data = await response.json();
       if (data?.success) {
         setEmpresa((prev) => ({ ...prev, logo: data.logo }));
-        toast.success("Logo actualizado", { id: loadingToast });
+        toast.success(t("publicProfile.logoUpdated"), { id: loadingToast });
       } else {
-        toast.error("Error al subir logo: " + (data?.message || "Desconocido"), {
-          id: loadingToast,
-        });
+        toast.error(t("publicProfile.logoError"), { id: loadingToast });
       }
     } catch (error) {
       console.error("Error al subir logo:", error);
-      toast.error("Error de conexión", { id: loadingToast });
+      toast.error(t("common.connectionError"), { id: loadingToast });
     }
   };
 
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !empresa?.id) {
-      toast.error("Debes tener una empresa registrada para subir el banner");
+      toast.error(t("publicProfile.needCompany"));
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
 
-    const loadingToast = toast.loading("Subiendo banner...");
+    const loadingToast = toast.loading(t("publicProfile.uploadingBanner"));
 
     try {
       const response = await fetch(
@@ -188,28 +188,25 @@ export default function Profile() {
       const data = await response.json();
       if (data?.success) {
         setEmpresa((prev) => ({ ...prev, banner: data.banner }));
-        toast.success("Banner actualizado", { id: loadingToast });
+        toast.success(t("publicProfile.bannerUpdated"), { id: loadingToast });
       } else {
-        toast.error("Error al subir banner: " + (data?.message || "Desconocido"), {
-          id: loadingToast,
-        });
+        toast.error(t("publicProfile.bannerError"), { id: loadingToast });
       }
     } catch (error) {
       console.error("Error al subir banner:", error);
-      toast.error("Error de conexión", { id: loadingToast });
+      toast.error(t("common.connectionError"), { id: loadingToast });
     }
   };
 
   const guardarCambios = async () => {
-    const loadingToast = toast.loading("Guardando cambios...");
-    
-    // Filtrar SOLO los campos válidos que existen en la entidad Empresa
+    const loadingToast = toast.loading(t("common.saving"));
+
     const camposValidos = {
       razonSocial: formEmpresa.razonSocial,
       rfc: formEmpresa.rfc,
       paginaWeb: formEmpresa.paginaWeb,
     };
-    
+
     try {
       const resp = await fetch(`${API_URL}/empresas/${empresa.id}`, {
         method: "PUT",
@@ -226,10 +223,10 @@ export default function Profile() {
       setEmpresa(updated);
       setFormEmpresa({ ...updated });
       setEditando(false);
-      toast.success("Datos guardados con éxito", { id: loadingToast });
+      toast.success(t("publicProfile.savedOk"), { id: loadingToast });
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo guardar la empresa", { id: loadingToast });
+      toast.error(t("publicProfile.saveError"), { id: loadingToast });
     }
   };
 
@@ -240,13 +237,13 @@ export default function Profile() {
 
   const publicar = async () => {
     if (!nuevoTexto && !imagenFile && !videoFile) {
-      toast.error("Agrega texto, imagen o video para publicar");
+      toast.error(t("publicProfile.addContent"));
       return;
     }
     if (!user?.id) return;
 
     setSubiendo(true);
-    const loadingToast = toast.loading("Publicando...");
+    const loadingToast = toast.loading(t("common.publishing"));
 
     const formData = new FormData();
     formData.append("userId", user.id.toString());
@@ -270,27 +267,24 @@ export default function Profile() {
         setVideoFile(null);
         setImagenPreview(null);
         setVideoPreview(null);
-        toast.success("Publicación creada", { id: loadingToast });
+        toast.success(t("publicProfile.postCreated"), { id: loadingToast });
         await cargarUsuarioYPublicaciones(user.id);
       } else {
-        toast.error(
-          "Error al crear publicación: " + (responseData.message || "Error desconocido"),
-          { id: loadingToast }
-        );
+        toast.error(t("publicProfile.postError"), { id: loadingToast });
       }
     } catch (error) {
       console.error("Error al publicar:", error);
-      toast.error("Error de conexión al publicar", { id: loadingToast });
+      toast.error(t("common.connectionError"), { id: loadingToast });
     } finally {
       setSubiendo(false);
     }
   };
 
   const eliminarPublicacion = async (id) => {
-    toast("¿Eliminar esta publicación?", {
-      description: "Esta acción no se puede deshacer",
+    toast(t("publicProfile.deletePostConfirm"), {
+      description: t("common.cannotUndo"),
       action: {
-        label: "Eliminar",
+        label: t("common.delete"),
         onClick: async () => {
           try {
             const res = await fetch(`${API_URL}/posts/${id}`, {
@@ -298,19 +292,19 @@ export default function Profile() {
               headers: getAuthHeaders(),
             });
             if (res.ok) {
-              toast.success("Publicación eliminada");
+              toast.success(t("publicProfile.postDeleted"));
               await cargarUsuarioYPublicaciones(user.id);
             } else {
-              toast.error("Error al eliminar publicación");
+              toast.error(t("publicProfile.deletePostError"));
             }
           } catch (error) {
             console.error("Error al eliminar:", error);
-            toast.error("Error de conexión");
+            toast.error(t("common.connectionError"));
           }
         },
       },
       cancel: {
-        label: "Cancelar",
+        label: t("common.cancel"),
       },
     });
   };
@@ -327,7 +321,7 @@ export default function Profile() {
 
   const guardarEdicion = async (id) => {
     if (!textoEditado.trim()) {
-      toast.error("El contenido no puede estar vacío");
+      toast.error(t("publicProfile.emptyContent"));
       return;
     }
     try {
@@ -343,14 +337,14 @@ export default function Profile() {
       if (res.ok) {
         setEditandoId(null);
         setTextoEditado("");
-        toast.success("Publicación actualizada");
+        toast.success(t("publicProfile.postUpdated"));
         await cargarUsuarioYPublicaciones(user.id);
       } else {
-        toast.error("Error al editar publicación");
+        toast.error(t("publicProfile.editPostError"));
       }
     } catch (error) {
       console.error("Error al editar:", error);
-      toast.error("Error de conexión");
+      toast.error(t("common.connectionError"));
     }
   };
 
@@ -358,7 +352,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Selecciona un archivo de imagen válido");
+      toast.error(t("publicProfile.invalidImage"));
       return;
     }
     setImagenFile(file);
@@ -374,7 +368,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("video/")) {
-      toast.error("Selecciona un archivo de video válido");
+      toast.error(t("publicProfile.invalidVideo"));
       return;
     }
     setVideoFile(file);
@@ -389,37 +383,37 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600 font-semibold">
-        No hay usuario logueado
+        {t("publicProfile.noUser")}
       </div>
     );
   }
 
   const planActual = (empresa?.paquete || "basico").toLowerCase();
   const planImagen = PLAN_IMAGES[planActual] || PLAN_IMAGES.basico;
-  const planNombre = PLAN_NAMES[planActual] || "BÁSICO";
+  const planNombre = lang === "en"
+    ? (PLAN_NAMES_EN[planActual] || "BASIC")
+    : (PLAN_NAMES[planActual] || "BÁSICO");
 
-  // ==========================================
-  // RENDER MIGRADO A LAYOUT
-  // ==========================================
+  const localeFmt = lang === "en" ? "en-US" : "es-ES";
+
   return (
     <Layout>
-      {/* ===== Banner de la Empresa ===== */}
+      {/* ===== Banner ===== */}
       <section className="relative overflow-hidden rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro">
         <div className="relative h-56 md:h-64">
           {empresa?.banner ? (
             <img
               src={getImageUrl(empresa.banner)}
-              alt="Banner Empresa"
+              alt="Banner"
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full bg-bg/40 flex items-center justify-center text-muted">
-              Sin imagen de portada empresarial
+              {t("publicProfile.noBanner")}
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/10" />
 
-          {/* Botón para cambiar el Banner */}
           <label className="absolute top-4 right-4 cursor-pointer z-20">
             <input
               type="file"
@@ -433,17 +427,15 @@ export default function Profile() {
           </label>
         </div>
 
-        {/* Info de la Empresa */}
         <div className="relative px-5 md:px-7 pb-6">
           <div className="-mt-14 md:-mt-16 flex flex-col md:flex-row md:items-end gap-4">
             <div className="relative w-fit z-20">
               {empresa?.logo ? (
                 <img
                   src={getImageUrl(empresa.logo)}
-                  alt="Logo Empresa"
+                  alt="Logo"
                   className="w-28 h-28 md:w-32 md:h-32 rounded-3xl border border-border shadow-pro object-cover bg-white"
                   onError={(e) => {
-                    console.warn("Logo no encontrado, usando default");
                     e.target.onerror = null;
                     e.target.style.display = "none";
                     setEmpresa((prev) => ({ ...prev, logo: null }));
@@ -455,7 +447,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* Botón cámara para subir logo */}
               <label className="absolute -bottom-2 -right-2 cursor-pointer z-30">
                 <input
                   type="file"
@@ -475,29 +466,26 @@ export default function Profile() {
                 {empresa?.razonSocial || user.name}
               </h1>
               <p className="text-sm text-accent font-medium mt-1">
-                Representante:{" "}
+                {t("publicProfile.representative")}{" "}
                 <span className="text-muted">{user.name}</span>
               </p>
               <p className="text-muted mt-1 max-w-3xl text-sm">
-                {empresa?.descripcion ||
-                  "Sin descripción empresarial registrada."}
+                {empresa?.descripcion || t("publicProfile.noDescription")}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ===== Grid Principal ===== */}
+      {/* ===== Grid ===== */}
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Columna Izquierda */}
         <section className="space-y-6">
-
-          {/* ===== SECCIÓN DATOS DE LA EMPRESA ===== */}
+          {/* Datos empresa */}
           {empresa && formEmpresa && (
             <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-text">
-                  Datos Generales de la Empresa
+                  {t("publicProfile.generalData")}
                 </h3>
                 <div className="flex gap-2">
                   {editando && (
@@ -505,7 +493,7 @@ export default function Profile() {
                       onClick={cancelarEdicion}
                       className="px-4 py-2 rounded-xl font-medium border border-border bg-surface/50 hover:bg-surface/70 text-text transition"
                     >
-                      Cancelar
+                      {t("common.cancel")}
                     </button>
                   )}
                   <button
@@ -518,78 +506,66 @@ export default function Profile() {
                     }}
                     className="bg-accent text-slate-900 px-4 py-2 rounded-xl font-medium hover:brightness-95 transition"
                   >
-                    {editando ? "Guardar Cambios" : "Editar Perfil"}
+                    {editando ? t("publicProfile.saveChanges") : t("publicProfile.editProfile")}
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Razón Social */}
                 <div>
                   <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Razón Social
+                    {t("publicProfile.companyName")}
                   </label>
                   {editando ? (
                     <input
                       type="text"
                       value={formEmpresa.razonSocial || ""}
                       onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          razonSocial: e.target.value,
-                        })
+                        setFormEmpresa({ ...formEmpresa, razonSocial: e.target.value })
                       }
                       className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
                     />
                   ) : (
                     <p className="font-semibold text-text mt-1">
                       {empresa?.razonSocial || (
-                        <span className="text-muted">No registrado</span>
+                        <span className="text-muted">{t("publicProfile.notRegistered")}</span>
                       )}
                     </p>
                   )}
                 </div>
 
-                {/* RFC */}
                 <div>
                   <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    RFC
+                    {t("publicProfile.rfc")}
                   </label>
                   {editando ? (
                     <input
                       type="text"
                       value={formEmpresa.rfc || ""}
                       onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          rfc: e.target.value,
-                        })
+                        setFormEmpresa({ ...formEmpresa, rfc: e.target.value })
                       }
                       className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
                     />
                   ) : (
                     <p className="font-semibold text-text mt-1">
                       {empresa?.rfc || (
-                        <span className="text-muted">No registrado</span>
+                        <span className="text-muted">{t("publicProfile.notRegistered")}</span>
                       )}
                     </p>
                   )}
                 </div>
 
-                {/* Página Web */}
                 <div>
                   <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Página Web
+                    {t("publicProfile.website")}
                   </label>
                   {editando ? (
                     <input
                       type="text"
                       value={formEmpresa.paginaWeb || ""}
                       onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          paginaWeb: e.target.value,
-                        })
+                        setFormEmpresa({ ...formEmpresa, paginaWeb: e.target.value })
                       }
                       className="w-full mt-1 bg-surface/60 text-text p-2 rounded-lg border border-border outline-none focus:ring-2 focus:ring-ring/40"
                     />
@@ -609,7 +585,7 @@ export default function Profile() {
                           {empresa.paginaWeb}
                         </a>
                       ) : (
-                        <span className="text-muted">No registrada</span>
+                        <span className="text-muted">{t("publicProfile.webNotRegistered")}</span>
                       )}
                     </p>
                   )}
@@ -618,17 +594,17 @@ export default function Profile() {
             </div>
           )}
 
-          {/* ===== Mis Publicaciones ===== */}
+          {/* Mis publicaciones */}
           <h2 className="text-xl md:text-2xl font-extrabold text-text">
-            Mis Publicaciones
+            {t("publicProfile.myPosts")}
           </h2>
 
-          {/* Caja de Nueva Publicación */}
-          <div className="rounded -3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
+          {/* Nueva publicación */}
+          <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5 md:p-6">
             <textarea
               value={nuevoTexto}
               onChange={(e) => setNuevoTexto(e.target.value)}
-              placeholder="¿Qué deseas compartir hoy?"
+              placeholder={t("publicProfile.whatToShare")}
               className="w-full rounded-2xl border border-border bg-surface/60 text-text placeholder:text-muted/70 p-4 outline-none focus:ring-2 focus:ring-ring/40 resize-none"
               rows={4}
             />
@@ -637,7 +613,7 @@ export default function Profile() {
               <div className="relative mt-4 overflow-hidden rounded-2xl border border-border bg-bg/40">
                 <img
                   src={imagenPreview}
-                  alt="Previsualización"
+                  alt="Preview"
                   className="w-full max-h-[420px] object-contain"
                 />
                 <button
@@ -671,7 +647,7 @@ export default function Profile() {
 
             <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4">
               <div className="flex items-center gap-2">
-                <label className="cursor-pointer" title="Añadir Imagen">
+                <label className="cursor-pointer" title={t("publicProfile.myPosts")}>
                   <input
                     type="file"
                     accept="image/*"
@@ -683,7 +659,7 @@ export default function Profile() {
                   </div>
                 </label>
 
-                <label className="cursor-pointer" title="Añadir Video">
+                <label className="cursor-pointer">
                   <input
                     type="file"
                     accept="video/*"
@@ -696,48 +672,44 @@ export default function Profile() {
                 </label>
 
                 <span className="text-xs text-muted ml-2">
-                  {nuevoTexto ? `${nuevoTexto.length} carac.` : ""}
+                  {nuevoTexto ? `${nuevoTexto.length} ${t("publicProfile.chars")}` : ""}
                 </span>
               </div>
 
               <button
                 onClick={publicar}
-                disabled={
-                  (!nuevoTexto && !imagenFile && !videoFile) || subiendo
-                }
+                disabled={(!nuevoTexto && !imagenFile && !videoFile) || subiendo}
                 className="h-11 px-5 rounded-2xl bg-accent hover:brightness-95 transition text-slate-900 font-semibold shadow-pro disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
                 {subiendo ? (
                   <>
                     <span className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                    Publicando...
+                    {t("common.publishing")}
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Publicar
+                    {t("common.publish")}
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Feed de Publicaciones */}
+          {/* Feed */}
           <div className="space-y-5">
             {publicaciones.length === 0 ? (
               <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-10 text-center">
                 <div className="text-4xl mb-3">🚀</div>
                 <div className="text-lg font-semibold text-text">
-                  Aún no tienes publicaciones
+                  {t("publicProfile.noPostsTitle")}
                 </div>
               </div>
             ) : (
               publicaciones.map((pub) => {
                 const img = pub?.image;
                 const vid = pub?.video;
-                const createdAt = pub?.createdAt
-                  ? new Date(pub.createdAt)
-                  : null;
+                const createdAt = pub?.createdAt ? new Date(pub.createdAt) : null;
 
                 return (
                   <article
@@ -749,13 +721,13 @@ export default function Profile() {
                         {empresa?.logo ? (
                           <img
                             src={getImageUrl(empresa.logo)}
-                            alt="logo empresa"
+                            alt="logo"
                             className="w-10 h-10 rounded-2xl object-cover border border-border bg-white"
                           />
                         ) : profilePic ? (
                           <img
                             src={profilePic}
-                            alt="avatar usuario"
+                            alt="avatar"
                             className="w-10 h-10 rounded-2xl object-cover border border-border"
                           />
                         ) : (
@@ -770,7 +742,7 @@ export default function Profile() {
                           </div>
                           <div className="text-xs text-muted">
                             {createdAt && !isNaN(createdAt.getTime())
-                              ? createdAt.toLocaleString("es-ES", {
+                              ? createdAt.toLocaleString(localeFmt, {
                                   year: "numeric",
                                   month: "long",
                                   day: "numeric",
@@ -786,12 +758,14 @@ export default function Profile() {
                         <button
                           onClick={() => iniciarEdicion(pub)}
                           className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition flex items-center justify-center"
+                          title={t("common.edit")}
                         >
                           <Edit className="w-4 h-4 text-text" />
                         </button>
                         <button
                           onClick={() => eliminarPublicacion(pub.id)}
                           className="h-9 w-9 rounded-xl border border-border bg-surface/50 hover:bg-red-500/10 transition flex items-center justify-center"
+                          title={t("common.delete")}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -811,13 +785,13 @@ export default function Profile() {
                             onClick={() => guardarEdicion(pub.id)}
                             className="h-10 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 transition text-slate-900 font-semibold shadow-pro inline-flex items-center gap-2"
                           >
-                            Guardar
+                            {t("publicProfile.save")}
                           </button>
                           <button
                             onClick={cancelarEdicionPost}
                             className="h-10 px-4 rounded-xl border border-border bg-surface/50 hover:bg-surface/70 transition text-text font-semibold"
                           >
-                            Cancelar
+                            {t("common.cancel")}
                           </button>
                         </div>
                       </div>
@@ -832,7 +806,7 @@ export default function Profile() {
                           <div className="overflow-hidden rounded-2xl border border-border bg-bg/40">
                             <img
                               src={getImageUrl(img)}
-                              alt="Publicación"
+                              alt="Post"
                               className="w-full max-h-[620px] object-contain"
                               loading="lazy"
                             />
@@ -856,25 +830,25 @@ export default function Profile() {
           </div>
         </section>
 
-        {/* ===== Columna Derecha Widgets ===== */}
+        {/* Sidebar derecha */}
         <aside className="space-y-6">
           <div className="rounded-3xl border border-border bg-surface/70 backdrop-blur-xl shadow-pro p-5">
             <h3 className="font-extrabold text-text text-lg mb-3">
-              Información
+              {t("publicProfile.info")}
             </h3>
             <ul className="text-text/80 space-y-2 text-sm">
               <li>
-                <b className="text-text">Mensajes:</b> 0
+                <b className="text-text">{t("publicProfile.statsMessages")}</b> 0
               </li>
               <li>
-                <b className="text-text">Publicaciones:</b>{" "}
+                <b className="text-text">{t("publicProfile.statsPosts")}</b>{" "}
                 {publicaciones.length}
               </li>
               <li>
-                <b className="text-text">Amigos:</b> 0
+                <b className="text-text">{t("publicProfile.statsFriends")}</b> 0
               </li>
               <li>
-                <b className="text-text">Web:</b>{" "}
+                <b className="text-text">{t("publicProfile.statsWeb")}</b>{" "}
                 {empresa?.paginaWeb ? (
                   <a
                     href={
@@ -889,21 +863,20 @@ export default function Profile() {
                     {empresa.paginaWeb}
                   </a>
                 ) : (
-                  <span className="text-muted">No registrada</span>
+                  <span className="text-muted">{t("publicProfile.webNotRegistered")}</span>
                 )}
               </li>
             </ul>
           </div>
 
-          {/* Membresía */}
           <div className="rounded-3xl border border-border bg-accent/10 backdrop-blur-xl shadow-pro p-5">
             <h3 className="font-extrabold text-text text-lg mb-4 text-center">
-              Membresía {planNombre}
+              {t("publicProfile.membership")} {planNombre}
             </h3>
             <div className="flex justify-center">
               <img
                 src={planImagen}
-                alt={`Membresía ${planNombre}`}
+                alt={`${t("publicProfile.membership")} ${planNombre}`}
                 className="w-40 h-44 object-contain"
                 onError={(e) => {
                   e.target.onerror = null;
