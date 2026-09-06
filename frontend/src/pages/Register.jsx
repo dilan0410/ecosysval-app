@@ -1,5 +1,5 @@
 // src/pages/Register.jsx
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -156,6 +156,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const successRef = useRef(null);
 
   // Estado del formulario
   const [formData, setFormData] = useState({
@@ -259,6 +260,22 @@ export default function Register() {
   // ==========================================
   // ENVÍO DEL FORMULARIO
   // ==========================================
+
+  useEffect(() => {
+  if (!success) return;
+
+  // Esperamos a que React renderice el mensaje antes de desplazar la pantalla
+  const frame = requestAnimationFrame(() => {
+    successRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    successRef.current?.focus();
+  });
+
+  return () => cancelAnimationFrame(frame);
+}, [success]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -385,19 +402,51 @@ export default function Register() {
       }
 
       // NUEVO: Mensaje adaptativo según si requiere verificación o no
-        const requiereVerificacion = userResponse.message?.toLowerCase().includes("verifica") 
-          || userResponse.message?.toLowerCase().includes("revisa");
+      const requiereVerificacion = userResponse.message?.toLowerCase().includes("verifica") 
+        || userResponse.message?.toLowerCase().includes("revisa");
 
-        if (requiereVerificacion) {
-          setSuccess(
-            `¡Empresa registrada correctamente! ` +
-            `Revisa tu email (${formData.correoLogin}) para verificar tu cuenta antes de iniciar sesión.`
-          );
-          setTimeout(() => navigate("/login"), 5000); // 5 segundos para leer
-        } else {
-          setSuccess("¡Empresa registrada correctamente! Redirigiendo al login...");
-          setTimeout(() => navigate("/login"), 2000);
+      if (requiereVerificacion) {
+        setSuccess(
+          `¡Empresa registrada correctamente! ` +
+          `Revisa tu email (${formData.correoLogin}) para verificar tu cuenta antes de iniciar sesión.`
+        );
+        setTimeout(() => navigate("/login"), 5000);
+      } else {
+        // AUTO-LOGIN: Si no requiere verificación, lo logueamos automáticamente
+        setSuccess("¡Empresa registrada correctamente! Iniciando sesión automáticamente...");
+        
+        try {
+          // Hacemos la petición silenciosa al login con las credenciales recién creadas
+          const loginRes = await fetch(`${API_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: formData.correoLogin,
+              password: formData.password,
+            }),
+          });
+
+          const loginData = await loginRes.json();
+
+          if (loginRes.ok && loginData.access_token) {
+            // Guardamos la sesión en el navegador
+            localStorage.setItem("token", loginData.access_token);
+            if (loginData.refresh_token) {
+              localStorage.setItem("refresh_token", loginData.refresh_token);
+            }
+            localStorage.setItem("user", JSON.stringify(loginData.user));
+            
+            // Lo enviamos directo adentro de la app en 2.5 segundos
+            setTimeout(() => navigate("/inicio"), 2500);
+          } else {
+            // Fallback: Si el auto-login falla por alguna razón rara, lo mandamos al login normal
+            setTimeout(() => navigate("/login"), 1500);
+          }
+        } catch (loginErr) {
+          console.error("Error en auto-login:", loginErr);
+          setTimeout(() => navigate("/login"), 1500);
         }
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || "Ocurrió un error al registrar.");
@@ -442,7 +491,13 @@ export default function Register() {
         )}
 
         {success && (
-          <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/40 text-green-200">
+          <div
+            ref={successRef}
+            tabIndex="-1"
+            role="status"
+            aria-live="polite"
+            className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/40 text-green-200 outline-none"
+          >
             {success}
           </div>
         )}

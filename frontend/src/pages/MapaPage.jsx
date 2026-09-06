@@ -378,7 +378,7 @@ export default function MapaPage() {
               <p className="text-muted text-sm">{t("benefits.subtitle")}</p>
             </div>
             <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-              {t("benefits.tiersLabel")}
+              Standard • Platino • Black
             </span>
           </div>
 
@@ -545,7 +545,7 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme, t }) {
           <div className="min-w-0 text-left">
             <div className="text-text font-semibold truncate">{title}</div>
             <div className={`mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] ${styles.pill}`}>
-              {t("benefits.levelLabel")}: {tierLabel(tier, t)}
+              {t("benefits.levelLabel")}: {tierLabel(tier)}
             </div>
           </div>
         </div>
@@ -563,10 +563,10 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme, t }) {
   );
 }
 
-function tierLabel(tier, t) {
-  if (tier === "standard") return t("benefits.tierStandard");
-  if (tier === "platinum") return t("benefits.tierPlatinum");
-  return t("benefits.tierBlack");
+function tierLabel(tier) {
+  if (tier === "standard") return "STANDARD";
+  if (tier === "platinum") return "PLATINO";
+  return "BLACK";
 }
 
 function getTierStyles(tier, theme) {
