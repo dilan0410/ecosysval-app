@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
+import BuscadorInteligente from "./BuscadorInteligente";
 import {
   Bell,
   MessageSquare,
@@ -30,7 +31,6 @@ export default function MainHeader({
   const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
-  const [busquedaHeader, setBusquedaHeader] = useState("");
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -108,17 +108,6 @@ export default function MainHeader({
     await apiLogout();
   };
 
-  const handleBuscarHeader = (e) => {
-    e.preventDefault();
-    const query = busquedaHeader.trim();
-    if (query) {
-      navigate(`/explorar?q=${encodeURIComponent(query)}`);
-    } else {
-      navigate(`/explorar`);
-    }
-    setBusquedaHeader("");
-  };
-
   useEffect(() => {
     function handleClickOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -193,34 +182,10 @@ export default function MainHeader({
           </button>
         </div>
 
-        {/* CENTRO */}
+        {/* centro: Buscador con autocompletado en tiempo real */}
         {showSearch && (
-          <div className="hidden lg:flex flex-1 mx-6">
-            <form
-              onSubmit={handleBuscarHeader}
-              className="w-full max-w-2xl relative"
-            >
-              <input
-                type="text"
-                value={busquedaHeader}
-                onChange={(e) => setBusquedaHeader(e.target.value)}
-                placeholder={t("header.searchPlaceholder")}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-yellow-300/70 transition shadow-sm"
-                maxLength={100}
-              />
-              <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5" />
-
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-slate-900 transition"
-                title={t("header.search")}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.3-4.3"/>
-                </svg>
-              </button>
-            </form>
+          <div className="hidden lg:flex flex-1 mx-6 justify-center">
+            <BuscadorInteligente />
           </div>
         )}
 

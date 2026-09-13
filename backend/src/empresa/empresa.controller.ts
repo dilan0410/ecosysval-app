@@ -15,9 +15,12 @@ import {
   UseGuards,
   BadRequestException,
   Query,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer'; // CAMBIO: memoryStorage en vez de diskStorage
+import { memoryStorage } from 'multer';
 
 import { EmpresaService } from './empresa.service';
 import { EmpresaReportService } from './empresa.report.service';
@@ -41,17 +44,23 @@ export class EmpresaController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(), // En memoria, para pasarlo a Supabase
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máx
+      storage: memoryStorage(),
     }),
   )
   async crear(
     @Body() body: any,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB máx
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
+        ],
+        fileIsRequired: false, // Logo es opcional al registrar
+      }),
+    ) file?: Express.Multer.File,
   ) {
     const empresaData = { ...body };
 
-    // Si viene archivo, lo subimos a Supabase Storage
     if (file) {
       const logoUrl = await this.storageService.uploadFile(file, 'logos');
       empresaData.logo = logoUrl;
@@ -81,15 +90,13 @@ export class EmpresaController {
   // ==========================================
   @Get()
   obtenerTodas(@Query('sectorScian') sectorScian?: string) {
-    // ⭐ NUEVO: Si viene el parámetro, filtra por SCIAN
     if (sectorScian) {
       return this.empresaService.obtenerPorSectorScian(sectorScian);
     }
-    // Si no viene, devuelve todas (comportamiento original)
     return this.empresaService.obtenerTodas();
   }
 
-  // NUEVO: Explorar empresas con filtros
+  // Explorar empresas con filtros
   @Get('explorar/buscar')
   explorar(
     @Query('q') q?: string,
@@ -109,7 +116,7 @@ export class EmpresaController {
     });
   }
 
-  // NUEVO: Obtener filtros disponibles
+  // Obtener filtros disponibles
   @Get('explorar/filtros')
   async obtenerFiltros() {
     const [estados, empleados] = await Promise.all([
@@ -153,25 +160,26 @@ export class EmpresaController {
   @Patch(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(), // En memoria
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máx
+      storage: memoryStorage(),
     }),
   )
   async uploadLogo(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
+        ],
+        fileIsRequired: true,
+      }),
+    ) file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('No se recibió archivo de logo');
-    }
-
-    // Opcional: eliminar el logo anterior de Supabase (si existía)
     const empresaActual = await this.empresaService.obtenerPorId(id);
     if (empresaActual?.logo && empresaActual.logo.includes('supabase')) {
       await this.storageService.deleteFile(empresaActual.logo);
     }
 
-    // Subimos el nuevo logo a Supabase
     const logoUrl = await this.storageService.uploadFile(file, 'logos');
     const empresa = await this.empresaService.actualizar(id, { logo: logoUrl });
 
@@ -190,24 +198,25 @@ export class EmpresaController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB (banners suelen ser más grandes)
     }),
   )
   async uploadBanner(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB para banners
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
+        ],
+        fileIsRequired: true,
+      }),
+    ) file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('No se recibió archivo de banner');
-    }
-
-    // Eliminar banner anterior de Supabase (si existía)
     const empresaActual = await this.empresaService.obtenerPorId(id);
     if (empresaActual?.banner && empresaActual.banner.includes('supabase')) {
       await this.storageService.deleteFile(empresaActual.banner);
     }
 
-    // Subir nuevo banner a Supabase
     const bannerUrl = await this.storageService.uploadFile(file, 'banners');
     const empresa = await this.empresaService.actualizar(id, { banner: bannerUrl });
 

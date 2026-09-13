@@ -3,17 +3,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
-  Mail,
-  User,
   Lock,
-  Globe,
-  MapPin,
-  Users,
-  Calendar,
-  DollarSign,
   Target,
   Package,
-  Wrench,
   Leaf,
   Store,
   Truck,
@@ -24,12 +16,9 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { validarImagenSegura } from "../utils/validadores";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
-
-// ==========================================
-// DATOS DE DROPDOWNS
-// ==========================================
 
 const ESTADOS_MEXICO = [
   "Aguascalientes", "Baja California", "Baja California Sur", "Campeche",
@@ -145,10 +134,6 @@ const PAQUETES = [
   },
 ];
 
-// ==========================================
-// COMPONENTE PRINCIPAL
-// ==========================================
-
 export default function Register() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -158,9 +143,7 @@ export default function Register() {
   const [success, setSuccess] = useState("");
   const successRef = useRef(null);
 
-  // Estado del formulario
   const [formData, setFormData] = useState({
-    // Sección 1: Datos generales
     correoEmpresa: "",
     razonSocial: "",
     rfc: "",
@@ -172,51 +155,47 @@ export default function Register() {
     antiguedad: "Entre 6 meses y 1 año",
     volumenVentas: "Menos de $1.000.000 MXN",
     ambito: "Financiero",
-
-    // Sección 2: Misión y visión
     mision: "",
     vision: "",
-
-    // Sección 3: Productos y servicios
     productos: [""],
     servicios: [""],
-
-    // Sección 4: ODS
     ods: [],
     actividadesOds: [""],
-
-    // Sección 5: Sucursales y socios
     tieneSucursales: false,
     tieneSocios: false,
     sucursales: [""],
     socios: [""],
-
-    // Sección 6: Operaciones internacionales
     tiposOperaciones: [],
     paisesImportacion: [""],
     paisesExportacion: [""],
     transporteExtranjero: [],
     transporteNacional: [],
-
-    // Sección 7: Logo
     logo: null,
-
-    // Sección 8: Credenciales
     correoLogin: "",
     password: "",
     confirmPassword: "",
     aceptaTerminos: false,
-
-    // Sección 9: Paquete
     paquete: "basico",
   });
 
-  // ==========================================
-  // HELPERS
-  // ==========================================
-
   const handleChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
+  };
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const { valido, error: valError } = validarImagenSegura(file, 5);
+    if (!valido) {
+      setError(valError);
+      e.target.value = null;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setError("");
+    handleChange("logo", file);
   };
 
   const handleArrayChange = (field, index, value) => {
@@ -257,32 +236,23 @@ export default function Register() {
     passwordValidation.hasLowercase &&
     passwordValidation.hasSymbol;
 
-  // ==========================================
-  // ENVÍO DEL FORMULARIO
-  // ==========================================
-
   useEffect(() => {
-  if (!success) return;
-
-  // Esperamos a que React renderice el mensaje antes de desplazar la pantalla
-  const frame = requestAnimationFrame(() => {
-    successRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
+    if (!success) return;
+    const frame = requestAnimationFrame(() => {
+      successRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      successRef.current?.focus();
     });
-
-    successRef.current?.focus();
-  });
-
-  return () => cancelAnimationFrame(frame);
-}, [success]);
+    return () => cancelAnimationFrame(frame);
+  }, [success]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    // Validaciones básicas
     if (!formData.correoEmpresa || !formData.razonSocial || !formData.rfc) {
       setError("Por favor completa los campos obligatorios de la empresa.");
       return;
@@ -306,7 +276,6 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // 1. Crear el usuario
       const userRes = await fetch(`${API_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -330,14 +299,10 @@ export default function Register() {
 
       const userData = userResponse.user;
 
-      // 2. Limpiar arrays vacíos
       const cleanArray = (arr) =>
         Array.isArray(arr) ? arr.filter((item) => item && item.trim() !== "") : [];
 
-      // 3. Preparar FormData (para poder enviar el logo + datos juntos)
       const fd = new FormData();
-
-      // Campos de texto simples
       fd.append("razonSocial", formData.razonSocial);
       fd.append("correo", formData.correoEmpresa);
       fd.append("rfc", formData.rfc);
@@ -356,7 +321,6 @@ export default function Register() {
       fd.append("userId", userData.id);
       fd.append("paquete", formData.paquete);
 
-      // Arrays como JSON string
       fd.append("productos", JSON.stringify(cleanArray(formData.productos)));
       fd.append("servicios", JSON.stringify(cleanArray(formData.servicios)));
       fd.append("ods", JSON.stringify(formData.ods));
@@ -369,12 +333,10 @@ export default function Register() {
       fd.append("transporteExtranjero", JSON.stringify(formData.transporteExtranjero));
       fd.append("transporteNacional", JSON.stringify(formData.transporteNacional));
 
-      // ✅ Logo si fue seleccionado
       if (formData.logo) {
         fd.append("file", formData.logo);
       }
 
-      // 4. Buscar si ya existe empresa del usuario
       const empresasRes = await fetch(`${API_URL}/empresas`);
       const todasEmpresas = await empresasRes.json();
       const miEmpresaCreada = todasEmpresas.find((e) => e.userId === userData.id);
@@ -382,41 +344,32 @@ export default function Register() {
       let empresaFinal;
 
       if (miEmpresaCreada) {
-        // ✅ ACTUALIZAR empresa existente con FormData
         const updateRes = await fetch(`${API_URL}/empresas/${miEmpresaCreada.id}`, {
           method: "PUT",
-          // ⚠️ Sin Content-Type header, FormData lo configura automáticamente
           body: fd,
         });
         if (!updateRes.ok) throw new Error("Error al actualizar empresa");
         empresaFinal = await updateRes.json();
       } else {
-        // ✅ CREAR nueva empresa con FormData
         const empresaRes = await fetch(`${API_URL}/empresas`, {
           method: "POST",
-          // ⚠️ Sin Content-Type header, FormData lo configura automáticamente
           body: fd,
         });
         if (!empresaRes.ok) throw new Error("Error al crear empresa");
         empresaFinal = await empresaRes.json();
       }
 
-      // NUEVO: Mensaje adaptativo según si requiere verificación o no
       const requiereVerificacion = userResponse.message?.toLowerCase().includes("verifica") 
         || userResponse.message?.toLowerCase().includes("revisa");
 
       if (requiereVerificacion) {
         setSuccess(
-          `¡Empresa registrada correctamente! ` +
-          `Revisa tu email (${formData.correoLogin}) para verificar tu cuenta antes de iniciar sesión.`
+          `¡Empresa registrada correctamente! Revisa tu email (${formData.correoLogin}) para verificar tu cuenta.`
         );
         setTimeout(() => navigate("/login"), 5000);
       } else {
-        // AUTO-LOGIN: Si no requiere verificación, lo logueamos automáticamente
         setSuccess("¡Empresa registrada correctamente! Iniciando sesión automáticamente...");
-        
         try {
-          // Hacemos la petición silenciosa al login con las credenciales recién creadas
           const loginRes = await fetch(`${API_URL}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -429,17 +382,13 @@ export default function Register() {
           const loginData = await loginRes.json();
 
           if (loginRes.ok && loginData.access_token) {
-            // Guardamos la sesión en el navegador
             localStorage.setItem("token", loginData.access_token);
             if (loginData.refresh_token) {
               localStorage.setItem("refresh_token", loginData.refresh_token);
             }
             localStorage.setItem("user", JSON.stringify(loginData.user));
-            
-            // Lo enviamos directo adentro de la app en 2.5 segundos
             setTimeout(() => navigate("/inicio"), 2500);
           } else {
-            // Fallback: Si el auto-login falla por alguna razón rara, lo mandamos al login normal
             setTimeout(() => navigate("/login"), 1500);
           }
         } catch (loginErr) {
@@ -455,10 +404,6 @@ export default function Register() {
     }
   };
 
-  // ==========================================
-  // RENDER
-  // ==========================================
-
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-fixed relative py-8 px-4"
@@ -467,8 +412,6 @@ export default function Register() {
       <div className="absolute inset-0 bg-black/50 z-0" />
 
       <div className="relative z-10 max-w-6xl mx-auto">
-
-        {/* Header con logo */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-white">
@@ -483,7 +426,6 @@ export default function Register() {
           />
         </div>
 
-        {/* Errores y éxito */}
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200">
             {error}
@@ -503,9 +445,6 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ============================================ */}
-          {/* SECCIÓN 1: Datos generales */}
-          {/* ============================================ */}
           <Section icon={<Building2 />} title="Datos generales de la empresa">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -578,9 +517,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 2: Misión y visión */}
-          {/* ============================================ */}
           <Section icon={<Target />} title="Misión y visión">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Textarea
@@ -598,9 +534,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 3: Productos y servicios */}
-          {/* ============================================ */}
           <Section icon={<Package />} title="Productos y servicios">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <DynamicList
@@ -622,9 +555,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 4: ODS */}
-          {/* ============================================ */}
           <Section icon={<Leaf />} title="Objetivos de Desarrollo Sostenible (ODS)">
             <p className="text-white/70 text-sm mb-4">
               ¿La empresa promueve alguno de los Objetivos de Desarrollo Sostenible?
@@ -652,9 +582,6 @@ export default function Register() {
             />
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 5: Sucursales y socios */}
-          {/* ============================================ */}
           <Section icon={<Store />} title="Sucursales y socios comerciales">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <RadioGroup
@@ -694,9 +621,6 @@ export default function Register() {
             )}
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 6: Operaciones internacionales */}
-          {/* ============================================ */}
           <Section icon={<Truck />} title="Operaciones internacionales">
             <div className="mb-6">
               <p className="text-white/90 font-semibold mb-3">
@@ -773,9 +697,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 7: Logo */}
-          {/* ============================================ */}
           <Section icon={<Upload />} title="Logo de la empresa">
             <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/30 rounded-2xl p-8 cursor-pointer hover:border-yellow-400/60 transition bg-white/5">
               <Upload className="w-12 h-12 text-white/40 mb-3" />
@@ -785,17 +706,16 @@ export default function Register() {
                   : "Haga click para subir el logo de la empresa"}
               </p>
               <p className="text-white/40 text-xs mt-2">
-                SVG, PNG, JPG (MAX. 800x600px)
+                SVG, PNG, JPG, WEBP (MAX. 5MB)
               </p>
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handleChange("logo", e.target.files[0])}
+                onChange={handleLogoChange}
               />
             </label>
 
-            {/* Preview del logo seleccionado */}
             {formData.logo && (
               <div className="mt-4 flex justify-center">
                 <img
@@ -807,9 +727,6 @@ export default function Register() {
             )}
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 8: Credenciales */}
-          {/* ============================================ */}
           <Section icon={<Lock />} title="Credenciales de ingreso">
             <div className="mb-4 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
               <p className="text-yellow-200 text-sm font-semibold mb-2">
@@ -829,9 +746,6 @@ export default function Register() {
                   {passwordValidation.hasSymbol ? "✓" : "•"} Un símbolo
                 </li>
               </ul>
-              <p className="text-yellow-200/60 text-xs mt-2 italic">
-                Por ejemplo: t$PaTd9c
-              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -898,9 +812,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* ============================================ */}
-          {/* SECCIÓN 9: Paquetes */}
-          {/* ============================================ */}
           <Section icon={<Check />} title="Selecciona tu paquete">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {PAQUETES.map((p) => (
@@ -930,11 +841,6 @@ export default function Register() {
                     <h3 className="text-lg font-bold text-white text-center mb-2">
                       {p.nombre}
                     </h3>
-                    {p.gratis && (
-                      <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded-full mb-2 font-bold text-center self-center">
-                        GRATIS
-                      </span>
-                    )}
                     <ul className="space-y-1 flex-grow">
                       {p.caracteristicas.map((c, i) => (
                         <li key={i} className="flex items-start text-xs">
@@ -949,7 +855,6 @@ export default function Register() {
             </div>
           </Section>
 
-          {/* Botón de registro */}
           <button
             type="submit"
             disabled={loading}
@@ -973,10 +878,6 @@ export default function Register() {
     </div>
   );
 }
-
-// ==========================================
-// COMPONENTES UI REUTILIZABLES
-// ==========================================
 
 function Section({ icon, title, children }) {
   return (

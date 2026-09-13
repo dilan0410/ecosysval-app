@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "../components/Layout";
+import { validarImagenSegura } from "../utils/validadores";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -132,8 +133,17 @@ export default function Profile() {
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !empresa?.id) {
+    if (!file) return;
+
+    if (!empresa?.id) {
       toast.error(t("publicProfile.needCompany"));
+      return;
+    }
+
+    const { valido, error } = validarImagenSegura(file, 5);
+    if (!valido) {
+      toast.error(error);
+      e.target.value = null;
       return;
     }
 
@@ -166,8 +176,17 @@ export default function Profile() {
 
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !empresa?.id) {
+    if (!file) return;
+
+    if (!empresa?.id) {
       toast.error(t("publicProfile.needCompany"));
+      return;
+    }
+
+    const { valido, error } = validarImagenSegura(file, 10);
+    if (!valido) {
+      toast.error(error);
+      e.target.value = null;
       return;
     }
 
@@ -351,10 +370,14 @@ export default function Profile() {
   const handleImagenSeleccionada = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error(t("publicProfile.invalidImage"));
+
+    const { valido, error } = validarImagenSegura(file, 5);
+    if (!valido) {
+      toast.error(error);
+      e.target.value = null;
       return;
     }
+
     setImagenFile(file);
     setVideoFile(null);
     setVideoPreview(null);
