@@ -1,340 +1,286 @@
-// src/pages/FormularioComercio.jsx
-import React, { useMemo, useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
-import Layout from "../components/Layout";
+// src/components/FormularioComercioModal.jsx
+import React, { useState } from "react";
+import { Building2, Info, Package, Settings, Send, XCircle } from "lucide-react";
+import { toast } from "sonner";
 
-const unidadesMock = ["Ninguna", "Toneladas", "Kilogramos", "Piezas", "Litros"];
-const productosMock = ["Madera refinada", "Acero laminado", "Textil industrial"];
-const serviciosMock = ["Asesoría", "Transporte", "Almacenamiento"];
+const PRODUCTOS = [
+  "Madera refinada",
+  "Sillas de madera",
+  "Mesas de madera",
+  "Escritorios",
+  "Escobas",
+];
 
-export default function FormularioComercio() {
-  const { empresaId } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
+const UNIDADES = [
+  "Ninguna",
+  "Gramos",
+  "Kilogramos",
+  "Metros",
+  "Metros cuadrados",
+  "Metros cúbicos",
+];
 
-  // ✅ MapaPage manda: { nombre, tipo, productos, servicios, ciudad, estado }
-  const state = location.state || {};
-  const empresaNombre = state.nombre || state.empresaNombre || "Empresa";
-  const empresaTipo = state.tipo || state.empresaTipo || "—";
-  const ciudad = state.ciudad || "—";
-  const estado = state.estado || "—";
-
-  // Puede venir como string o array
-  const productos = useMemo(() => normalizeList(state.productos), [state.productos]);
-  const servicios = useMemo(() => normalizeList(state.servicios), [state.servicios]);
-
-  const [tipoOperacion, setTipoOperacion] = useState("producto"); // producto | servicio
-  const [tipoTransaccion, setTipoTransaccion] = useState("compra"); // compra | venta
-
-  const [formProducto, setFormProducto] = useState({
-    producto: "",
+export default function FormularioComercioModal({ empresaTarget, onClose, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    transaccion: "compra",
+    tipoItem: "producto",
     cantidad: "",
+    producto: "Madera refinada",
     unidad: "Ninguna",
     descripcion: "",
   });
 
-  const [formServicio, setFormServicio] = useState({
-    servicio: "",
-    descripcion: "",
-  });
+  const nombreEmpresa =
+    empresaTarget?.nombre ||
+    empresaTarget?.razonSocial ||
+    empresaTarget?.name ||
+    "Empresa seleccionada";
 
-  const handleProductoChange = (e) => {
-    const { name, value } = e.target;
-    setFormProducto((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleServicioChange = (e) => {
-    const { name, value } = e.target;
-    setFormServicio((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (!formData.cantidad || Number(formData.cantidad) <= 0) {
+      toast.error("Ingresa una cantidad válida.");
+      return;
+    }
+    if (!formData.descripcion.trim()) {
+      toast.error("Agrega una descripción del producto o servicio.");
+      return;
+    }
+
+    setLoading(true);
+
+    // Datos del emisor (Empresa A = usuario logueado)
+    let emisorNombre = "Tu empresa";
+    let emisorId = null;
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      emisorNombre = u?.empresa?.razonSocial || u?.name || "Tu empresa";
+      emisorId = u?.id || null;
+    } catch (_) {}
+
     const payload = {
-      empresaId,
-      empresaNombre,
-      empresaTipo,
-      ciudad,
-      estado,
-      tipoOperacion,
-      tipoTransaccion,
-      detalle: tipoOperacion === "producto" ? formProducto : formServicio,
+      ...formData,
+      // Empresa B (receptora)
+      empresaDestino: nombreEmpresa,
+      empresaDestinoId: empresaTarget?.id,
+      empresaData: empresaTarget,
+      // Empresa A (emisora)
+      empresaEmisora: emisorNombre,
+      empresaEmisoraId: emisorId,
+      createdAt: new Date().toISOString(),
+      status: "pendiente",
     };
 
-    console.log("Payload comercio:", payload);
-    alert("Solicitud de comercio registrada (mock).");
+    // Mock profesional: guardar para demo de la empresa B
+    try {
+      const prev = JSON.parse(localStorage.getItem("ecosysval_solicitudes_comercio") || "[]");
+      prev.unshift(payload);
+      localStorage.setItem("ecosysval_solicitudes_comercio", JSON.stringify(prev.slice(0, 20)));
+    } catch (_) {}
+
+    setTimeout(() => {
+      setLoading(false);
+      toast.success(`Solicitud enviada a ${nombreEmpresa}`);
+      onSuccess?.(payload);
+      onClose?.();
+    }, 1000);
   };
 
   return (
-    <Layout>
-            <div className="mx-auto w-full max-w-6xl grid gap-6 lg:grid-cols-[360px_1fr]">
-              {/* IZQUIERDA */}
-              <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-6 text-text h-fit">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-extrabold">Formulario de comercio</h2>
-                    <p className="mt-2 text-sm text-muted leading-relaxed">
-                      Selecciona si vas a negociar un <strong className="text-text">producto</strong> o un{" "}
-                      <strong className="text-text">servicio</strong> y define si es{" "}
-                      <strong className="text-text">compra</strong> o <strong className="text-text">venta</strong>.
-                    </p>
-                  </div>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4">
+      {/* Modal compacto: sin scroll lateral, altura controlada */}
+      <div className="bg-[#0b1630] border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-3 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
+          <h2 className="text-lg font-bold text-white">Formulario de comercio</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-white/50 hover:text-white transition p-1"
+            aria-label="Cerrar"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
 
-                  <span className="hidden sm:inline-flex items-center rounded-full border border-border bg-surface/40 px-3 py-1 text-[11px] text-muted">
-                    Negociación clara
-                  </span>
-                </div>
+        {/* Body — sin overflow-x, padding compacto */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Info corta */}
+          <div className="flex gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-2.5 rounded-xl text-blue-200 text-xs leading-snug">
+            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <p>
+              Seleccione el producto o servicio a solicitar u ofrecer. La empresa objetivo podrá
+              aceptar o rechazar indicando el motivo.
+            </p>
+          </div>
 
-                <div className="mt-6 rounded-2xl border border-border bg-surface/40 p-5">
-                  <div className="text-[11px] font-bold text-yellow-400/90 uppercase tracking-wider">
-                    Empresa objetivo
-                  </div>
-
-                  <div className="mt-2 text-lg font-extrabold">{empresaNombre}</div>
-
-                  <div className="mt-1 text-xs text-muted font-mono">ID: {empresaId}</div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <Info label="Tipo" value={empresaTipo} />
-                    <Info label="Ubicación" value={`${ciudad}, ${estado}`} />
-                    <Info label="Productos" value={productos || "—"} />
-                    <Info label="Servicios" value={servicios || "—"} />
-                  </div>
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4">
-                  <p className="text-xs text-text/90 leading-relaxed">
-                    ⚠️ La solicitud está sujeta a aprobación. Entre más claro el alcance,
-                    más rápido se gestiona.
-                  </p>
-                </div>
-              </section>
-
-              {/* DERECHA */}
-              <section className="rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-6 md:p-8 text-text">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-border">
-                  <div>
-                    <h3 className="text-lg font-extrabold">Detalle de la operación</h3>
-                    <p className="text-sm text-muted">Define los parámetros principales de la transacción.</p>
-                  </div>
-
-                  <div className="inline-flex items-center rounded-2xl border border-border bg-surface/40 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setTipoOperacion("producto")}
-                      className={[
-                        "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                        tipoOperacion === "producto"
-                          ? "bg-accent text-slate-900"
-                          : "text-text/80 hover:bg-surface",
-                      ].join(" ")}
-                    >
-                      Producto
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTipoOperacion("servicio")}
-                      className={[
-                        "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                        tipoOperacion === "servicio"
-                          ? "bg-accent text-slate-900"
-                          : "text-text/80 hover:bg-surface",
-                      ].join(" ")}
-                    >
-                      Servicio
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-                  <div>
-                    <span className="block text-sm font-semibold text-text mb-3">Tipo de transacción</span>
-
-                    <div className="flex gap-3">
-                      <ChipRadio
-                        label="Compra"
-                        active={tipoTransaccion === "compra"}
-                        onClick={() => setTipoTransaccion("compra")}
-                      />
-                      <ChipRadio
-                        label="Venta"
-                        active={tipoTransaccion === "venta"}
-                        onClick={() => setTipoTransaccion("venta")}
-                      />
-                    </div>
-                  </div>
-
-                  {tipoOperacion === "producto" ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <div className="md:col-span-2">
-                        <Label text="Producto *" />
-                        <select
-                          name="producto"
-                          value={formProducto.producto}
-                          onChange={handleProductoChange}
-                          className={fieldClass}
-                          required
-                        >
-                          <option value="">Selecciona un producto...</option>
-                          {productosMock.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label text="Cantidad *" />
-                        <input
-                          type="number"
-                          name="cantidad"
-                          min={1}
-                          placeholder="1"
-                          value={formProducto.cantidad}
-                          onChange={handleProductoChange}
-                          className={fieldClass}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label text="Unidad" />
-                        <select
-                          name="unidad"
-                          value={formProducto.unidad}
-                          onChange={handleProductoChange}
-                          className={fieldClass}
-                        >
-                          {unidadesMock.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <Label text="Descripción / Notas" />
-                        <textarea
-                          name="descripcion"
-                          rows={4}
-                          value={formProducto.descripcion}
-                          onChange={handleProductoChange}
-                          className={textareaClass}
-                          placeholder="Especificaciones técnicas, calidad, tiempos, condiciones..."
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-5">
-                      <div>
-                        <Label text="Servicio *" />
-                        <select
-                          name="servicio"
-                          value={formServicio.servicio}
-                          onChange={handleServicioChange}
-                          className={fieldClass}
-                          required
-                        >
-                          <option value="">Selecciona un servicio...</option>
-                          {serviciosMock.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label text="Descripción del alcance" />
-                        <textarea
-                          name="descripcion"
-                          rows={6}
-                          value={formServicio.descripcion}
-                          onChange={handleServicioChange}
-                          className={textareaClass}
-                          placeholder="Detalles sobre tiempos, entregables y condiciones..."
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-6 mt-4 border-t border-border flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate(-1)}
-                      className="rounded-xl border border-border bg-surface/40 px-5 py-3 text-sm font-semibold text-text hover:bg-surface transition"
-                    >
-                      Cancelar
-                    </button>
-
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-extrabold text-slate-900 shadow-pro hover:brightness-95 transition"
-                    >
-                      <Send className="w-4 h-4" />
-                      Enviar solicitud
-                    </button>
-                  </div>
-                </form>
-              </section>
+          {/* Empresa + toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="w-6 h-6 text-white/50 flex-shrink-0" />
+              <h3 className="text-base sm:text-lg font-extrabold text-white truncate" title={nombreEmpresa}>
+                {nombreEmpresa}
+              </h3>
             </div>
-    </Layout>
-  );
-}
 
-/* ---------------- Helpers ---------------- */
+            <div className="flex bg-white/5 rounded-full p-0.5 border border-white/10 shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => handleChange("tipoItem", "producto")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+                  formData.tipoItem === "producto"
+                    ? "bg-blue-600 text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" /> Producto
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange("tipoItem", "servicio")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+                  formData.tipoItem === "servicio"
+                    ? "bg-blue-600 text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" /> Servicio
+              </button>
+            </div>
+          </div>
 
-function normalizeList(v) {
-  if (!v) return "—";
-  if (Array.isArray(v)) return v.length ? v.join(", ") : "—";
-  if (typeof v === "string") return v.trim() ? v : "—";
-  return "—";
-}
+          <form id="tradeForm" onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Transacción */}
+              <div>
+                <label className="text-white/70 text-xs font-semibold mb-2 block">
+                  Transacción
+                </label>
+                <div className="flex gap-5">
+                  <label className="flex items-center gap-2 text-white/90 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="transaccion"
+                      className="w-3.5 h-3.5 accent-blue-600"
+                      checked={formData.transaccion === "compra"}
+                      onChange={() => handleChange("transaccion", "compra")}
+                    />
+                    Compra
+                  </label>
+                  <label className="flex items-center gap-2 text-white/90 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="transaccion"
+                      className="w-3.5 h-3.5 accent-blue-600"
+                      checked={formData.transaccion === "venta"}
+                      onChange={() => handleChange("transaccion", "venta")}
+                    />
+                    Venta
+                  </label>
+                </div>
+              </div>
 
-const fieldClass =
-  "w-full rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring/40";
-const textareaClass =
-  "w-full rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm text-text placeholder:text-muted outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring/40 resize-y";
+              {/* Cantidad */}
+              <div>
+                <label className="text-white/70 text-xs font-semibold mb-1.5 block">
+                  Cantidad
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.cantidad}
+                  onChange={(e) => handleChange("cantidad", e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Ej. 200"
+                />
+              </div>
 
-// ✅ Para que <option> se vea bien en dark/light
-// (En muchos navegadores el <option> no hereda bien la clase del <select>)
-const optionBase = "bg-surface text-text";
+              {/* Producto */}
+              <div>
+                <label className="text-white/70 text-xs font-semibold mb-1.5 block">
+                  {formData.tipoItem === "producto" ? "Producto" : "Servicio"}
+                </label>
+                <select
+                  value={formData.producto}
+                  onChange={(e) => handleChange("producto", e.target.value)}
+                  className="w-full bg-[#071326] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {PRODUCTOS.map((op) => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-function Label({ text }) {
-  return (
-    <span className="mb-1.5 block text-xs font-bold text-muted uppercase tracking-wider">
-      {text}
-    </span>
-  );
-}
+              {/* Unidad */}
+              <div>
+                <label className="text-white/70 text-xs font-semibold mb-1.5 block">
+                  Unidad de medida
+                </label>
+                <select
+                  value={formData.unidad}
+                  onChange={(e) => handleChange("unidad", e.target.value)}
+                  className="w-full bg-[#071326] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {UNIDADES.map((op) => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-function Info({ label, value }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface/40 p-3">
-      <div className="text-[11px] text-muted">{label}</div>
-      <div className="text-sm font-semibold text-text truncate">{value}</div>
+            {/* Descripción compacta */}
+            <div>
+              <label className="text-white/70 text-xs font-semibold mb-1.5 block">
+                Descripción del {formData.tipoItem === "producto" ? "producto" : "servicio"}
+              </label>
+              <textarea
+                rows={2}
+                value={formData.descripcion}
+                onChange={(e) => handleChange("descripcion", e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                placeholder="Ej. 200 kg de madera lista para cortar y trabajar."
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* Footer fijo */}
+        <div className="px-5 py-3 border-t border-white/10 bg-white/5 flex justify-between items-center gap-3 shrink-0">
+          <button
+            type="submit"
+            form="tradeForm"
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="animate-pulse">Enviando...</span>
+            ) : (
+              <>
+                <Send className="w-4 h-4" /> Enviar
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
+          >
+            <XCircle className="w-4 h-4" /> Cancelar
+          </button>
+        </div>
+      </div>
     </div>
-  );
-}
-
-function ChipRadio({ label, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-full px-4 py-2 text-sm font-semibold border transition",
-        active
-          ? "bg-accent border-yellow-400/25 text-slate-900 shadow-pro"
-          : "bg-surface/40 border-border text-text/80 hover:bg-surface",
-      ].join(" ")}
-    >
-      {label}
-    </button>
   );
 }

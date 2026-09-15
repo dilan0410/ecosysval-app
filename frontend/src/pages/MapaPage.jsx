@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import Mapa from "../components/Mapa";
+import FormularioComercioModal from "../components/FormularioComercioModal";
+import VistaSolicitudModal from "../components/VistaSolicitudModal";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
 import { useMapaRecomendaciones } from "../hooks/useMapaRecomendaciones";
@@ -139,6 +141,10 @@ export default function MapaPage() {
   const [filterTipo, setFilterTipo] = useState("Ambos");
   const [search, setSearch] = useState("");
   const [openBenefitIndex, setOpenBenefitIndex] = useState(null);
+  const [empresaSeleccionada, setEmpresaSeleccionada] = useState(null);
+  const [showFormularioComercio, setShowFormularioComercio] = useState(false);
+  const [solicitudActual, setSolicitudActual] = useState(null);
+  const [showVistaSolicitud, setShowVistaSolicitud] = useState(false);
 
   const {
     data,
@@ -178,22 +184,15 @@ export default function MapaPage() {
   const sociosPotenciales = empresasFiltradas.length;
 
   const handleConectar = (empresa) => {
-    const ownerId = empresa?.empresaData?.userId || empresa?.empresaData?.usuarioId || null;
-    if (empresa.esReal && ownerId) {
-      navigate(`/mensajes?userId=${ownerId}`);
-      return;
-    }
-    navigate(`/formulario-comercio/`, {
-      state: {
-        empresaId: empresa.id,
-        nombre: empresa.nombre,
-        tipo: empresa.tipo,
-        productos: empresa.productos,
-        servicios: empresa.servicios,
-        ciudad: empresa.ciudad,
-        estado: empresa.estado,
-      },
-    });
+    // Abre el Formulario de comercio con la empresa seleccionada
+    setEmpresaSeleccionada(empresa);
+    setShowFormularioComercio(true);
+  };
+
+  const handleFormularioEnviado = (datosSolicitud) => {
+    // Tras enviar el formulario, muestra la vista de solicitud (aceptar/rechazar)
+    setSolicitudActual(datosSolicitud);
+    setShowVistaSolicitud(true);
   };
 
   return (
@@ -401,6 +400,27 @@ export default function MapaPage() {
           </div>
         </section>
       </div>
+      {/* modales de comercio */}
+      {showFormularioComercio && empresaSeleccionada && (
+        <FormularioComercioModal
+          empresaTarget={empresaSeleccionada}
+          onClose={() => {
+            setShowFormularioComercio(false);
+            setEmpresaSeleccionada(null);
+          }}
+          onSuccess={handleFormularioEnviado}
+        />
+      )}
+
+      {showVistaSolicitud && solicitudActual && (
+        <VistaSolicitudModal
+          solicitud={solicitudActual}
+          onClose={() => {
+            setShowVistaSolicitud(false);
+            setSolicitudActual(null);
+          }}
+        />
+      )}
     </Layout>
   );
 }
