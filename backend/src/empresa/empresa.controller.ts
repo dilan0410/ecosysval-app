@@ -154,6 +154,23 @@ export class EmpresaController {
   }
 
   // ==========================================
+  // PATCH /:id/estado — Suspender/Reactivar (Solo ADMIN)
+  // ==========================================
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch(':id/estado')
+  async actualizarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { activo: boolean },
+  ) {
+    if (typeof body.activo !== 'boolean') {
+      throw new BadRequestException('El campo "activo" debe ser un booleano (true/false)');
+    }
+
+    return this.empresaService.actualizarEstado(id, body.activo);
+  }
+
+  // ==========================================
   // PATCH /:id/logo — Subir/cambiar logo (Supabase)
   // ==========================================
   @UseGuards(JwtAuthGuard)

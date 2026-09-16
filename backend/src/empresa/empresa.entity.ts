@@ -14,6 +14,9 @@ export class Empresa {
 
   @Column()
   correo: string; // Correo de contacto de la empresa
+  
+  @Column({ default: true })
+  activo: boolean;
 
   @Column({ nullable: true })
   rfc: string; // NUEVO: RFC de la empresa

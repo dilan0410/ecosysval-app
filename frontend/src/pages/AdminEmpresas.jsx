@@ -16,7 +16,9 @@ import {
   Briefcase,
   Target,
   Award,
-  Edit2
+  Edit2,
+  Ban, // Icono para suspender
+  RefreshCw // Icono para reactivar
 } from "lucide-react";
 
 // REFRESH TOKENS - axios con interceptor
@@ -32,7 +34,9 @@ function AdminEmpresas() {
   const [modalDetalle, setModalDetalle] = useState(null);
   const [modalEliminar, setModalEliminar] = useState(null);
   const [modalEditar, setModalEditar] = useState(null);
+  const [modalSuspender, setModalSuspender] = useState(null); // Estado para modal suspender
   const [mensaje, setMensaje] = useState(null);
+  // ... (resto de estados de datosEditar igual) ...
   const [datosEditar, setDatosEditar] = useState({
     razonSocial: "",
     correo: "",
@@ -62,31 +66,29 @@ function AdminEmpresas() {
     cargarEmpresas();
   }, []);
 
-    const cargarEmpresas = async () => {
-      try {
-        setLoading(true);
-        // axios: token y refresh automáticos
-        const res = await api.get("/empresas");
-        setEmpresas(Array.isArray(res.data) ? res.data : []);
-      } catch (error) {
-        console.error("Error:", error);
-        mostrarMensaje(
-          "error",
-          error.response?.data?.message || "Error al cargar empresas"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  const cargarEmpresas = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/empresas");
+      setEmpresas(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error("Error:", error);
+      mostrarMensaje(
+        "error",
+        error.response?.data?.message || "Error al cargar empresas"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const mostrarMensaje = (tipo, texto) => {
     setMensaje({ tipo, texto });
     setTimeout(() => setMensaje(null), 4000);
   };
 
-  // Abrir modal de edición
   const abrirEdicion = (empresa) => {
-    setDatosEditar({
+     setDatosEditar({
       razonSocial: empresa.razonSocial || "",
       correo: empresa.correo || "",
       representante: empresa.representante || "",
@@ -112,63 +114,48 @@ function AdminEmpresas() {
     setModalEditar(empresa);
   };
 
-  // Guardar cambios de la empresa
   const guardarEmpresa = async () => {
     setErrorModal(null);
-
-    // Validaciones
     if (!datosEditar.razonSocial || datosEditar.razonSocial.trim().length < 3) {
       setErrorModal("La razón social debe tener al menos 3 caracteres");
       return;
     }
-
     if (!datosEditar.correo || !datosEditar.correo.includes("@")) {
       setErrorModal("Correo electrónico inválido");
       return;
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(datosEditar.correo)) {
       setErrorModal("El formato del correo no es válido");
       return;
     }
-
     if (!datosEditar.representante || datosEditar.representante.trim().length < 3) {
       setErrorModal("El representante es obligatorio");
       return;
     }
-
-      try {
-        setGuardando(true);
-
-        // Convertir empleados a número
-        const dataToSend = {
-          ...datosEditar,
-          empleados: Number(datosEditar.empleados) || 0,
-        };
-
-        // axios: token, refresh y errores automáticos
-        await api.put(`/empresas/${modalEditar.id}`, dataToSend);
-
-        mostrarMensaje("exito", "Empresa actualizada correctamente");
-        setModalEditar(null);
-        cargarEmpresas();
-      } catch (error) {
-        console.error("Error:", error);
-        // Axios pone el error del servidor en error.response.data
-        setErrorModal(
-          error.response?.data?.message || "Error al actualizar empresa"
-        );
-      } finally {
-        setGuardando(false);
-      }
-    };
+    try {
+      setGuardando(true);
+      const dataToSend = {
+        ...datosEditar,
+        empleados: Number(datosEditar.empleados) || 0,
+      };
+      await api.put(`/empresas/${modalEditar.id}`, dataToSend);
+      mostrarMensaje("exito", "Empresa actualizada correctamente");
+      setModalEditar(null);
+      cargarEmpresas();
+    } catch (error) {
+      console.error("Error:", error);
+      setErrorModal(
+        error.response?.data?.message || "Error al actualizar empresa"
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   const eliminarEmpresa = async () => {
     if (!modalEliminar) return;
-
     try {
-      // axios con auto-refresh
       await api.delete(`/empresas/${modalEliminar.id}`);
       mostrarMensaje("exito", "Empresa eliminada correctamente");
       cargarEmpresas();
@@ -182,10 +169,33 @@ function AdminEmpresas() {
     }
   };
 
-  // Obtener ámbitos únicos para el filtro
+  //  FUNCIÓN PARA SUSPENDER / REACTIVAR
+  const toggleSuspension = async () => {
+    if (!modalSuspender) return;
+
+    try {
+      const nuevoEstado = !modalSuspender.activo; 
+      
+      // Endpoint corregido: /empresas/:id/estado
+      await api.patch(`/empresas/${modalSuspender.id}/estado`, { 
+        activo: nuevoEstado 
+      });
+
+      const accion = nuevoEstado ? "reactivada" : "suspendida";
+      mostrarMensaje("exito", `Empresa ${accion} correctamente`);
+      cargarEmpresas();
+    } catch (error) {
+      mostrarMensaje(
+        "error",
+        error.response?.data?.message || "Error al cambiar estado de la empresa"
+      );
+    } finally {
+      setModalSuspender(null);
+    }
+  };
+
   const ambitos = [...new Set(empresas.map(e => e.ambito).filter(Boolean))];
 
-  // Filtrar empresas
   const empresasFiltradas = empresas.filter((e) => {
     const coincideBusqueda = 
       e.razonSocial?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -197,7 +207,6 @@ function AdminEmpresas() {
     return coincideBusqueda && coincideAmbito;
   });
 
-  // Formatear fecha
   const formatearFecha = (fecha) => {
     if (!fecha) return "Sin fecha";
     return new Date(fecha).toLocaleDateString("es-MX", {
@@ -207,7 +216,6 @@ function AdminEmpresas() {
     });
   };
 
-  // Formatear dinero
   const formatearDinero = (cantidad) => {
     if (!cantidad) return "No especificado";
     return new Intl.NumberFormat("es-MX", {
@@ -288,7 +296,7 @@ function AdminEmpresas() {
           </div>
         ) : (
           <>
-            {/* VISTA DESKTOP (tabla) - oculta en móvil */}
+            {/* VISTA DESKTOP (tabla) */}
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -302,167 +310,210 @@ function AdminEmpresas() {
                   </tr>
                 </thead>
                 <tbody>
-                  {empresasFiltradas.map((empresa) => (
-                    <tr 
-                      key={empresa.id} 
-                      className="border-b border-gray-800 hover:bg-white/5 transition-colors"
-                    >
-                      <td className="px-6 py-4 text-gray-300">#{empresa.id}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-lg flex-shrink-0">
-                            {empresa.logo ? (
-                              <img 
-                                src={`${API_URL}${empresa.logo}`}
-                                alt={empresa.razonSocial}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            ) : (
-                              empresa.razonSocial?.charAt(0).toUpperCase() || "?"
-                            )}
+                  {empresasFiltradas.map((empresa) => {
+                    // Verificar si está activa (asumiendo campo 'activo', si no existe, default true)
+                    const estaActiva = empresa.activo !== false; 
+                    return (
+                      <tr 
+                        key={empresa.id} 
+                        className={`border-b border-gray-800 hover:bg-white/5 transition-colors ${!estaActiva ? 'opacity-50 grayscale' : ''}`}
+                      >
+                        <td className="px-6 py-4 text-gray-300">#{empresa.id}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-lg flex-shrink-0">
+                              {empresa.logo ? (
+                                <img 
+                                  src={`${API_URL}${empresa.logo}`}
+                                  alt={empresa.razonSocial}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : (
+                                empresa.razonSocial?.charAt(0).toUpperCase() || "?"
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold">{empresa.razonSocial}</p>
+                              <p className="text-xs text-gray-400">{empresa.correo}</p>
+                              {/* Badge de estado */}
+                              {!estaActiva && (
+                                <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-bold uppercase tracking-wider">
+                                  <Ban size={10} /> Suspendido
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold">{empresa.razonSocial}</p>
-                            <p className="text-xs text-gray-400">{empresa.correo}</p>
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <MapPin size={16} className="text-gray-500" />
+                            {empresa.ubicacion}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        <div className="flex items-center gap-2">
-                          <MapPin size={16} className="text-gray-500" />
-                          {empresa.ubicacion}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        <div className="flex items-center gap-2">
-                          <Users size={16} className="text-gray-500" />
-                          {empresa.empleados}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold">
-                          <Award size={14} />
-                          {empresa.antiguedad} años
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setModalDetalle(empresa)}
-                            className="p-2 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors"
-                            title="Ver detalles"
-                          >
-                            <Eye size={18} />
-                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <Users size={16} className="text-gray-500" />
+                            {empresa.empleados}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold">
+                            <Award size={14} />
+                            {empresa.antiguedad} años
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setModalDetalle(empresa)}
+                              className="p-2 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors"
+                              title="Ver detalles"
+                            >
+                              <Eye size={18} />
+                            </button>
 
-                          <button
-                            onClick={() => abrirEdicion(empresa)}
-                            className="p-2 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors"
-                            title="Editar empresa"
-                          >
-                            <Edit2 size={18} />
-                          </button>
+                            <button
+                              onClick={() => abrirEdicion(empresa)}
+                              className="p-2 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors"
+                              title="Editar empresa"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            
+                            {/* BOTÓN SUSPENDER / REACTIVAR */}
+                            <button
+                              onClick={() => setModalSuspender(empresa)}
+                              className={`p-2 rounded-lg transition-colors ${
+                                estaActiva 
+                                  ? "hover:bg-orange-500/20 text-orange-400" 
+                                  : "hover:bg-green-500/20 text-green-400"
+                              }`}
+                              title={estaActiva ? "Suspender empresa" : "Reactivar empresa"}
+                            >
+                              {estaActiva ? <Ban size={18} /> : <RefreshCw size={18} />}
+                            </button>
                           
-                          <button
-                            onClick={() => setModalEliminar(empresa)}
-                            className="p-2 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <button
+                              onClick={() => setModalEliminar(empresa)}
+                              className="p-2 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            {/* VISTA MÓVIL (tarjetas) - oculta en desktop */}
+            {/* VISTA MÓVIL (tarjetas) */}
             <div className="lg:hidden divide-y divide-gray-800">
-              {empresasFiltradas.map((empresa) => (
-                <div 
-                  key={empresa.id}
-                  className="p-4 hover:bg-white/5 transition-colors"
-                >
-                  {/* Header de la tarjeta */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-xl flex-shrink-0">
-                      {empresa.logo ? (
-                        <img 
-                          src={`${API_URL}${empresa.logo}`}
-                          alt={empresa.razonSocial}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        empresa.razonSocial?.charAt(0).toUpperCase() || "?"
-                      )}
+              {empresasFiltradas.map((empresa) => {
+                const estaActiva = empresa.activo !== false;
+                return (
+                  <div 
+                    key={empresa.id}
+                    className={`p-4 hover:bg-white/5 transition-colors ${!estaActiva ? 'opacity-60' : ''}`}
+                  >
+                    {/* Header de la tarjeta */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-xl flex-shrink-0">
+                        {empresa.logo ? (
+                          <img 
+                            src={`${API_URL}${empresa.logo}`}
+                            alt={empresa.razonSocial}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          empresa.razonSocial?.charAt(0).toUpperCase() || "?"
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{empresa.razonSocial}</p>
+                        <p className="text-xs text-gray-400 truncate">{empresa.correo}</p>
+                        {!estaActiva && (
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-bold uppercase">
+                            <Ban size={10} /> Suspendido
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 flex-shrink-0">#{empresa.id}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{empresa.razonSocial}</p>
-                      <p className="text-xs text-gray-400 truncate">{empresa.correo}</p>
+
+                    {/* Info de la empresa */}
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                      <div className="bg-black/30 p-2 rounded-lg">
+                        <p className="text-gray-500 mb-1 flex items-center gap-1">
+                          <MapPin size={12} /> Ubicación
+                        </p>
+                        <p className="text-gray-300 truncate">{empresa.ubicacion || "—"}</p>
+                      </div>
+                      <div className="bg-black/30 p-2 rounded-lg">
+                        <p className="text-gray-500 mb-1 flex items-center gap-1">
+                          <Users size={12} /> Empleados
+                        </p>
+                        <p className="text-gray-300">{empresa.empleados}</p>
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-500 flex-shrink-0">#{empresa.id}</span>
-                  </div>
 
-                  {/* Info de la empresa */}
-                  <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-                    <div className="bg-black/30 p-2 rounded-lg">
-                      <p className="text-gray-500 mb-1 flex items-center gap-1">
-                        <MapPin size={12} /> Ubicación
-                      </p>
-                      <p className="text-gray-300 truncate">{empresa.ubicacion || "—"}</p>
+                    {/* Badge de antigüedad */}
+                    <div className="mb-3">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold">
+                        <Award size={14} />
+                        {empresa.antiguedad} años de antigüedad
+                      </span>
                     </div>
-                    <div className="bg-black/30 p-2 rounded-lg">
-                      <p className="text-gray-500 mb-1 flex items-center gap-1">
-                        <Users size={12} /> Empleados
-                      </p>
-                      <p className="text-gray-300">{empresa.empleados}</p>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setModalDetalle(empresa)}
+                        className="flex-1 flex items-center justify-center gap-2 p-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors text-sm font-semibold"
+                      >
+                        <Eye size={16} />
+                        Ver
+                      </button>
+
+                      <button
+                        onClick={() => abrirEdicion(empresa)}
+                        className="flex-1 flex items-center justify-center gap-2 p-2 bg-yellow-500/10 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors text-sm font-semibold"
+                      >
+                        <Edit2 size={16} />
+                        Editar
+                      </button>
+                      
+                      {/*  BOTÓN MÓVIL SUSPENDER */}
+                      <button
+                        onClick={() => setModalSuspender(empresa)}
+                        className={`p-2 rounded-lg transition-colors ${
+                           estaActiva 
+                           ? "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400" 
+                           : "bg-green-500/10 hover:bg-green-500/20 text-green-400"
+                        }`}
+                        title={estaActiva ? "Suspender" : "Reactivar"}
+                      >
+                        {estaActiva ? <Ban size={18} /> : <RefreshCw size={18} />}
+                      </button>
+
+                      <button
+                        onClick={() => setModalEliminar(empresa)}
+                        className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
-
-                  {/* Badge de antigüedad */}
-                  <div className="mb-3">
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold">
-                      <Award size={14} />
-                      {empresa.antiguedad} años de antigüedad
-                    </span>
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setModalDetalle(empresa)}
-                      className="flex-1 flex items-center justify-center gap-2 p-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors text-sm font-semibold"
-                    >
-                      <Eye size={16} />
-                      Ver
-                    </button>
-
-                    <button
-                      onClick={() => abrirEdicion(empresa)}
-                      className="flex-1 flex items-center justify-center gap-2 p-2 bg-yellow-500/10 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors text-sm font-semibold"
-                    >
-                      <Edit2 size={16} />
-                      Editar
-                    </button>
-                    
-                    <button
-                      onClick={() => setModalEliminar(empresa)}
-                      className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
       </div>
 
-      {/* MODAL DETALLE */}
       {modalDetalle && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/30 rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -483,6 +534,12 @@ function AdminEmpresas() {
                 <div>
                   <h2 className="text-2xl font-bold">{modalDetalle.razonSocial}</h2>
                   <p className="text-gray-400 text-sm">ID: #{modalDetalle.id}</p>
+                  {/* estado en modal detalle */}
+                  {modalDetalle.activo === false && (
+                     <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold uppercase">
+                      <Ban size={12} /> Cuenta Suspendida
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -492,9 +549,7 @@ function AdminEmpresas() {
                 <X size={24} />
               </button>
             </div>
-
-            {/* Información en grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Mail size={14} /> Correo
@@ -625,8 +680,7 @@ function AdminEmpresas() {
         </div>
       )}
 
-      {/* MODAL DE EDICIÓN */}
-        {modalEditar && (
+      {modalEditar && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/30 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               {/* Header */}
@@ -648,7 +702,6 @@ function AdminEmpresas() {
                 </button>
               </div>
 
-              {/* Formulario */}
               <div className="space-y-6">
                 
                 {/* SECCIÓN: INFORMACIÓN BÁSICA */}
@@ -1022,7 +1075,6 @@ function AdminEmpresas() {
           </div>
 )}
 
-      {/* MODAL ELIMINAR */}
       {modalEliminar && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-red-500/30 rounded-xl p-6 max-w-md w-full">
@@ -1053,6 +1105,61 @@ function AdminEmpresas() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
                 Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SUSPENDER / REACTIVAR */}
+      {modalSuspender && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-orange-500/30 rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-3 rounded-lg ${modalSuspender.activo !== false ? 'bg-orange-500/20' : 'bg-green-500/20'}`}>
+                {modalSuspender.activo !== false ? (
+                  <Ban size={24} className="text-orange-400" />
+                ) : (
+                  <RefreshCw size={24} className="text-green-400" />
+                )}
+              </div>
+              <h3 className="text-xl font-bold">
+                {modalSuspender.activo !== false ? "¿Suspender empresa?" : "¿Reactivar empresa?"}
+              </h3>
+            </div>
+            
+            <p className="text-gray-300 mb-2">
+              {modalSuspender.activo !== false 
+                ? "Estás a punto de suspender el acceso de:" 
+                : "Estás a punto de reactivar el acceso de:"
+              }
+            </p>
+            <p className="text-yellow-400 font-semibold mb-4">
+              {modalSuspender.razonSocial}
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              {modalSuspender.activo !== false 
+                ? "La empresa no podrá acceder a su cuenta ni aparecer en búsquedas públicas hasta que sea reactivada." 
+                : "La empresa recuperará el acceso inmediato a la plataforma."
+              }
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setModalSuspender(null)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={toggleSuspension}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  modalSuspender.activo !== false 
+                    ? "bg-orange-600 hover:bg-orange-700 text-white" 
+                    : "bg-green-600 hover:bg-green-700 text-white"
+                }`}
+              >
+                {modalSuspender.activo !== false ? "Sí, suspender" : "Sí, reactivar"}
               </button>
             </div>
           </div>

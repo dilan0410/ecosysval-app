@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { Empresa } from '../empresa/empresa.entity';
 import { UserService } from '../user/user.service';
 import { User } from '../user/user.entity';
 // WINSTON
@@ -49,6 +50,20 @@ export class AuthService {
       throw new UnauthorizedException(
         'Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.',
       );
+    }
+
+     // VALIDAR SI LA EMPRESA ESTÁ SUSPENDIDA
+    if (user.role === 'user' || user.role === 'empresa') {
+      const empresa = await this.userRepository.manager
+        .getRepository(Empresa)
+        .findOne({ where: { userId: user.id } });
+
+      if (empresa && empresa.activo === false) {
+        this.logger.userLoginFailed(email, 'empresa_suspendida');
+        throw new UnauthorizedException(
+          'Tu cuenta ha sido suspendida. Contacta al administrador para más información.',
+        );
+      }
     }
 
     const { password, verification_token, refresh_token, ...result } = user;

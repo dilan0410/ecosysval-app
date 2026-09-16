@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Empresa } from './empresa.entity';
@@ -189,4 +189,26 @@ export class EmpresaService {
     await this.empresaRepository.delete(id);
     return { success: true };
   }
+
+  // ==========================================
+  //  MÉTODO PARA SUSPENDER/REACTIVAR EMPRESA
+  // ==========================================
+  async actualizarEstado(id: number, activo: boolean) {
+    const empresa = await this.empresaRepository.findOne({ where: { id } });
+
+    if (!empresa) {
+      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+    }
+
+    // Actualizar solo el campo activo
+    await this.empresaRepository.update(id, { activo });
+
+    return {
+      id: empresa.id,
+      activo,
+      mensaje: activo ? 'Empresa reactivada correctamente' : 'Empresa suspendida correctamente',
+      actualizadoEn: new Date().toISOString(),
+    };
+  }
+
 }
