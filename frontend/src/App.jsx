@@ -1,180 +1,178 @@
 import { Toaster } from "sonner";
-import React, { useEffect } from "react";
+import React, { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
-// Navbar en components
-import Navbar from "./components/Navbar";
+// componente de carga (fallback de Suspense)
 
-// NUEVO IMPORT: Componente para proteger rutas
-import ProtectedRoute from "./components/ProtectedRoute";
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+      <p className="text-gray-400 text-sm">Cargando...</p>
+    </div>
+  </div>
+);
+
+//  imports lazy - se cargan bajo demanda
+
+const Navbar = lazy(() => import("./components/Navbar"));
+const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 
 // Pages
-import Inicio from "./pages/Inicio";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Subscribe from "./pages/Subscribe";
-import Profile from "./pages/Profile";
-import Perfil from "./pages/Perfil";
-import AdminLayout from "./components/AdminLayout";
-import AdminUsuarios from "./pages/AdminUsuarios";
-import AdminEmpresas from "./pages/AdminEmpresas";
-import AdminEmpleos from "./pages/AdminEmpleos";
-import MapaPage from "./pages/MapaPage";
-import Cursos from "./pages/Cursos";
-import FormularioComercio from "./pages/FormularioComercio";
-import Recompensas from "./pages/Recompensas";
-import TopMundial from "./pages/TopMundial";
-import Notificaciones from "./pages/Notificaciones";
-import Mensajes from "./pages/Mensajes";
-import Empleos from "./pages/Empleos";
-import HerramientasFinancieras from "./pages/HerramientasFinancieras";
-import EcommerceHome from "./pages/ecommerce/EcommerceHome";
-import Marketplace from "./pages/ecommerce/Marketplace";
-import ProductoDetalle from "./pages/ecommerce/ProductoDetalle";
-import Comparador from "./pages/ecommerce/Comparador";
-import Cotizaciones from "./pages/ecommerce/Cotizaciones";
-import MisCompras from "./pages/ecommerce/MisCompras";
-import MisVentas from "./pages/ecommerce/MisVentas";
-import Checkout from "./pages/ecommerce/Checkout";
-import EcommerceAnalytics from "./pages/ecommerce/EcommerceAnalytics";
-import Ajustes from "./pages/Ajustes";
-import Grupos from "./pages/Grupos";
-import Alianzas from "./pages/Alianzas";
-import Oportunidades from "./pages/Oportunidades";
-import Tendencias from "./pages/Tendencias";
-import Recomendaciones from "./pages/Recomendaciones";
-import Favoritos from "./pages/Favoritos";
-import Contactos from "./pages/Contactos";
-import Eventos from "./pages/Eventos";
-import Verificar from "./pages/Verificar";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-
-import EmpresaPublica from "./pages/EmpresaPublica"; // NUEVO
-
-import Explorar from "./pages/Explorar"; // NUEVO
-
-// NUEVA PÁGINA: Panel de Administrador
-import Admin from "./pages/Admin";
-
-import AdminReportes from "./pages/AdminReportes";
-import AdminConfiguracion from "./pages/AdminConfiguracion";
+const Inicio = lazy(() => import("./pages/Inicio"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Subscribe = lazy(() => import("./pages/Subscribe"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Perfil = lazy(() => import("./pages/Perfil"));
+const AdminLayout = lazy(() => import("./components/AdminLayout"));
+const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
+const AdminEmpresas = lazy(() => import("./pages/AdminEmpresas"));
+const AdminEmpleos = lazy(() => import("./pages/AdminEmpleos"));
+const MapaPage = lazy(() => import("./pages/MapaPage"));
+const Cursos = lazy(() => import("./pages/Cursos"));
+const FormularioComercio = lazy(() => import("./pages/FormularioComercio"));
+const Recompensas = lazy(() => import("./pages/Recompensas"));
+const TopMundial = lazy(() => import("./pages/TopMundial"));
+const Notificaciones = lazy(() => import("./pages/Notificaciones"));
+const Mensajes = lazy(() => import("./pages/Mensajes"));
+const Empleos = lazy(() => import("./pages/Empleos"));
+const HerramientasFinancieras = lazy(() => import("./pages/HerramientasFinancieras"));
+const EcommerceHome = lazy(() => import("./pages/ecommerce/EcommerceHome"));
+const Marketplace = lazy(() => import("./pages/ecommerce/Marketplace"));
+const ProductoDetalle = lazy(() => import("./pages/ecommerce/ProductoDetalle"));
+const Comparador = lazy(() => import("./pages/ecommerce/Comparador"));
+const Cotizaciones = lazy(() => import("./pages/ecommerce/Cotizaciones"));
+const MisCompras = lazy(() => import("./pages/ecommerce/MisCompras"));
+const MisVentas = lazy(() => import("./pages/ecommerce/MisVentas"));
+const Checkout = lazy(() => import("./pages/ecommerce/Checkout"));
+const EcommerceAnalytics = lazy(() => import("./pages/ecommerce/EcommerceAnalytics"));
+const Ajustes = lazy(() => import("./pages/Ajustes"));
+const Grupos = lazy(() => import("./pages/Grupos"));
+const Alianzas = lazy(() => import("./pages/Alianzas"));
+const Oportunidades = lazy(() => import("./pages/Oportunidades"));
+const Tendencias = lazy(() => import("./pages/Tendencias"));
+const Recomendaciones = lazy(() => import("./pages/Recomendaciones"));
+const Favoritos = lazy(() => import("./pages/Favoritos"));
+const Contactos = lazy(() => import("./pages/Contactos"));
+const Eventos = lazy(() => import("./pages/Eventos"));
+const Verificar = lazy(() => import("./pages/Verificar"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const EmpresaPublica = lazy(() => import("./pages/EmpresaPublica"));
+const Explorar = lazy(() => import("./pages/Explorar"));
+const Admin = lazy(() => import("./pages/Admin"));
+const AdminReportes = lazy(() => import("./pages/AdminReportes"));
+const AdminConfiguracion = lazy(() => import("./pages/AdminConfiguracion"));
 
 function AppContent() {
-    const location = useLocation();
-    const navigate = useNavigate();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-    const storedUser = localStorage.getItem("user");
-    const isLoggedIn = !!storedUser;
+  const storedUser = localStorage.getItem("user");
+  const isLoggedIn = !!storedUser;
 
-    // Auto-redirect: Si está logueado y entra a páginas públicas → /inicio
-    useEffect(() => {
-      const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar", "/forgot-password", "/reset-password"];
-      
-      // NUEVO: Rutas públicas dinámicas (con parámetros)
-      const publicDynamicRoutes = [
-        /^\/empresa\/\d+$/, // /empresa/123, /empresa/456, etc.
-      ];
-      
-      const isPublicRoute = 
-        publicRoutes.includes(location.pathname) ||
-        publicDynamicRoutes.some((regex) => regex.test(location.pathname));
+  useEffect(() => {
+    const publicRoutes = ["/", "/login", "/register", "/subscribe", "/verificar", "/forgot-password", "/reset-password"];
+    
+    const publicDynamicRoutes = [
+      /^\/empresa\/\d+$/,
+    ];
+    
+    const isPublicRoute = 
+      publicRoutes.includes(location.pathname) ||
+      publicDynamicRoutes.some((regex) => regex.test(location.pathname));
 
-      const isPublicOnlyRoute = 
-        location.pathname === "/verificar" ||
-        location.pathname === "/forgot-password" ||
-        location.pathname === "/reset-password";
+    const isPublicOnlyRoute = 
+      location.pathname === "/verificar" ||
+      location.pathname === "/forgot-password" ||
+      location.pathname === "/reset-password";
 
-      // Si está logueado y entra a ruta pública (pero NO /verificar) → /inicio
-      if (isLoggedIn && isPublicRoute && !isPublicOnlyRoute) {
-        // NUEVO: NO redirigir si está viendo un perfil de empresa
-        const esPerfilEmpresa = /^\/empresa\/\d+$/.test(location.pathname);
-        if (!esPerfilEmpresa) {
-          navigate("/inicio");
-        }
+    if (isLoggedIn && isPublicRoute && !isPublicOnlyRoute) {
+      const esPerfilEmpresa = /^\/empresa\/\d+$/.test(location.pathname);
+      if (!esPerfilEmpresa) {
+        navigate("/inicio");
       }
+    }
 
-      // Si NO está logueado y entra a ruta privada → /subscribe
-      if (!isLoggedIn && !isPublicRoute) {
-        navigate("/subscribe");
-      }
-    }, [isLoggedIn, location.pathname, navigate]);
+    if (!isLoggedIn && !isPublicRoute) {
+      navigate("/subscribe");
+    }
+  }, [isLoggedIn, location.pathname, navigate]);
 
-    const showNavbar =
-      !isLoggedIn &&
-      (location.pathname === "/" ||
-        location.pathname === "/login" ||
-        location.pathname === "/register" ||
-        location.pathname === "/subscribe");
+  const showNavbar =
+    !isLoggedIn &&
+    (location.pathname === "/" ||
+      location.pathname === "/login" ||
+      location.pathname === "/register" ||
+      location.pathname === "/subscribe");
 
   return (
     <>
       {showNavbar && <Navbar />}
 
       <div style={{ padding: "20px" }}>
-        <Routes>
-          <Route path="/" element={<Subscribe />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/subscribe" element={<Subscribe />} />
-          <Route path="/inicio" element={<Inicio />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/mapa" element={<MapaPage />} />
-          <Route path="/cursos" element={<Cursos />} />
-          <Route path="/formulario-comercio/" element={<FormularioComercio />} />
-          <Route path="/recompensas" element={<Recompensas />} />
-          <Route path="/top-mundial" element={<TopMundial />} />
-          <Route path="/notificaciones" element={<Notificaciones />} />
-          <Route path="/mensajes" element={<Mensajes />} />
-          <Route path="/empleos" element={<Empleos />} />
-          <Route path="/herramientas-financieras" element={<HerramientasFinancieras />} />
-          <Route path="/ecommerce" element={<EcommerceHome />} />
-          <Route path="/ecommerce/marketplace" element={<Marketplace />} />
-          <Route path="/ecommerce/producto/:id" element={<ProductoDetalle />} />
-          <Route path="/ecommerce/comparador" element={<Comparador />} />
-          <Route path="/ecommerce/cotizaciones" element={<Cotizaciones />} />
-          <Route path="/ecommerce/compras" element={<MisCompras />} />
-          <Route path="/ecommerce/ventas" element={<MisVentas />} />
-          <Route path="/ecommerce/checkout" element={<Checkout />} />
-          <Route path="/ecommerce/analytics" element={<EcommerceAnalytics />} />
-          <Route path="/ajustes" element={<Ajustes />} />
-          <Route path="/grupos" element={<Grupos />} />
-          <Route path="/alianzas" element={<Alianzas />} />
-          <Route path="/oportunidades" element={<Oportunidades />} />
-          <Route path="/tendencias" element={<Tendencias />} />
-          <Route path="/recomendaciones" element={<Recomendaciones />} />
-          <Route path="/favoritos" element={<Favoritos />} />
-          <Route path="/contactos" element={<Contactos />} />
-          <Route path="/eventos" element={<Eventos />} />
-          <Route path="/verificar" element={<Verificar />} />  {/* NUEVO */}
-          <Route path="/forgot-password" element={<ForgotPassword />} />  {/* NUEVO */}
-          <Route path="/reset-password" element={<ResetPassword />} />    {/* NUEVO */}
-
-          {/* NUEVO: Perfil público de empresa */}
-          <Route path="/empresa/:id" element={<EmpresaPublica />} />
-
-          {/* NUEVO: Explorar empresas */}
-          <Route path="/explorar" element={<Explorar />} />
-          
-          {/* RUTAS DEL PANEL DE ADMIN (todas protegidas) */}
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-          <Route index element={<Admin />} />
-          <Route path="usuarios" element={<AdminUsuarios />} />
-          <Route path="empresas" element={<AdminEmpresas />} />
-          <Route path="empleos" element={<AdminEmpleos />} />
-          <Route path="reportes" element={<AdminReportes />} />
-          <Route path="configuracion" element={<AdminConfiguracion />} />
-          
-        </Route>
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Subscribe />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/subscribe" element={<Subscribe />} />
+            <Route path="/inicio" element={<Inicio />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/mapa" element={<MapaPage />} />
+            <Route path="/cursos" element={<Cursos />} />
+            <Route path="/formulario-comercio/" element={<FormularioComercio />} />
+            <Route path="/recompensas" element={<Recompensas />} />
+            <Route path="/top-mundial" element={<TopMundial />} />
+            <Route path="/notificaciones" element={<Notificaciones />} />
+            <Route path="/mensajes" element={<Mensajes />} />
+            <Route path="/empleos" element={<Empleos />} />
+            <Route path="/herramientas-financieras" element={<HerramientasFinancieras />} />
+            <Route path="/ecommerce" element={<EcommerceHome />} />
+            <Route path="/ecommerce/marketplace" element={<Marketplace />} />
+            <Route path="/ecommerce/producto/:id" element={<ProductoDetalle />} />
+            <Route path="/ecommerce/comparador" element={<Comparador />} />
+            <Route path="/ecommerce/cotizaciones" element={<Cotizaciones />} />
+            <Route path="/ecommerce/compras" element={<MisCompras />} />
+            <Route path="/ecommerce/ventas" element={<MisVentas />} />
+            <Route path="/ecommerce/checkout" element={<Checkout />} />
+            <Route path="/ecommerce/analytics" element={<EcommerceAnalytics />} />
+            <Route path="/ajustes" element={<Ajustes />} />
+            <Route path="/grupos" element={<Grupos />} />
+            <Route path="/alianzas" element={<Alianzas />} />
+            <Route path="/oportunidades" element={<Oportunidades />} />
+            <Route path="/tendencias" element={<Tendencias />} />
+            <Route path="/recomendaciones" element={<Recomendaciones />} />
+            <Route path="/favoritos" element={<Favoritos />} />
+            <Route path="/contactos" element={<Contactos />} />
+            <Route path="/eventos" element={<Eventos />} />
+            <Route path="/verificar" element={<Verificar />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/empresa/:id" element={<EmpresaPublica />} />
+            <Route path="/explorar" element={<Explorar />} />
+            
+            <Route 
+              path="/admin" 
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminLayout />
+                  </ProtectedRoute>
+                </Suspense>
+              }
+            >
+              <Route index element={<Admin />} />
+              <Route path="usuarios" element={<AdminUsuarios />} />
+              <Route path="empresas" element={<AdminEmpresas />} />
+              <Route path="empleos" element={<AdminEmpleos />} />
+              <Route path="reportes" element={<AdminReportes />} />
+              <Route path="configuracion" element={<AdminConfiguracion />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </div>
     </>
   );
@@ -184,7 +182,6 @@ export default function App() {
   return (
     <Router>
       <AppContent />
-      {/* NUEVO: Toaster global para notificaciones */}
       <Toaster
         position="bottom-right"
         theme="dark"

@@ -54,6 +54,8 @@ function Subscribe() {
         <img
           src="/ecosysval.png"
           alt="ECOSYSVAL"
+          width="160"
+          height="40"
           className="h-10 w-auto object-contain"
         />
       </header>
@@ -63,7 +65,6 @@ function Subscribe() {
         <div className="w-full max-w-6xl">
           {/* Título principal */}
           <div className="text-center mb-12">
-            
             <h2 className="text-3xl font-bold text-white mb-4">
               Elige tu Plan
             </h2>
@@ -79,13 +80,16 @@ function Subscribe() {
                 key={plan.name} 
                 className="flex flex-col rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:translate-y-[-5px]"
               >
-                {/* Imagen REALZADA */}
+                {/* Imagen OPTIMIZADA */}
                 <div
                   className="relative h-56 w-full overflow-hidden bg-white"
                 >
                   <img
                     src={plan.bgImage}
                     alt={plan.name}
+                    loading="lazy"
+                    width="256"
+                    height="224"
                     className="w-full h-full object-contain p-4 brightness-100 contrast-125"
                     style={{ filter: 'brightness(1.1) contrast(1.1) saturate(1.05)' }}
                   />

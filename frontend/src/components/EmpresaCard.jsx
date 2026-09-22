@@ -11,7 +11,7 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
  * Props:
  * - empresa: objeto empresa (con rating incluido)
  */
-export default function EmpresaCard({ empresa }) {
+const EmpresaCard = React.memo(({ empresa }) => {
   const navigate = useNavigate();
 
   if (!empresa) return null;
@@ -44,12 +44,15 @@ export default function EmpresaCard({ empresa }) {
     >
       {/* ===== HEADER: Logo + Plan ===== */}
       <div className="relative p-5 pb-3 flex items-start justify-between gap-3">
-        {/* Logo */}
+        {/* Logo OPTIMIZADO */}
         <div className="flex-shrink-0">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={razonSocial}
+              loading="lazy"
+              width="64"
+              height="64"
               className="w-16 h-16 rounded-2xl object-contain border border-white/20 bg-white/5"
               onError={(e) => {
                 e.target.style.display = "none";
@@ -133,4 +136,8 @@ export default function EmpresaCard({ empresa }) {
       </div>
     </article>
   );
-}
+}, (prevProps, nextProps) => {
+  return prevProps.empresa.id === nextProps.empresa.id;
+});
+
+export default EmpresaCard;

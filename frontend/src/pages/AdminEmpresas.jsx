@@ -326,6 +326,9 @@ function AdminEmpresas() {
                                 <img 
                                   src={`${API_URL}${empresa.logo}`}
                                   alt={empresa.razonSocial}
+                                  loading="lazy"
+                                  width="48"
+                                  height="48"
                                   className="w-full h-full object-cover rounded-lg"
                                 />
                               ) : (
@@ -525,6 +528,9 @@ function AdminEmpresas() {
                     <img 
                       src={`${API_URL}${modalDetalle.logo}`}
                       alt={modalDetalle.razonSocial}
+                      loading="lazy"
+                      width="64"
+                      height="64"
                       className="w-full h-full object-cover rounded-xl"
                     />
                   ) : (

@@ -495,7 +495,10 @@ export default function Perfil() {
                 <div className="flex justify-center">
                   <img
                     src={empresa.logo.startsWith("http") ? empresa.logo : `${API_URL}${empresa.logo}`}
-                    alt="Logo"
+                    alt="Logo de la empresa"
+                    loading="lazy"
+                    width="320"
+                    height="192"
                     className="max-w-xs max-h-48 object-contain rounded-2xl border border-white/20"
                   />
                 </div>
