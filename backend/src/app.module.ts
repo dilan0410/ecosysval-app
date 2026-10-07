@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PostModule } from './post/post.module';
+import { SolicitudesComercioModule } from './solicitudes-comercio/solicitudes-comercio.module';
 import { User } from './user/user.entity';
 import { Post } from './post/post.entity';
 import { EmpresaModule } from './empresa/empresa.module';
@@ -93,6 +94,7 @@ import { ResenaModule } from './resena/resena.module';
     ResenaModule, // reseñas
     NotificacionModule, // notificaciones
     MensajeModule, // Fase 5.4 - mensajería
+    SolicitudesComercioModule,
   ],
   controllers: [AppController],
   providers: [

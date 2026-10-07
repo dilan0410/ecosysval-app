@@ -211,4 +211,37 @@ export class NotificacionService {
       },
     });
   }
+
+  // HELPER: Crear notificación de solicitud de conexión comercial
+  async notificarSolicitudComercio(params: {
+    userId: number;
+    empresaId: number;
+    empresaEmisoraNombre: string;
+    tipoItem: string;
+    producto: string;
+    transaccion: string;
+    cantidad?: number;
+    unidad?: string;
+    descripcion?: string;
+    solicitudId: number;
+  }) {
+    return this.crear({
+      userId: params.userId,
+      tipo: 'solicitud_conexion',
+      titulo: 'Nueva solicitud de conexión comercial',
+      mensaje: `${params.empresaEmisoraNombre} quiere ${params.transaccion === 'compra' ? 'comprar' : 'vender'} ${params.producto}`,
+      enlace: `/mapa`,
+      metadata: {
+        empresaId: params.empresaId,
+        solicitudId: params.solicitudId,
+        tipoItem: params.tipoItem,
+        producto: params.producto,
+        transaccion: params.transaccion,
+        cantidad: params.cantidad,
+        unidad: params.unidad,
+        descripcion: params.descripcion,
+      },
+    });
+  }
+
 }

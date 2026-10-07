@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/axiosClient";
 import { obtenerRecomendaciones } from "../api/pythonAPI";
 
-// Coordenadas normalizadas (misma lógica del MapaPage)
-
+// Coordenadas normalizadas
 const COORDENADAS_ESTADOS = {
   aguascalientes: { lat: 21.8818, lng: -102.2915 },
   "baja california": { lat: 30.8406, lng: -115.2838 },
@@ -48,6 +47,37 @@ const COORDENADAS_ESTADOS = {
   zacatecas: { lat: 22.7709, lng: -102.5832 },
 };
 
+/**
+ * Normaliza cualquier valor (Array, JSON String, String plano) a un Array real de JS
+ */
+export function normalizarArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val.flatMap((item) => normalizarArray(item)).filter(Boolean);
+  }
+  if (typeof val === "string") {
+    let str = val.trim();
+    if (!str || str === "[]" || str === '[""]') return [];
+    if (str.startsWith("[") && str.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          return parsed.map((s) => String(s).trim()).filter(Boolean);
+        }
+      } catch (e) {
+        return str
+          .slice(1, -1)
+          .split(",")
+          .map((s) => s.replace(/^["']|["']$/g, "").trim())
+          .filter(Boolean);
+      }
+    }
+    str = str.replace(/^["']|["']$/g, "").trim();
+    return str ? [str] : [];
+  }
+  return [String(val)];
+}
+
 function normalizarTextoEstado(str) {
   if (!str) return "";
   return String(str)
@@ -59,16 +89,13 @@ function normalizarTextoEstado(str) {
 
 function obtenerCoordenadasPorEstado(estadoNombre, id = "1") {
   const norm = normalizarTextoEstado(estadoNombre);
-  const base =
-    COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
-
+  const base = COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
   let seed = 0;
   const strId = String(id || "1");
   for (let i = 0; i < strId.length; i++) seed += strId.charCodeAt(i);
-
   return {
-    lat: base.lat + (((seed % 20) - 10) * 0.003),
-    lng: base.lng + ((((seed * 3) % 20) - 10) * 0.003),
+    lat: base.lat + ((seed % 20) - 10) * 0.003,
+    lng: base.lng + (((seed * 3) % 20) - 10) * 0.003,
   };
 }
 
@@ -101,55 +128,77 @@ async function transformarDatosPython(datosPython) {
 
   const empresasPorScian = {};
   empresasReales.forEach((emp) => {
-    if (!empresasPorScian[emp.sectorScian]) empresasPorScian[emp.sectorScian] = [];
+    if (!empresasPorScian[emp.sectorScian])
+      empresasPorScian[emp.sectorScian] = [];
     empresasPorScian[emp.sectorScian].push(emp);
   });
 
-  const pushSector = (lista, tipo, prefixReal, prefixTeo) => {
+  // SOLO AGREGAR EMPRESAS REALES
+  const pushSector = (lista, tipo, prefixReal) => {
     (lista || []).forEach((item) => {
       const delSector = empresasPorScian[item.codigo] || [];
+
       if (delSector.length > 0) {
         delSector.forEach((empresa) => {
+          // Normalización limpia de arrays
+          const arrProductos = normalizarArray(empresa.productos);
+          const arrServicios = normalizarArray(empresa.servicios);
+          const arrCategoria = normalizarArray(item.categoria);
+
+          const productosStr =
+            arrProductos.length > 0
+              ? arrProductos.join(", ")
+              : (empresa.sectorScian || "No especificado");
+
+          const serviciosStr =
+            arrServicios.length > 0
+              ? arrServicios.join(", ")
+              : "No especificado";
+
+          const categoriaStr =
+            arrCategoria.length > 0
+              ? arrCategoria.join(", ")
+              : (typeof item.categoria === "string"
+                  ? item.categoria.replace(/^\[|\]$/g, "").replace(/^["']|["']$/g, "").trim()
+                  : "");
+
+          const sectorStr = empresa.sectorScian || "No especificado";
+
+          // Objeto empresaData normalizado para modals de comercio
+          const empresaDataLimpia = {
+            ...empresa,
+            productos: arrProductos.length > 0 ? arrProductos : (productosStr !== "No especificado" ? [productosStr] : []),
+            servicios: arrServicios,
+            categoria: categoriaStr,
+          };
+
           empresas.push({
-            id: `${prefixReal}-${empresa.id}`,
+            id: empresa.id,
             tipo,
             nombre: empresa.razonSocial || "Sin nombre",
-            productos: `SCIAN ${empresa.sectorScian}`,
-            servicios: item.categoria,
+            productos: productosStr,
+            productosLista: arrProductos.length > 0 ? arrProductos : [productosStr],
+            servicios: serviciosStr,
+            serviciosLista: arrServicios,
             ciudad: empresa.estado || "Ciudad de México",
             estado: empresa.estado || "Ciudad de México",
+            sector: sectorStr,
             ...obtenerCoordenadasPorEstado(empresa.estado, empresa.id),
-            categoria: item.categoria,
+            categoria: categoriaStr,
             porcentaje: item.porcentaje,
             coeficiente: item.coeficiente,
             codigoScian: item.codigo,
             esReal: true,
             empresaId: empresa.id,
-            empresaData: empresa,
+            empresaData: empresaDataLimpia,
           });
-        });
-      } else {
-        empresas.push({
-          id: `${prefixTeo}-${item.codigo}`,
-          tipo,
-          nombre: item.sector?.split(" - ")[1] || item.sector,
-          productos: `SCIAN ${item.codigo}`,
-          servicios: item.categoria,
-          ciudad: "México",
-          estado: "Sector Recomendado",
-          ...obtenerCoordenadasPorEstado("Ciudad de México", item.codigo),
-          categoria: item.categoria,
-          porcentaje: item.porcentaje,
-          coeficiente: item.coeficiente,
-          codigoScian: item.codigo,
-          esReal: false,
         });
       }
     });
   };
 
-  pushSector(datosPython.top_clientes, "Cliente", "RC", "TC");
-  pushSector(datosPython.top_proveedores, "Proveedor", "RP", "TP");
+  pushSector(datosPython.top_clientes, "Cliente", "RC");
+  pushSector(datosPython.top_proveedores, "Proveedor", "RP");
 
   empresas.sort((a, b) => {
     if (a.esReal && !b.esReal) return -1;
@@ -160,9 +209,6 @@ async function transformarDatosPython(datosPython) {
   return empresas;
 }
 
-/**
- * Carga mi-empresa + Python + empresas NestJS (1 pipeline cacheable)
- */
 async function fetchMapaData() {
   let sectorScian = null;
   let empresaExiste = true;
@@ -176,7 +222,6 @@ async function fetchMapaData() {
   }
 
   let sectorAUsar = sectorScian;
-
   if (!empresaExiste) {
     sectorAUsar = "3111";
     infoMensaje = {
@@ -217,12 +262,14 @@ async function fetchMapaData() {
 
   const empresas = await transformarDatosPython(datosPython);
 
+  const catLimpia = normalizarArray(datosPython.categoria).join(", ") || datosPython.categoria || "";
+
   return {
     empresas,
     sectorInfo: {
       codigo: datosPython.codigo,
       nombre: datosPython.sector,
-      categoria: datosPython.categoria,
+      categoria: catLimpia,
     },
     infoMensaje,
   };
@@ -232,7 +279,7 @@ export function useMapaRecomendaciones() {
   return useQuery({
     queryKey: ["mapa-recomendaciones"],
     queryFn: fetchMapaData,
-    staleTime: 1000 * 60 * 10, // 10 min: el mapa casi no cambia en una sesión
-    gcTime: 1000 * 60 * 60,    // 1 hora en memoria
+    staleTime: 1000 * 60 * 10, // 10 min
+    gcTime: 1000 * 60 * 60, // 1 hora
   });
 }

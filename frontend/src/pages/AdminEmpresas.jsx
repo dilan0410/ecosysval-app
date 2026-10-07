@@ -17,11 +17,9 @@ import {
   Target,
   Award,
   Edit2,
-  Ban, // Icono para suspender
-  RefreshCw // Icono para reactivar
+  Ban,
+  RefreshCw
 } from "lucide-react";
-
-// REFRESH TOKENS - axios con interceptor
 import { api } from "../api/axiosClient";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3000";
@@ -34,9 +32,8 @@ function AdminEmpresas() {
   const [modalDetalle, setModalDetalle] = useState(null);
   const [modalEliminar, setModalEliminar] = useState(null);
   const [modalEditar, setModalEditar] = useState(null);
-  const [modalSuspender, setModalSuspender] = useState(null); // Estado para modal suspender
+  const [modalSuspender, setModalSuspender] = useState(null);
   const [mensaje, setMensaje] = useState(null);
-  // ... (resto de estados de datosEditar igual) ...
   const [datosEditar, setDatosEditar] = useState({
     razonSocial: "",
     correo: "",
@@ -169,18 +166,13 @@ function AdminEmpresas() {
     }
   };
 
-  //  FUNCIÓN PARA SUSPENDER / REACTIVAR
   const toggleSuspension = async () => {
     if (!modalSuspender) return;
-
     try {
       const nuevoEstado = !modalSuspender.activo; 
-      
-      // Endpoint corregido: /empresas/:id/estado
       await api.patch(`/empresas/${modalSuspender.id}/estado`, { 
         activo: nuevoEstado 
       });
-
       const accion = nuevoEstado ? "reactivada" : "suspendida";
       mostrarMensaje("exito", `Empresa ${accion} correctamente`);
       cargarEmpresas();
@@ -218,6 +210,8 @@ function AdminEmpresas() {
 
   const formatearDinero = (cantidad) => {
     if (!cantidad) return "No especificado";
+    // Si es un string como "Menos de $1.000.000 MXN", mostrarlo directamente
+    if (typeof cantidad === 'string') return cantidad;
     return new Intl.NumberFormat("es-MX", {
       style: "currency",
       currency: "MXN"
@@ -311,7 +305,6 @@ function AdminEmpresas() {
                 </thead>
                 <tbody>
                   {empresasFiltradas.map((empresa) => {
-                    // Verificar si está activa (asumiendo campo 'activo', si no existe, default true)
                     const estaActiva = empresa.activo !== false; 
                     return (
                       <tr 
@@ -321,7 +314,7 @@ function AdminEmpresas() {
                         <td className="px-6 py-4 text-gray-300">#{empresa.id}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-lg flex-shrink-0">
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-lg flex-shrink-0 overflow-hidden">
                               {empresa.logo ? (
                                 <img 
                                   src={`${API_URL}${empresa.logo}`}
@@ -329,16 +322,19 @@ function AdminEmpresas() {
                                   loading="lazy"
                                   width="48"
                                   height="48"
-                                  className="w-full h-full object-cover rounded-lg"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = `<span class="text-yellow-400 font-bold text-lg">${empresa.razonSocial?.charAt(0).toUpperCase()}</span>`;
+                                  }}
                                 />
                               ) : (
-                                empresa.razonSocial?.charAt(0).toUpperCase() || "?"
+                                <span>{empresa.razonSocial?.charAt(0).toUpperCase() || "?"}</span>
                               )}
                             </div>
                             <div>
                               <p className="font-semibold">{empresa.razonSocial}</p>
                               <p className="text-xs text-gray-400">{empresa.correo}</p>
-                              {/* Badge de estado */}
                               {!estaActiva && (
                                 <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-bold uppercase tracking-wider">
                                   <Ban size={10} /> Suspendido
@@ -350,7 +346,7 @@ function AdminEmpresas() {
                         <td className="px-6 py-4 text-gray-300">
                           <div className="flex items-center gap-2">
                             <MapPin size={16} className="text-gray-500" />
-                            {empresa.ubicacion}
+                            {empresa.ubicacion || empresa.estado || "No especificada"}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-gray-300">
@@ -374,7 +370,6 @@ function AdminEmpresas() {
                             >
                               <Eye size={18} />
                             </button>
-
                             <button
                               onClick={() => abrirEdicion(empresa)}
                               className="p-2 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors"
@@ -382,8 +377,6 @@ function AdminEmpresas() {
                             >
                               <Edit2 size={18} />
                             </button>
-                            
-                            {/* BOTÓN SUSPENDER / REACTIVAR */}
                             <button
                               onClick={() => setModalSuspender(empresa)}
                               className={`p-2 rounded-lg transition-colors ${
@@ -395,7 +388,6 @@ function AdminEmpresas() {
                             >
                               {estaActiva ? <Ban size={18} /> : <RefreshCw size={18} />}
                             </button>
-                          
                             <button
                               onClick={() => setModalEliminar(empresa)}
                               className="p-2 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
@@ -421,17 +413,19 @@ function AdminEmpresas() {
                     key={empresa.id}
                     className={`p-4 hover:bg-white/5 transition-colors ${!estaActiva ? 'opacity-60' : ''}`}
                   >
-                    {/* Header de la tarjeta */}
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-xl flex-shrink-0">
+                      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-xl flex-shrink-0 overflow-hidden">
                         {empresa.logo ? (
                           <img 
                             src={`${API_URL}${empresa.logo}`}
                             alt={empresa.razonSocial}
-                            className="w-full h-full object-cover rounded-lg"
+                            loading="lazy"
+                            width="56"
+                            height="56"
+                            className="w-full h-full object-cover"
                           />
                         ) : (
-                          empresa.razonSocial?.charAt(0).toUpperCase() || "?"
+                          <span>{empresa.razonSocial?.charAt(0).toUpperCase() || "?"}</span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -446,13 +440,12 @@ function AdminEmpresas() {
                       <span className="text-xs text-gray-500 flex-shrink-0">#{empresa.id}</span>
                     </div>
 
-                    {/* Info de la empresa */}
                     <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
                       <div className="bg-black/30 p-2 rounded-lg">
                         <p className="text-gray-500 mb-1 flex items-center gap-1">
                           <MapPin size={12} /> Ubicación
                         </p>
-                        <p className="text-gray-300 truncate">{empresa.ubicacion || "—"}</p>
+                        <p className="text-gray-300 truncate">{empresa.ubicacion || empresa.estado || "—"}</p>
                       </div>
                       <div className="bg-black/30 p-2 rounded-lg">
                         <p className="text-gray-500 mb-1 flex items-center gap-1">
@@ -462,7 +455,6 @@ function AdminEmpresas() {
                       </div>
                     </div>
 
-                    {/* Badge de antigüedad */}
                     <div className="mb-3">
                       <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-semibold">
                         <Award size={14} />
@@ -470,7 +462,6 @@ function AdminEmpresas() {
                       </span>
                     </div>
 
-                    {/* Acciones */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setModalDetalle(empresa)}
@@ -479,7 +470,6 @@ function AdminEmpresas() {
                         <Eye size={16} />
                         Ver
                       </button>
-
                       <button
                         onClick={() => abrirEdicion(empresa)}
                         className="flex-1 flex items-center justify-center gap-2 p-2 bg-yellow-500/10 hover:bg-yellow-500/20 rounded-lg text-yellow-400 transition-colors text-sm font-semibold"
@@ -487,8 +477,6 @@ function AdminEmpresas() {
                         <Edit2 size={16} />
                         Editar
                       </button>
-                      
-                      {/*  BOTÓN MÓVIL SUSPENDER */}
                       <button
                         onClick={() => setModalSuspender(empresa)}
                         className={`p-2 rounded-lg transition-colors ${
@@ -500,7 +488,6 @@ function AdminEmpresas() {
                       >
                         {estaActiva ? <Ban size={18} /> : <RefreshCw size={18} />}
                       </button>
-
                       <button
                         onClick={() => setModalEliminar(empresa)}
                         className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
@@ -517,13 +504,13 @@ function AdminEmpresas() {
         )}
       </div>
 
+      {/* MODAL DETALLE */}
       {modalDetalle && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/30 rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header del modal */}
             <div className="flex items-start justify-between mb-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-2xl flex-shrink-0">
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center text-yellow-400 font-bold text-2xl flex-shrink-0 overflow-hidden">
                   {modalDetalle.logo ? (
                     <img 
                       src={`${API_URL}${modalDetalle.logo}`}
@@ -534,13 +521,12 @@ function AdminEmpresas() {
                       className="w-full h-full object-cover rounded-xl"
                     />
                   ) : (
-                    modalDetalle.razonSocial?.charAt(0).toUpperCase() || "?"
+                    <span>{modalDetalle.razonSocial?.charAt(0).toUpperCase() || "?"}</span>
                   )}
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold">{modalDetalle.razonSocial}</h2>
                   <p className="text-gray-400 text-sm">ID: #{modalDetalle.id}</p>
-                  {/* estado en modal detalle */}
                   {modalDetalle.activo === false && (
                      <span className="inline-flex items-center gap-1 mt-2 px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold uppercase">
                       <Ban size={12} /> Cuenta Suspendida
@@ -555,56 +541,58 @@ function AdminEmpresas() {
                 <X size={24} />
               </button>
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Mail size={14} /> Correo
                 </p>
                 <p className="font-medium">{modalDetalle.correo}</p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Globe size={14} /> Página web
                 </p>
                 <p className="font-medium text-blue-400">{modalDetalle.paginaWeb || "No especificada"}</p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Users size={14} /> Representante
                 </p>
                 <p className="font-medium">{modalDetalle.representante}</p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <MapPin size={14} /> Ubicación
                 </p>
-                <p className="font-medium">{modalDetalle.ubicacion}</p>
+                <p className="font-medium">
+                  {modalDetalle.ubicacion || modalDetalle.estado || 'No especificada'}
+                </p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <TrendingUp size={14} /> Volumen de ventas
                 </p>
-                <p className="font-medium">{formatearDinero(modalDetalle.volumenVentas)}</p>
+                <p className="font-medium">
+                  {modalDetalle.volumenVentas 
+                    ? (typeof modalDetalle.volumenVentas === 'string' 
+                        ? modalDetalle.volumenVentas 
+                        : formatearDinero(modalDetalle.volumenVentas))
+                    : 'No especificado'}
+                </p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Briefcase size={14} /> Empleados
                 </p>
                 <p className="font-medium">{modalDetalle.empleados}</p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Award size={14} /> Antigüedad
                 </p>
                 <p className="font-medium">{modalDetalle.antiguedad} años</p>
               </div>
-
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-gray-400 mb-1 flex items-center gap-2">
                   <Calendar size={14} /> Registrada
@@ -621,7 +609,6 @@ function AdminEmpresas() {
                   {modalDetalle.importaciones ? "✓ SÍ" : "✗ NO"}
                 </p>
               </div>
-
               <div className={`p-4 rounded-lg text-center ${modalDetalle.exportaciones ? 'bg-green-500/20 border border-green-500/40' : 'bg-gray-500/20 border border-gray-500/30'}`}>
                 <p className="text-xs text-gray-400 mb-1">Exportaciones</p>
                 <p className={`font-bold ${modalDetalle.exportaciones ? 'text-green-400' : 'text-gray-400'}`}>
@@ -630,7 +617,6 @@ function AdminEmpresas() {
               </div>
             </div>
 
-            {/* Misión y Visión */}
             {modalDetalle.mision && (
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <p className="text-xs text-yellow-400 mb-2 flex items-center gap-2 font-semibold">
@@ -639,7 +625,6 @@ function AdminEmpresas() {
                 <p className="text-sm text-gray-300">{modalDetalle.mision}</p>
               </div>
             )}
-
             {modalDetalle.vision && (
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <p className="text-xs text-yellow-400 mb-2 flex items-center gap-2 font-semibold">
@@ -648,23 +633,18 @@ function AdminEmpresas() {
                 <p className="text-sm text-gray-300">{modalDetalle.vision}</p>
               </div>
             )}
-
-            {/* Productos y Servicios */}
             {modalDetalle.productos && (
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <p className="text-xs text-yellow-400 mb-2 font-semibold">PRODUCTOS</p>
-                <p className="text-sm text-gray-300">{modalDetalle.productos}</p>
+                <p className="text-sm text-gray-300">{Array.isArray(modalDetalle.productos) ? modalDetalle.productos.join(', ') : modalDetalle.productos}</p>
               </div>
             )}
-
             {modalDetalle.servicios && (
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <p className="text-xs text-yellow-400 mb-2 font-semibold">SERVICIOS</p>
-                <p className="text-sm text-gray-300">{modalDetalle.servicios}</p>
+                <p className="text-sm text-gray-300">{Array.isArray(modalDetalle.servicios) ? modalDetalle.servicios.join(', ') : modalDetalle.servicios}</p>
               </div>
             )}
-
-            {/* SCIAN */}
             {modalDetalle.scianCodigo && (
               <div className="bg-black/40 p-4 rounded-lg">
                 <p className="text-xs text-yellow-400 mb-2 font-semibold">CLASIFICACIÓN SCIAN</p>
@@ -686,10 +666,10 @@ function AdminEmpresas() {
         </div>
       )}
 
+      {/* MODAL EDITAR */}
       {modalEditar && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/30 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="bg-yellow-500/20 p-3 rounded-lg">
@@ -709,14 +689,12 @@ function AdminEmpresas() {
               </div>
 
               <div className="space-y-6">
-                
-                {/* SECCIÓN: INFORMACIÓN BÁSICA */}
+                {/* INFORMACIÓN BÁSICA */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <Building2 size={16} />
                     INFORMACIÓN BÁSICA
                   </h4>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -730,7 +708,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Correo <span className="text-red-400">*</span>
@@ -743,7 +720,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Representante <span className="text-red-400">*</span>
@@ -756,7 +732,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Página Web
@@ -772,13 +747,12 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* SECCIÓN: UBICACIÓN */}
+                {/* UBICACIÓN */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <MapPin size={16} />
                     UBICACIÓN
                   </h4>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -796,7 +770,6 @@ function AdminEmpresas() {
                         <option value="Internacional">Internacional</option>
                       </select>
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Ubicación
@@ -809,7 +782,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Sucursales
@@ -825,13 +797,12 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* SECCIÓN: NEGOCIO */}
+                {/* NEGOCIO */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <TrendingUp size={16} />
                     INFORMACIÓN DEL NEGOCIO
                   </h4>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -841,11 +812,10 @@ function AdminEmpresas() {
                         type="text"
                         value={datosEditar.volumenVentas}
                         onChange={(e) => setDatosEditar({ ...datosEditar, volumenVentas: e.target.value })}
-                        placeholder="Ej: 5000000"
+                        placeholder="Ej: Menos de $1.000.000 MXN"
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Empleados
@@ -859,7 +829,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Antigüedad (años)
@@ -873,8 +842,6 @@ function AdminEmpresas() {
                       />
                     </div>
                   </div>
-
-                  {/* Checkboxes Importaciones / Exportaciones */}
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <label className="flex items-center gap-3 cursor-pointer bg-black/30 p-3 rounded-lg hover:bg-black/50 transition-colors">
                       <input
@@ -885,7 +852,6 @@ function AdminEmpresas() {
                       />
                       <span className="text-sm font-medium">Realiza Importaciones</span>
                     </label>
-
                     <label className="flex items-center gap-3 cursor-pointer bg-black/30 p-3 rounded-lg hover:bg-black/50 transition-colors">
                       <input
                         type="checkbox"
@@ -896,7 +862,6 @@ function AdminEmpresas() {
                       <span className="text-sm font-medium">Realiza Exportaciones</span>
                     </label>
                   </div>
-
                   <div className="mt-4">
                     <label className="block text-sm font-semibold mb-2 text-gray-300">
                       Socios Comerciales
@@ -911,13 +876,12 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* SECCIÓN: MISIÓN / VISIÓN / OBJETIVOS */}
+                {/* MISIÓN / VISIÓN / OBJETIVOS */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <Target size={16} />
                     MISIÓN Y VISIÓN
                   </h4>
-                  
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -931,7 +895,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 resize-none"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Visión
@@ -944,7 +907,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 resize-none"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Objetivos
@@ -960,13 +922,12 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* SECCIÓN: PRODUCTOS Y SERVICIOS */}
+                {/* PRODUCTOS Y SERVICIOS */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <Briefcase size={16} />
                     PRODUCTOS Y SERVICIOS
                   </h4>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -980,7 +941,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 resize-none"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Servicios
@@ -996,13 +956,12 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* SECCIÓN: SCIAN */}
+                {/* SCIAN */}
                 <div>
                   <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                     <Award size={16} />
                     CLASIFICACIÓN SCIAN
                   </h4>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
@@ -1017,7 +976,6 @@ function AdminEmpresas() {
                         className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
                       />
                     </div>
-
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold mb-2 text-gray-300">
                         Descripción SCIAN
@@ -1033,7 +991,6 @@ function AdminEmpresas() {
                   </div>
                 </div>
 
-                {/* Error dentro del modal */}
                 {errorModal && (
                   <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-3 flex items-start gap-2">
                     <AlertCircle size={18} className="flex-shrink-0 mt-0.5 text-red-400" />
@@ -1041,7 +998,6 @@ function AdminEmpresas() {
                   </div>
                 )}
 
-                {/* Aviso */}
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                   <p className="text-xs text-blue-300 flex items-start gap-2">
                     <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
@@ -1050,7 +1006,6 @@ function AdminEmpresas() {
                 </div>
               </div>
 
-              {/* Botones */}
               <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-gray-700">
                 <button
                   onClick={() => setModalEditar(null)}
@@ -1081,6 +1036,7 @@ function AdminEmpresas() {
           </div>
 )}
 
+      {/* MODAL ELIMINAR */}
       {modalEliminar && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-red-500/30 rounded-xl p-6 max-w-md w-full">
@@ -1090,7 +1046,6 @@ function AdminEmpresas() {
               </div>
               <h3 className="text-xl font-bold">¿Eliminar empresa?</h3>
             </div>
-            
             <p className="text-gray-300 mb-2">Estás a punto de eliminar:</p>
             <p className="text-yellow-400 font-semibold mb-4">
               {modalEliminar.razonSocial}
@@ -1098,7 +1053,6 @@ function AdminEmpresas() {
             <p className="text-sm text-gray-400 mb-6">
               Esta acción no se puede deshacer.
             </p>
-            
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setModalEliminar(null)}
@@ -1133,7 +1087,6 @@ function AdminEmpresas() {
                 {modalSuspender.activo !== false ? "¿Suspender empresa?" : "¿Reactivar empresa?"}
               </h3>
             </div>
-            
             <p className="text-gray-300 mb-2">
               {modalSuspender.activo !== false 
                 ? "Estás a punto de suspender el acceso de:" 
@@ -1149,7 +1102,6 @@ function AdminEmpresas() {
                 : "La empresa recuperará el acceso inmediato a la plataforma."
               }
             </p>
-            
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setModalSuspender(null)}

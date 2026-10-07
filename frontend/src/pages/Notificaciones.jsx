@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import Layout from "../components/Layout";
+import VistaSolicitudModal from "../components/VistaSolicitudModal";
 import { api } from "../api/axiosClient";
 import {
   Search,
@@ -15,6 +16,7 @@ import {
   Edit3,
   X,
   RefreshCw,
+  Handshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SkeletonNotificacionList } from "../components/SkeletonNotificacion";
@@ -37,6 +39,10 @@ export default function Notificaciones() {
   const [q, setQ] = useState("");
   const [filtroActivo, setFiltroActivo] = useState("todas");
   const [marcando, setMarcando] = useState(false);
+
+  // Estado para el modal de solicitud comercial
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState(null);
+  const [showSolicitudModal, setShowSolicitudModal] = useState(false);
 
   useEffect(() => {
     cargarNotificaciones();
@@ -119,6 +125,38 @@ export default function Notificaciones() {
     if (!notif.leida) {
       await marcarLeida(notif.id);
     }
+
+    // SI ES SOLICITUD DE CONEXIÓN COMERCIAL
+    if (notif.tipo === "solicitud_conexion") {
+      const solicitudId = notif.metadata?.solicitudId;
+      if (solicitudId) {
+        try {
+          const res = await api.get(`/solicitudes-comercio/${solicitudId}`);
+          if (res.data) {
+            setSolicitudSeleccionada(res.data);
+            setShowSolicitudModal(true);
+            return;
+          }
+        } catch (err) {
+          console.warn("No se pudo obtener la solicitud por ID, usando metadata:", err);
+        }
+      }
+
+      // Fallback mejorado con metadata exacta
+      setSolicitudSeleccionada({
+        id: notif.metadata?.solicitudId,
+        empresaEmisora: notif.mensaje?.split(" quiere ")[0] || "Empresa solicitante",
+        empresaDestino: "Tu empresa",
+        transaccion: notif.metadata?.transaccion || "compra",
+        producto: notif.metadata?.producto || "Producto",
+        cantidad: notif.metadata?.cantidad || "",
+        unidad: notif.metadata?.unidad || "Ninguna",
+        descripcion: notif.metadata?.descripcion || notif.mensaje,
+      });
+      setShowSolicitudModal(true);
+      return;
+    }
+
     if (notif.enlace) {
       navigate(notif.enlace);
     }
@@ -131,6 +169,8 @@ export default function Notificaciones() {
       resultado = resultado.filter((n) => !n.leida);
     } else if (filtroActivo === "resenas") {
       resultado = resultado.filter((n) => n.tipo?.startsWith("resena_"));
+    } else if (filtroActivo === "solicitudes") {
+      resultado = resultado.filter((n) => n.tipo === "solicitud_conexion");
     }
 
     const term = q.trim().toLowerCase();
@@ -271,6 +311,12 @@ export default function Notificaciones() {
                 onClick={() => setFiltroActivo("no_leidas")}
               />
               <Chip
+                text="Solicitudes"
+                count={notificaciones.filter((n) => n.tipo === "solicitud_conexion").length}
+                active={filtroActivo === "solicitudes"}
+                onClick={() => setFiltroActivo("solicitudes")}
+              />
+              <Chip
                 text={t("notifications.reviews")}
                 count={notificaciones.filter((n) => n.tipo?.startsWith("resena_")).length}
                 active={filtroActivo === "resenas"}
@@ -319,13 +365,22 @@ export default function Notificaciones() {
           </div>
         </motion.section>
       </motion.div>
+
+      {/* Modal de Solicitud para la Empresa B */}
+      {showSolicitudModal && solicitudSeleccionada && (
+        <VistaSolicitudModal
+          solicitud={solicitudSeleccionada}
+          onClose={() => {
+            setShowSolicitudModal(false);
+            setSolicitudSeleccionada(null);
+          }}
+          onEstadoCambiado={() => cargarNotificaciones()}
+        />
+      )}
     </Layout>
   );
 }
 
-// ==========================================
-// Componente: Tarjeta de notificación animada
-// ==========================================
 function NotificacionCard({ notif, onClick, onDelete, formatearTiempo, t }) {
   const unread = !notif.leida;
   const config = configPorTipo(notif.tipo, t);
@@ -399,11 +454,9 @@ function NotificacionCard({ notif, onClick, onDelete, formatearTiempo, t }) {
             {notif.mensaje}
           </p>
 
-          {notif.enlace && (
-            <p className="mt-2 text-[11px] text-[#ffd166] opacity-70 group-hover:opacity-100 transition">
-              {t("notifications.clickToView")}
-            </p>
-          )}
+          <p className="mt-2 text-[11px] text-[#ffd166] opacity-70 group-hover:opacity-100 transition">
+            {notif.tipo === "solicitud_conexion" ? "Haz clic para ver y responder la solicitud →" : t("notifications.clickToView")}
+          </p>
         </div>
       </div>
 
@@ -425,9 +478,6 @@ function NotificacionCard({ notif, onClick, onDelete, formatearTiempo, t }) {
   );
 }
 
-// ==========================================
-// Chip de filtro con contador (animado)
-// ==========================================
 function Chip({ text, count = 0, active = false, onClick }) {
   return (
     <motion.button
@@ -463,6 +513,12 @@ function Chip({ text, count = 0, active = false, onClick }) {
 
 function configPorTipo(tipo, t) {
   switch (tipo) {
+    case "solicitud_conexion":
+      return {
+        Icon: Handshake,
+        label: "Solicitud comercial",
+        badge: "border-blue-400/20 bg-blue-500/10 text-blue-200",
+      };
     case "resena_nueva":
       return {
         Icon: Star,

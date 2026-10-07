@@ -2,46 +2,23 @@
 import React, { useEffect, useMemo } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { normalizarArray } from "../hooks/useMapaRecomendaciones";
 
-/* ============================================================================
-   MAPA (Mapbox GL) — Ecosysval
-   ----------------------------------------------------------------------------
-   ✅ Props:
-   - empresas: Array<{ id, nombre, tipo, productos, servicios?, ciudad, estado, lat, lng }>
-   - center?: [lat, lng] (opcional) -> centra el mapa
-   - zoom?: number (default 5)
-
-   ✅ Objetivo:
-   - Renderiza marcadores para empresas.
-   - Muestra un Popup por empresa con info rápida.
-   - Corrige legibilidad del texto (evita gris claro/invisible).
-
-   ✅ Nota:
-   - Mapbox aplica estilos propios al popup (.mapboxgl-popup-content).
-   - Para asegurar contraste, forzamos color en el contenido (inline style)
-     y recomendamos un CSS global (abajo te lo dejo).
-============================================================================ */
-
-/** Token Mapbox (demo) */
 const MAPBOX_TOKEN =
   "pk.eyJ1IjoiYWxlOTUxMDE5IiwiYSI6ImNtbDFhOXFkeTA2M2kzZXB0ZXRvanRzaGYifQ.u732kFuNU02xTJs9d43Jbg";
 
-/** Estilo del mapa (tu style en Mapbox Studio) */
 const MAP_STYLE = "mapbox://styles/ale951019/cml19r38j00c401s3fqd4hft0";
 
-/** Centro por defecto (CDMX) */
 const DEFAULT_CENTER = {
   latitude: 19.432608,
   longitude: -99.133209,
 };
 
+function limpiarTexto(val) {
+  return normalizarArray(val).join(", ");
+}
+
 export default function Mapa({ empresas = [], center, zoom = 5 }) {
-  /**
-   * initialViewState:
-   * - Si viene center -> lo usamos.
-   * - Si no, si hay empresas -> centra en la primera.
-   * - Si no -> centro por defecto.
-   */
   const initialViewState = useMemo(() => {
     if (center?.length === 2) {
       return { latitude: center[0], longitude: center[1], zoom };
@@ -73,13 +50,13 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
       >
-        {/* ============================================================
-            📍 Marcadores + Popups
-           ============================================================ */}
         {empresas.length > 0 ? (
           empresas.map((e) => {
             const lat = Number(e.lat);
             const lng = Number(e.lng);
+
+            const productosTexto = limpiarTexto(e.productos);
+            const serviciosTexto = limpiarTexto(e.servicios);
 
             return (
               <React.Fragment key={e.id}>
@@ -92,7 +69,7 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
                   />
                 </Marker>
 
-                {/* Popup (siempre visible) */}
+                {/* Popup */}
                 <Popup
                   latitude={lat}
                   longitude={lng}
@@ -102,10 +79,9 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
                   anchor="top"
                   className="ecosysval-popup"
                 >
-                  {/* ✅ Forzamos color inline para GANARLE a Mapbox */}
                   <div
                     style={{
-                      color: "#0f172a", // slate-900 (alto contraste)
+                      color: "#0f172a",
                       fontSize: "13px",
                       lineHeight: "1.25rem",
                       fontWeight: 500,
@@ -121,21 +97,21 @@ export default function Mapa({ empresas = [], center, zoom = 5 }) {
                       {e.nombre}
                     </div>
 
-                    <div style={{ color: "#334155" /* slate-700 */ }}>
+                    <div style={{ color: "#334155" }}>
                       <b>Tipo:</b> {e.tipo}
                     </div>
 
                     <div style={{ color: "#334155" }}>
-                      <b>Productos:</b> {e.productos || "—"}
+                      <b>Productos:</b> {productosTexto || "No especificado"}
                     </div>
 
-                    {e.servicios && (
+                    {serviciosTexto && serviciosTexto !== "No especificado" && (
                       <div style={{ color: "#334155" }}>
-                        <b>Servicios:</b> {e.servicios}
+                        <b>Servicios:</b> {serviciosTexto}
                       </div>
                     )}
 
-                    <div style={{ color: "#475569" /* slate-600 */ }}>
+                    <div style={{ color: "#475569" }}>
                       📍 {e.ciudad}, {e.estado}
                     </div>
                   </div>

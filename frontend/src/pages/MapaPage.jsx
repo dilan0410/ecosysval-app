@@ -1,10 +1,7 @@
 // src/pages/MapaPage.jsx
 /**
  * MAPA / POSICIÓN EN EL SISTEMA (ECOSYSVAL)
- * --------------------------------------------------------------------
- * i18n al 100% + React Query + geolocalización 32 estados
  */
-
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -20,17 +17,13 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-
 import Mapa from "../components/Mapa";
 import FormularioComercioModal from "../components/FormularioComercioModal";
 import VistaSolicitudModal from "../components/VistaSolicitudModal";
 import Layout from "../components/Layout";
 import { useTheme } from "../components/ThemeProvider";
-import { useMapaRecomendaciones } from "../hooks/useMapaRecomendaciones";
+import { useMapaRecomendaciones, normalizarArray } from "../hooks/useMapaRecomendaciones";
 
-// ==========================================================
-// COORDENADAS por estado
-// ==========================================================
 const COORDENADAS_ESTADOS = {
   "aguascalientes": { lat: 21.8818, lng: -102.2915 },
   "baja california": { lat: 30.8406, lng: -115.2838 },
@@ -74,69 +67,28 @@ const COORDENADAS_ESTADOS = {
   "zacatecas": { lat: 22.7709, lng: -102.5832 },
 };
 
-function normalizarTextoEstado(str) {
-  if (!str) return "";
-  return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+function limpiarTexto(val) {
+  return normalizarArray(val).join(", ");
 }
 
-function obtenerCoordenadasPorEstado(estadoNombre, id = "1") {
-  const norm = normalizarTextoEstado(estadoNombre);
-  const baseCoords = COORDENADAS_ESTADOS[norm] || COORDENADAS_ESTADOS["ciudad de mexico"];
-  let seed = 0;
-  const strId = String(id || "1");
-  for (let i = 0; i < strId.length; i++) seed += strId.charCodeAt(i);
-  const offsetLat = ((seed % 20) - 10) * 0.003;
-  const offsetLng = (((seed * 3) % 20) - 10) * 0.003;
-  return { lat: baseCoords.lat + offsetLat, lng: baseCoords.lng + offsetLng };
-}
-
-// Mock fallback
-const empresasMock = [
-  {
-    id: "0000123",
-    tipo: "Cliente",
-    nombre: "Maderas del Centro",
-    productos: "Madera",
-    servicios: null,
-    ciudad: "Ciudad de México",
-    estado: "Ciudad de México",
-    ...obtenerCoordenadasPorEstado("Ciudad de México", "0000123"),
-  },
-  {
-    id: "0000124",
-    tipo: "Proveedor",
-    nombre: "Transporte del Sur",
-    productos: "Madera",
-    servicios: "Transporte",
-    ciudad: "Chiapas",
-    estado: "Chiapas",
-    ...obtenerCoordenadasPorEstado("Chiapas", "0000124"),
-  },
-];
-
-// Beneficios con CLAVES i18n
 const beneficiosNiveles = [
-  { titleKey: "benefits.b1_title", tier: "standard", detailKey: "benefits.b1_detail" },
-  { titleKey: "benefits.b2_title", tier: "standard", detailKey: "benefits.b2_detail" },
-  { titleKey: "benefits.b3_title", tier: "standard", detailKey: "benefits.b3_detail" },
-  { titleKey: "benefits.b4_title", tier: "platinum", detailKey: "benefits.b4_detail" },
-  { titleKey: "benefits.b5_title", tier: "platinum", detailKey: "benefits.b5_detail" },
-  { titleKey: "benefits.b6_title", tier: "platinum", detailKey: "benefits.b6_detail" },
-  { titleKey: "benefits.b7_title", tier: "platinum", detailKey: "benefits.b7_detail" },
-  { titleKey: "benefits.b8_title", tier: "black", detailKey: "benefits.b8_detail" },
-  { titleKey: "benefits.b9_title", tier: "black", detailKey: "benefits.b9_detail" },
-  { titleKey: "benefits.b10_title", tier: "black", detailKey: "benefits.b10_detail" },
-  { titleKey: "benefits.b11_title", tier: "black", detailKey: "benefits.b11_detail" },
+  { titleKey: "benefits.b1_title", tier: "pro", detailKey: "benefits.b1_detail" },
+  { titleKey: "benefits.b2_title", tier: "pro", detailKey: "benefits.b2_detail" },
+  { titleKey: "benefits.b3_title", tier: "pro", detailKey: "benefits.b3_detail" },
+  { titleKey: "benefits.b4_title", tier: "premium", detailKey: "benefits.b4_detail" },
+  { titleKey: "benefits.b5_title", tier: "premium", detailKey: "benefits.b5_detail" },
+  { titleKey: "benefits.b6_title", tier: "premium", detailKey: "benefits.b6_detail" },
+  { titleKey: "benefits.b7_title", tier: "premium", detailKey: "benefits.b7_detail" },
+  { titleKey: "benefits.b8_title", tier: "platino", detailKey: "benefits.b8_detail" },
+  { titleKey: "benefits.b9_title", tier: "platino", detailKey: "benefits.b9_detail" },
+  { titleKey: "benefits.b10_title", tier: "platino", detailKey: "benefits.b10_detail" },
+  { titleKey: "benefits.b11_title", tier: "platino", detailKey: "benefits.b11_detail" },
 ];
 
-// ==========================================================
-// MapaPage
-// ==========================================================
 export default function MapaPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { t } = useTranslation();
-
   const [viewMode, setViewMode] = useState("map");
   const [filterTipo, setFilterTipo] = useState("Ambos");
   const [search, setSearch] = useState("");
@@ -159,7 +111,7 @@ export default function MapaPage() {
   const infoMensaje = data?.infoMensaje || null;
   const error = queryError ? queryError.message || t("map.demoBody") : null;
 
-  const listaBase = empresasReales.length > 0 ? empresasReales : error ? empresasMock : [];
+  const listaBase = empresasReales;
 
   const comprasRealizadas = 1;
   const ventasRealizadas = 2;
@@ -183,16 +135,36 @@ export default function MapaPage() {
 
   const sociosPotenciales = empresasFiltradas.length;
 
+  // Garantiza que FormularioComercioModal reciba ARRAYS reales
   const handleConectar = (empresa) => {
-    // Abre el Formulario de comercio con la empresa seleccionada
-    setEmpresaSeleccionada(empresa);
+    const prods = empresa.productosLista && empresa.productosLista.length > 0
+      ? empresa.productosLista
+      : normalizarArray(empresa.empresaData?.productos || empresa.productos);
+
+    const servs = empresa.serviciosLista && empresa.serviciosLista.length > 0
+      ? empresa.serviciosLista
+      : normalizarArray(empresa.empresaData?.servicios || empresa.servicios);
+
+    const empresaAdaptada = {
+      ...empresa,
+      productos: prods,
+      servicios: servs,
+      empresaData: {
+        ...(empresa.empresaData || {}),
+        productos: prods,
+        servicios: servs,
+      },
+    };
+
+    setEmpresaSeleccionada(empresaAdaptada);
     setShowFormularioComercio(true);
   };
 
   const handleFormularioEnviado = (datosSolicitud) => {
-    // Tras enviar el formulario, muestra la vista de solicitud (aceptar/rechazar)
-    setSolicitudActual(datosSolicitud);
-    setShowVistaSolicitud(true);
+    // La Empresa A solo cierra el modal de envío.
+    // La vista con "Aceptar/Rechazar" le aparecerá a la Empresa B en sus notificaciones.
+    setShowFormularioComercio(false);
+    setEmpresaSeleccionada(null);
   };
 
   return (
@@ -207,20 +179,20 @@ export default function MapaPage() {
               <div className="mt-3 flex items-center gap-2 text-xs">
                 <span className="text-muted">{t("map.analyzing")}</span>
                 <span className="font-semibold text-accent">{sectorInfo.nombre}</span>
-                <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/25">
-                  {sectorInfo.categoria}
-                </span>
+                {sectorInfo.categoria && (
+                  <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/25">
+                    {limpiarTexto(sectorInfo.categoria)}
+                  </span>
+                )}
               </div>
             )}
           </div>
-
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro px-4 py-2">
               <Users className="w-4 h-4 text-muted" />
               <span className="text-sm text-muted">{t("map.results")}:</span>
               <span className="text-sm font-extrabold text-accent">{sociosPotenciales}</span>
             </div>
-
             <div className="inline-flex rounded-full border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-1">
               <button
                 onClick={() => setViewMode("map")}
@@ -345,7 +317,6 @@ export default function MapaPage() {
                 </div>
               </section>
             )}
-
             {(viewMode === "map" || viewMode === "list") && (
               <section
                 className={`rounded-3xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro overflow-hidden ${
@@ -362,7 +333,15 @@ export default function MapaPage() {
                   </span>
                 </div>
                 <div className="p-4 pr-2 max-h-[560px] overflow-y-auto">
-                  <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} t={t} />
+                  {empresasFiltradas.length > 0 ? (
+                    <ListaEmpresas empresas={empresasFiltradas} onConectar={handleConectar} theme={theme} t={t} />
+                  ) : (
+                    <div className="p-10 text-center text-muted">
+                      <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="font-semibold">{t("map.noResults")}</p>
+                      <p className="text-sm mt-1">No hay empresas registradas que coincidan con tu búsqueda</p>
+                    </div>
+                  )}
                 </div>
               </section>
             )}
@@ -377,10 +356,9 @@ export default function MapaPage() {
               <p className="text-muted text-sm">{t("benefits.subtitle")}</p>
             </div>
             <span className="text-[11px] text-muted border border-border bg-surface/50 rounded-full px-3 py-1">
-              Standard • Platino • Black
+              Pro • Premium • Platino
             </span>
           </div>
-
           <div className="space-y-3">
             {beneficiosNiveles.map((b, idx) => {
               const open = openBenefitIndex === idx;
@@ -400,7 +378,8 @@ export default function MapaPage() {
           </div>
         </section>
       </div>
-      {/* modales de comercio */}
+
+      {/* Modales */}
       {showFormularioComercio && empresaSeleccionada && (
         <FormularioComercioModal
           empresaTarget={empresaSeleccionada}
@@ -411,7 +390,6 @@ export default function MapaPage() {
           onSuccess={handleFormularioEnviado}
         />
       )}
-
       {showVistaSolicitud && solicitudActual && (
         <VistaSolicitudModal
           solicitud={solicitudActual}
@@ -424,10 +402,6 @@ export default function MapaPage() {
     </Layout>
   );
 }
-
-/* ==========================================
-   UI COMPONENTS
-   ========================================== */
 
 function Chip({ label, active, onClick }) {
   return (
@@ -472,70 +446,79 @@ function StatCard({ icon: Icon, value, label, compact = false, highlight = false
 }
 
 function ListaEmpresas({ empresas, onConectar, theme, t }) {
-  if (!empresas.length) {
-    return <div className="p-10 text-center text-muted">{t("map.noResults")}</div>;
+  if (!empresas || empresas.length === 0) {
+    return (
+      <div className="p-10 text-center text-muted">
+        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p className="font-semibold">{t("map.noResults")}</p>
+        <p className="text-sm mt-1">No hay empresas registradas que coincidan con tu búsqueda</p>
+      </div>
+    );
   }
 
   return (
     <div className="grid gap-4">
-      {empresas.map((e) => (
-        <div key={e.id} className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-muted">ID: {e.id}</span>
-                <span className={tipoPill(theme, e.tipo)}>
-                  {e.tipo === "Cliente" ? t("map.client") : t("map.provider")}
-                </span>
+      {empresas.map((e) => {
+        const catTexto = limpiarTexto(e.categoria);
+        const servTexto = limpiarTexto(e.servicios);
+        const prodTexto = limpiarTexto(e.sector || e.productos);
 
-                {e.esReal ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold">
-                    {t("map.registered")}
+        return (
+          <div key={e.id} className="rounded-2xl border border-border bg-surface/60 backdrop-blur-xl shadow-pro p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] text-muted">ID: {e.id}</span>
+                  <span className={tipoPill(theme, e.tipo)}>
+                    {e.tipo === "Cliente" ? t("map.client") : t("map.provider")}
                   </span>
-                ) : (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/25">
-                    {t("map.recommended")}
-                  </span>
-                )}
-
-                {e.categoria && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
-                    {e.categoria}
-                  </span>
-                )}
-
-                {e.porcentaje !== undefined && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
-                    {e.porcentaje}% {t("map.relation")}
-                  </span>
-                )}
-              </div>
-
-              <h3 className="mt-1 font-semibold text-text truncate">{e.nombre}</h3>
-
-              <p className="text-sm text-text/80 mt-1">
-                <span className="text-muted">{t("map.sector")}:</span> {e.productos}
-              </p>
-
-              {e.servicios && (
-                <p className="text-sm text-text/80">
-                  <span className="text-muted">{t("map.category")}:</span> {e.servicios}
+                  {e.esReal ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold">
+                      {t("map.registered")}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/25">
+                      {t("map.recommended")}
+                    </span>
+                  )}
+                  {catTexto && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25">
+                      {catTexto}
+                    </span>
+                  )}
+                  {e.porcentaje !== undefined && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
+                      {e.porcentaje}% {t("map.relation")}
+                    </span>
+                  )}
+                </div>
+                <h3 className="mt-1 font-semibold text-text truncate">{e.nombre}</h3>
+                
+                {/* SECTOR / PRODUCTOS */}
+                <p className="text-sm text-text/80 mt-1">
+                  <span className="text-muted">{t("map.sector")}:</span> {prodTexto || 'No especificado'}
                 </p>
-              )}
-
-              <p className="text-sm text-muted mt-1">{e.ciudad} • {e.estado}</p>
+                
+                {/* SERVICIOS */}
+                {servTexto && servTexto !== 'No especificado' && (
+                  <p className="text-sm text-text/80">
+                    <span className="text-muted">{t("map.category")}:</span> {servTexto}
+                  </p>
+                )}
+                
+                <p className="text-sm text-muted mt-1">{e.ciudad} • {e.estado}</p>
+              </div>
+              <button
+                onClick={() => onConectar?.(e)}
+                type="button"
+                className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-900 shadow-pro hover:brightness-95 transition"
+              >
+                {t("map.connect")}
+              </button>
             </div>
-
-            <button
-              onClick={() => onConectar?.(e)}
-              type="button"
-              className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-900 shadow-pro hover:brightness-95 transition"
-            >
-              {t("map.connect")}
-            </button>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -571,7 +554,6 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme, t }) {
         </div>
         <ChevronDown className={`w-5 h-5 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
-
       {open && (
         <div className="px-4 pb-4 pt-1 text-sm text-text/80">
           <div className="rounded-xl border border-border bg-surface/50 p-3">
@@ -584,20 +566,21 @@ function AccordionItem({ title, detail, tier, open, onToggle, theme, t }) {
 }
 
 function tierLabel(tier) {
-  if (tier === "standard") return "STANDARD";
-  if (tier === "platinum") return "PLATINO";
-  return "BLACK";
+  if (tier === "pro") return "PRO";
+  if (tier === "premium") return "PREMIUM";
+  if (tier === "platino") return "PLATINO";
+  return tier.toUpperCase();
 }
 
 function getTierStyles(tier, theme) {
   const isLight = theme === "light";
-  if (tier === "standard") {
+  if (tier === "pro") {
     return {
       pill: isLight ? "bg-sky-500/10 text-sky-800 border-sky-400/25" : "bg-sky-500/10 text-sky-200 border-sky-400/20",
       bar: "bg-surface/50 border-border",
     };
   }
-  if (tier === "platinum") {
+  if (tier === "premium") {
     return {
       pill: isLight ? "bg-amber-500/10 text-amber-900 border-amber-400/25" : "bg-amber-500/10 text-amber-200 border-amber-400/20",
       bar: "bg-surface/50 border-border",

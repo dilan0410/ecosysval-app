@@ -1,13 +1,13 @@
 // src/components/VistaSolicitudModal.jsx
 import React, { useState } from "react";
-import { Building2, Send, XCircle, CheckCircle, ArrowRight } from "lucide-react";
+import { Building2, Send, XCircle, CheckCircle, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "../api/axiosClient";
 
 /**
  * Vista de la EMPRESA B (receptora).
- * Muestra de quién viene la solicitud (Empresa A = empresaEmisora).
  */
-export default function VistaSolicitudModal({ solicitud, onClose }) {
+export default function VistaSolicitudModal({ solicitud, onClose, onEstadoCambiado }) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [razones, setRazones] = useState({
@@ -27,10 +27,14 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
     solicitud.empresaDestino ||
     "Tu empresa";
 
-  const handleAceptar = () => {
+  const handleAceptar = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (solicitud.id) {
+        await api.patch(`/solicitudes-comercio/${solicitud.id}/estado`, {
+          status: "aceptada",
+        });
+      }
       toast.success("Solicitud de conexión aceptada.", {
         style: {
           background: "#22c55e",
@@ -40,21 +44,37 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
         },
         icon: <CheckCircle className="w-5 h-5 text-white" />,
       });
+      onEstadoCambiado?.("aceptada");
       onClose?.();
-    }, 800);
+    } catch (error) {
+      console.error("Error al aceptar solicitud:", error);
+      toast.error("Error al procesar la respuesta.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRechazar = () => {
+  const handleRechazar = async () => {
     if (!razones.noInteresa && !razones.inventarioLleno && !razones.otra.trim()) {
       toast.error("Selecciona o escribe al menos un motivo para rechazar.");
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (solicitud.id) {
+        await api.patch(`/solicitudes-comercio/${solicitud.id}/estado`, {
+          status: "rechazada",
+        });
+      }
       toast.info("Solicitud rechazada correctamente.");
+      onEstadoCambiado?.("rechazada");
       onClose?.();
-    }, 800);
+    } catch (error) {
+      console.error("Error al rechazar solicitud:", error);
+      toast.error("Error al procesar la respuesta.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const descCompleta =
@@ -122,7 +142,7 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
               disabled={loading}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
             >
-              Enviar <Send className="w-4 h-4" />
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar
             </button>
             <button
               type="button"
@@ -130,7 +150,7 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
               disabled={loading}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
             >
-              Cancelar <XCircle className="w-4 h-4" />
+              <XCircle className="w-4 h-4" /> Cancelar
             </button>
           </div>
         </div>
@@ -156,7 +176,7 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
             Solicitud de conexión
           </h2>
           <p className="text-[11px] text-white/45 mb-5">
-            Vista de la empresa receptora (demo)
+            Detalle de la solicitud comercial
           </p>
 
           {/* De quién → a quién */}
@@ -213,7 +233,7 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
               disabled={loading}
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
             >
-              Aceptar conexión <Send className="w-4 h-4" />
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Aceptar conexión
             </button>
             <button
               type="button"
@@ -221,7 +241,7 @@ export default function VistaSolicitudModal({ solicitud, onClose }) {
               disabled={loading}
               className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
             >
-              Rechazar <XCircle className="w-4 h-4" />
+              <XCircle className="w-4 h-4" /> Rechazar
             </button>
           </div>
         </div>
